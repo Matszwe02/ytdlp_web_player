@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Player</title>
+    <title>YT-DLP Player</title>
     <style>
         body {
             display: flex;
@@ -17,10 +17,37 @@
         }
         #videoPlayer {
             border-radius: 20px;
-            width: 60%;
+            width: 60vw;
             max-height: 80vh;
             object-fit: contain;
+            border: 0.4vw solid black;
+            box-shadow: 0 0 10vw black;
+            z-index: 1;
         }
+        .custom-loader
+        {
+            position: fixed;
+            top: calc(50% - 7vw/2);
+            left: calc(50% - 7vw/2);
+            z-index: 2;
+            width: 7vw;
+            height: 7vw;
+            border-radius: 50%;
+            background: 
+                radial-gradient(farthest-side,#F4F4F4 94%,#0000) top/16px 16px no-repeat,
+                conic-gradient(#0000 30%,#F4F4F4);
+            -webkit-mask: radial-gradient(farthest-side,#0000 calc(100% - 16px),#000 0);
+            animation:s3 1s infinite linear;
+            
+            transition-duration: 1s;
+        }
+
+        @keyframes s3
+        { 
+            100%{transform: rotate(1turn)}
+        }
+
+
     </style>
 </head>
 <body>
@@ -38,10 +65,14 @@
         YT-DLP version {{version}}
     </div>
     
-    <video id="videoPlayer" controls onerror="handleVideoError()">
-        <source id="videoSource" type="video/mp4">
-        Your browser does not support the video tag.
-    </video>
+    <div style="position: relative; width: fit-content; height: fit-content;">
+        <div class="custom-loader" id="videoLoader"></div>
+        <video id="videoPlayer" onerror="handleVideoError()">
+            <source id="videoSource" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+    
 </body>
 <script>
     function handleVideoError() {
@@ -58,12 +89,27 @@
             window.location.search = urlParams.toString();
         }
     }
+    
+    errorCount = 0;
 
     function checkVideoPayload() {
         console.log("Error");
         const videoPlayer = document.getElementById('videoPlayer');
         if (videoPlayer.duration === 0 || videoPlayer.videoWidth === 0 || videoPlayer.videoHeight === 0) {
-            handleVideoError();
+            if (errorCount++ > 10)
+                handleVideoError();
+            setTimeout(() => {
+                checkVideoPayload();
+            }, 200);
+        }
+        else {
+            const videoLoader = document.getElementById('videoLoader');
+            videoLoader.style.opacity = 0;
+            const videoPlayer = document.getElementById('videoPlayer');
+            videoPlayer.controls = true;
+                        setTimeout(() => {
+                videoLoader.style.display = 'none';
+            }, 1000);
         }
     }
 
@@ -81,7 +127,7 @@
                 console.log("Video loaded");
                 setTimeout(() => {
                     checkVideoPayload();
-                }, 2000);
+                }, 200);
             })
             .catch(error => {
                 console.error('Error fetching video URL:', error);
