@@ -16,13 +16,18 @@
             font-family: Verdana, Geneva, Tahoma, sans-serif;
         }
         #videoPlayer {
-            border-radius: 20px;
+            border-radius: 1.7vw;
             width: 60vw;
-            max-height: 80vh;
+            height: 30vw;
+            max-width: 70vw;
+            max-height: 90vh;
             object-fit: contain;
             border: 0.4vw solid black;
             box-shadow: 0 0 10vw black;
+            background-color: black;
             z-index: 1;
+            transition: all 1s cubic-bezier(0.77, 0, 0.175, 1);
+
         }
         .custom-loader
         {
@@ -34,9 +39,9 @@
             height: 7vw;
             border-radius: 50%;
             background: 
-                radial-gradient(farthest-side,#F4F4F4 94%,#0000) top/16px 16px no-repeat,
+                radial-gradient(farthest-side,#F4F4F4 94%,#0000) top/0.8vw 0.8vw no-repeat,
                 conic-gradient(#0000 30%,#F4F4F4);
-            -webkit-mask: radial-gradient(farthest-side,#0000 calc(100% - 16px),#000 0);
+            -webkit-mask: radial-gradient(farthest-side,#0000 calc(100% - 0.8vw),#000 0);
             animation:s3 1s infinite linear;
             
             transition-duration: 1s;
@@ -61,17 +66,15 @@
             <button style="padding: 10px 20px; background-color: #222; color: #aaa; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Open raw video</button>
         </a>
     </div>
-    <div style="position: fixed; top: 10px; right: 10px; color: #555;">
+    <div style="position: fixed; bottom: 10px; right: 10px; color: #555;">
         YT-DLP version {{version}}
     </div>
     
-    <div style="position: relative; width: fit-content; height: fit-content;">
-        <div class="custom-loader" id="videoLoader"></div>
-        <video id="videoPlayer" onerror="handleVideoError()">
-            <source id="videoSource" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-    </div>
+    <div class="custom-loader" id="videoLoader"></div>
+    <video id="videoPlayer" onerror="handleVideoError()">
+        <source id="videoSource" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
     
 </body>
 <script>
@@ -91,6 +94,22 @@
     }
     
     errorCount = 0;
+    
+    function adjustVideoSize() {
+        const videoPlayer = document.getElementById('videoPlayer');
+        var width = videoPlayer.videoWidth;
+        var height = videoPlayer.videoHeight;
+        var aspectRatio = width / height;
+        var bodyAspectRatio = (document.body.clientWidth * 0.7) / (document.body.clientHeight * 0.9);
+        if (aspectRatio > bodyAspectRatio) {
+            videoPlayer.style.width = '70vw';
+            videoPlayer.style.height = 'calc(70vw / ' + aspectRatio + ')';
+        } else {
+            videoPlayer.style.height = '90vh';
+            videoPlayer.style.width = 'calc(90vh * ' + aspectRatio + ')';
+        }
+    }
+    window.addEventListener('resize', adjustVideoSize);
 
     function checkVideoPayload() {
         console.log("Error");
@@ -103,9 +122,7 @@
             }, 200);
         }
         else {
-            const videoLoader = document.getElementById('videoLoader');
-            videoLoader.style.opacity = 0;
-            const videoPlayer = document.getElementById('videoPlayer');
+            adjustVideoSize();
             videoPlayer.controls = true;
                         setTimeout(() => {
                 videoLoader.style.display = 'none';
