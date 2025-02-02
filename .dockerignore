@@ -1,0 +1,8 @@
+# Ignore Python virtual environment files
+venv/
+env/
+.venv/
+.venv*/
+env*/
+download/*
+__pycache__/

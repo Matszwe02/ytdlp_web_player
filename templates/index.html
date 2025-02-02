@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Player</title>
+<style>
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        width: 100%;
+        margin: 0;
+        background-color: #222;
+        color: #aaa;
+        font-family: Verdana, Geneva, Tahoma, sans-serif;
+    }
+</style>
+</head>
+<body>
+    <form action="/watch" method="get" style="display: inline-block; text-align: center; width: 50%;">
+        <h2>Video URL:</h2>
+        <input type="text" id="standard_url" name="url" style="width: 100%; height: 50px; border-radius: 20px; text-align: center; background-color: #aaa;">
+        <button type="submit" style="width: 100px; height: 40px; border-radius: 10px; margin-top: 50px; background-color: #aaa;">Play</button>
+    </form>
+</body>
+</html>
