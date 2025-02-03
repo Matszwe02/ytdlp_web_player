@@ -4,5 +4,6 @@ env/
 .venv/
 .venv*/
 env*/
-download/*
+download
 __pycache__/
+yt-dlp

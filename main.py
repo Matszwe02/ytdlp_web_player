@@ -7,9 +7,12 @@ import time
 from threading import Thread
 import download_ytdlp
 import subprocess
+import requests
+
 
 app = Flask(__name__)
 DOWNLOAD_PATH = './download'
+os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 last_ytdlp_download = datetime.now() - timedelta(weeks=10)
 
 
@@ -22,16 +25,27 @@ def ytdlp_download():
 
 def delete_old_files():
     while True:
-        now = datetime.now()
-        cutoff = now - timedelta(minutes=10)
-        for filename in os.listdir(DOWNLOAD_PATH):
-            file_path = os.path.join(DOWNLOAD_PATH, filename)
-            if os.path.isfile(file_path):
-                file_time = datetime.fromtimestamp(os.path.getmtime(file_path))
-                if file_time < cutoff:
-                    os.remove(file_path)
-                    print(f"Deleted old file: {file_path}")
+        try:
+            now = datetime.now()
+            cutoff = now - timedelta(minutes=10)
+            for filename in os.listdir(DOWNLOAD_PATH):
+                file_path = os.path.join(DOWNLOAD_PATH, filename)
+                if os.path.isfile(file_path):
+                    file_time = datetime.fromtimestamp(os.path.getmtime(file_path))
+                    if file_time < cutoff:
+                        os.remove(file_path)
+                        print(f"Deleted old file: {file_path}")
+        except: pass
         time.sleep(600)
+
+
+def get_url(req):
+    url = req.args.get('v') or req.args.get('url')
+    if '.' not in url:
+        url = 'https://youtube.com/watch?v=' + url
+    return url
+
+    
 
 
 @app.route('/')
@@ -51,33 +65,34 @@ def watch():
 @app.route('/search')
 def search():
     ytdlp_download()
-    yt_url = request.args.get('v')
-    standard_url = request.args.get('url')
-    download_url = request.args.get('download')
+    url = get_url(request)
 
-    if not yt_url and not standard_url and not download_url:
+    if not url:
         return 'No video URL provided', 404
 
-    if yt_url or standard_url:
-        url = 'https://youtube.com/watch?v=' + yt_url if yt_url else unquote(standard_url)
-        command = ['./yt-dlp', '-f', 'best', '--get-url', url]
-        result = subprocess.run(command, capture_output=True, text=True)
-        streaming_url = result.stdout.strip()
-        if not streaming_url:
-            return 'No streaming URL found', 404
-    else:
-        os.makedirs(DOWNLOAD_PATH, exist_ok=True)
-        unique_filename = str(uuid.uuid4())
-        output_path = os.path.join(DOWNLOAD_PATH, unique_filename + '.%(ext)s')
-        command = ['./yt-dlp', '-o', output_path, unquote(download_url)]
-        subprocess.run(command, check=True)
-        path = ''
-        for i in os.listdir(DOWNLOAD_PATH):
-            if i.startswith(unique_filename):
-                path = i
-                break
-        streaming_url = 'download/' + path
-    return streaming_url
+    command = ['./yt-dlp', '-f', 'best', '--get-url', url]
+    result = subprocess.run(command, capture_output=True, text=True)
+    streaming_url = result.stdout.strip()
+    if not streaming_url:
+        return 'No streaming URL found', 404
+
+    # Check for media availability at streaming_url
+    response = requests.head(streaming_url)
+    if response.status_code == 200:
+        return streaming_url
+    
+    
+    
+    unique_filename = str(uuid.uuid4())
+    output_path = os.path.join(DOWNLOAD_PATH, unique_filename + '.%(ext)s')
+    command = ['./yt-dlp', '-o', output_path, unquote(url)]
+    subprocess.run(command, check=True)
+    for i in os.listdir(DOWNLOAD_PATH):
+        if i.startswith(unique_filename):
+            return  'download/' + i
+    
+    return 'Cannot gather video', 404
+
 
 # display raw video
 @app.route('/raw')
