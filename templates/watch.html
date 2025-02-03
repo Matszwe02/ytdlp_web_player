@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YT-DLP Player</title>
     <style>
-        body {
+        body
+        {
             display: flex;
             justify-content: center;
             align-items: center;
@@ -15,10 +16,12 @@
             color: white;
             font-family: Verdana, Geneva, Tahoma, sans-serif;
         }
-        #videoPlayer {
+        
+        #videoPlayer
+        {
             border-radius: 1.7vw;
             width: 60vw;
-            height: 30vw;
+            height: 34vw;
             max-width: 70vw;
             max-height: 90vh;
             object-fit: contain;
@@ -29,6 +32,7 @@
             transition: all 1s cubic-bezier(0.77, 0, 0.175, 1);
 
         }
+        
         .custom-loader
         {
             position: fixed;
@@ -124,6 +128,7 @@
         else {
             adjustVideoSize();
             videoPlayer.controls = true;
+            videoLoader.style.opacity = 0;
                         setTimeout(() => {
                 videoLoader.style.display = 'none';
             }, 1000);
@@ -142,9 +147,6 @@
                 const videoPlayer = document.getElementById('videoPlayer');
                 videoPlayer.load();
                 console.log("Video loaded");
-                setTimeout(() => {
-                    checkVideoPayload();
-                }, 200);
             })
             .catch(error => {
                 console.error('Error fetching video URL:', error);
