@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timedelta
 import time
 from threading import Thread
-import download_ytdlp
+from download_ytdlp import downloader
 import subprocess
 import requests
 
@@ -13,14 +13,13 @@ import requests
 app = Flask(__name__)
 DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
-last_ytdlp_download = datetime.now() - timedelta(weeks=10)
+os.environ['PATH'] = os.pathsep.join([os.getcwd(), os.environ['PATH']])
 
 
 def ytdlp_download():
-    global last_ytdlp_download
-    if (datetime.now() - last_ytdlp_download).total_seconds() > 86400: # 1 day
-        download_ytdlp.download()
-        last_ytdlp_download = datetime.now()
+    while True:
+        downloader()
+        time.sleep(86400) # 24 hours
 
 
 def delete_old_files():
@@ -58,13 +57,16 @@ def watch():
     try:
         version = subprocess.run(['./yt-dlp', '--version'], capture_output=True, text=True).stdout.strip()
     except:
-        version = ''
+        try:
+            downloader()
+            version = subprocess.run(['yt-dlp', '--version'], capture_output=True, text=True).stdout.strip()
+        except:
+            version = 'none'
     return render_template('watch.html', version=version)
 
 
 @app.route('/search')
 def search():
-    ytdlp_download()
     url = get_url(request)
 
     if not url:
@@ -103,7 +105,7 @@ def raw():
 
 
 @app.route('/download/<path:filename>')
-def download(filename):
+def download_ytdlp(filename):
     print(filename)
     print(os.path.join('download', filename))
     print(os.path.exists(os.path.join('download', filename)))
@@ -111,6 +113,8 @@ def download(filename):
 
 
 if __name__ == '__main__':
-    thread = Thread(target=delete_old_files, daemon=True)
+    thread = Thread(target=delete_old_files)
+    downloader_thread = Thread(target=ytdlp_download)
     thread.start()
+    downloader_thread.start()
     app.run()
