@@ -30,6 +30,7 @@
             background-color: black;
             z-index: 1;
             transition: all 1s cubic-bezier(0.77, 0, 0.175, 1);
+            filter: brightness(0);
 
         }
         
@@ -116,7 +117,6 @@
     window.addEventListener('resize', adjustVideoSize);
 
     function checkVideoPayload() {
-        console.log("Error");
         const videoPlayer = document.getElementById('videoPlayer');
         if (videoPlayer.duration === 0 || videoPlayer.videoWidth === 0 || videoPlayer.videoHeight === 0) {
             if (errorCount++ > 10)
@@ -129,6 +129,7 @@
             adjustVideoSize();
             videoPlayer.controls = true;
             videoLoader.style.opacity = 0;
+            videoPlayer.style.filter = 'brightness(1)';
                         setTimeout(() => {
                 videoLoader.style.display = 'none';
             }, 1000);
@@ -147,6 +148,7 @@
                 const videoPlayer = document.getElementById('videoPlayer');
                 videoPlayer.load();
                 console.log("Video loaded");
+                checkVideoPayload();
             })
             .catch(error => {
                 console.error('Error fetching video URL:', error);
