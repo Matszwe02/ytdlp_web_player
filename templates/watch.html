@@ -114,7 +114,6 @@
             videoPlayer.style.width = 'calc(90vh * ' + aspectRatio + ')';
         }
     }
-    window.addEventListener('resize', adjustVideoSize);
 
     function checkVideoPayload() {
         const videoPlayer = document.getElementById('videoPlayer');
@@ -127,6 +126,7 @@
         }
         else {
             adjustVideoSize();
+            window.addEventListener('resize', adjustVideoSize);
             videoPlayer.controls = true;
             videoLoader.style.opacity = 0;
             videoPlayer.style.filter = 'brightness(1)';
