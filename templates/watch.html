@@ -26,7 +26,7 @@
             max-height: 90vh;
             object-fit: contain;
             border: 0.4vw solid black;
-            box-shadow: 0 0 10vw black;
+            box-shadow: 0 0 2vw rgba(0, 0, 0, 0.7);
             background-color: black;
             z-index: 1;
             transition: all 1s cubic-bezier(0.77, 0, 0.175, 1);
@@ -132,6 +132,7 @@
             videoPlayer.style.filter = 'brightness(1)';
                         setTimeout(() => {
                 videoLoader.style.display = 'none';
+                videoPlayer.style.transitionDuration = '0s';
             }, 1000);
         }
     }
