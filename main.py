@@ -18,8 +18,8 @@ os.environ['PATH'] = os.pathsep.join([os.getcwd(), os.environ['PATH']])
 
 def ytdlp_download():
     while True:
-        downloader()
         time.sleep(86400) # 24 hours
+        downloader()
 
 
 def delete_old_files():
@@ -49,7 +49,8 @@ def get_url(req):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return redirect('/watch')
+
 
 
 @app.route('/watch')
@@ -70,13 +71,13 @@ def search():
     url = get_url(request)
 
     if not url:
-        return 'No video URL provided', 404
+        return '', 404
 
     command = ['./yt-dlp', '-f', 'best', '--get-url', url]
     result = subprocess.run(command, capture_output=True, text=True)
     streaming_url = result.stdout.strip()
     if not streaming_url:
-        return 'No streaming URL found', 404
+        return '', 404
 
     # Check for media availability at streaming_url
     response = requests.head(streaming_url)

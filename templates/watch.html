@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YT-DLP Player</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
         body
         {
@@ -15,6 +16,57 @@
             background-color: #222;
             color: white;
             font-family: Verdana, Geneva, Tahoma, sans-serif;
+        }
+        input
+        {
+            width: 100%;
+            height: 50px; 
+            border-radius: 20px; 
+            text-align: center;
+            background-color: #aaa;
+            box-shadow: 0 0 2vw rgba(0, 0, 0, 0.7);
+            border: 2px solid black;
+            font-size: 16pt;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            margin-top: 100px;
+        }
+        .play-button
+        {
+            width: 100px; 
+            height: 60px;
+            border-radius: 30px; 
+            margin-top: 50px; 
+            background-color: #aaa;
+            color: #222;
+            font-size: 40px;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            font-weight: bold;
+            cursor: pointer;
+            transition-duration: 0.2s;
+            transition-timing-function: ease-in-out;
+            font-family: Arial, Helvetica, sans-serif;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.7);
+        }
+        .play-button:hover
+        {
+            background-color: #fff;
+            color: #666;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+        }
+        
+        .video-button
+        {
+            padding: 10px 20px;
+            background-color: #222;
+            color: #555;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .video-button:hover
+        {
+            color: #aaa;
         }
         
         #videoPlayer
@@ -56,33 +108,56 @@
         { 
             100%{transform: rotate(1turn)}
         }
+        
+        .video
+        {
+            display: none;
+        }
 
 
     </style>
 </head>
 <body>
-    <div style="position: fixed; top: 10px; left: 10px;">
-        <a href="/" style="text-decoration: none;">
-            <button style="padding: 10px 20px; background-color: #222; color: #aaa; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Go to Main Page</button>
-        </a>
-    </div>
-    <div style="position: fixed; bottom: 10px; left: 10px;">
-        <a onclick="window.location.href = `/raw?${(new URLSearchParams(window.location.search)).toString()}`" style="text-decoration: none;">
-            <button style="padding: 10px 20px; background-color: #222; color: #aaa; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Open raw video</button>
-        </a>
-    </div>
-    <div style="position: fixed; bottom: 10px; right: 10px; color: #555;">
-        YT-DLP version {{version}}
+
+    <div style="display: inline-block; text-align: center; width: 50%;" class="non-video">
+        <h1><i class="fa-solid fa-link"></i> Video URL:</h1>
+        <input type="text" id="standard_url" name="url">
+        <button onclick="videoDisplay()" class="play-button"><i class="fa-solid fa-play"></i></button>
     </div>
     
-    <div class="custom-loader" id="videoLoader"></div>
-    <video id="videoPlayer" controls>
-        <source id="videoSource" type="video/mp4">
-        Your browser does not support the video tag.
-    </video>
+    <div class="container video">
+        <div style="position: fixed; top: 10px; left: 10px;">
+            <a href="/watch" style="text-decoration: none;">
+                <button class="video-button"><i class="fa-solid fa-house"></i> Go to Main Page</button>
+            </a>
+        </div>
+        <div style="position: fixed; bottom: 10px; left: 10px;">
+            <a onclick="window.location.href = `/raw?${(new URLSearchParams(window.location.search)).toString()}`" style="text-decoration: none;">
+                <button class="video-button"><i class="fa-solid fa-film"></i> Open raw video</button>
+            </a>
+        </div>
+        
+        <div class="custom-loader" id="videoLoader"></div>
+        <video id="videoPlayer" controls>
+            <source id="videoSource" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+    <a style="position: fixed; bottom: 10px; right: 10px; color: #555; text-decoration: none;" href="https://github.com/yt-dlp/yt-dlp">
+        <i class="fa-solid fa-download"></i> YT-DLP version {{version}}
+    </a>
     
 </body>
 <script>
+    
+    function videoDisplay()
+    {
+        
+        const url = document.getElementById('standard_url').value;
+        const encodedUrl = encodeURIComponent(url);
+        window.history.pushState({}, "", `?url=${encodedUrl}`);
+        loadVideo();
+    }
     
     function adjustVideoSize()
     {
@@ -108,9 +183,14 @@
     function loadVideo()
     {
         const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.toString().length < 10) return;
+        
+        document.querySelectorAll('.non-video').forEach(element => {element.style.display = 'none';});
+        document.querySelectorAll('.video').forEach(element => {element.style.display = 'block';});
         fetch(`/search?${(urlParams.toString())}`)
             .then(response => response.text())
             .then(data => {
+            
                 const videoSource = document.getElementById('videoSource');
                 videoSource.src = data;
                 const videoPlayer = document.getElementById('videoPlayer');
@@ -130,6 +210,11 @@
             })
             .catch(error => {
                 console.error('Error fetching video URL:', error);
+                if (error.response && error.response.status === 404) {
+                    alert('Video not found. Please check the URL and try again.');
+                }
+                document.getElementById('videoLoader').style.display = 'none';
+                document.getElementById('standard_url').value = '';
             });
     }
     loadVideo();
