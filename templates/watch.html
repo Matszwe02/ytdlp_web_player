@@ -76,13 +76,13 @@
             height: 34vw;
             max-width: 70vw;
             max-height: 90vh;
-            object-fit: contain;
+            object-fit: cover;
             border: 0.4vw solid black;
             box-shadow: 0 0 2vw rgba(0, 0, 0, 0.7);
             background-color: black;
             z-index: 1;
             transition: all 1s cubic-bezier(0.77, 0, 0.175, 1);
-            filter: brightness(0);
+            filter: brightness(0.2) grayscale(1);
 
         }
         
@@ -161,7 +161,8 @@
     
 </body>
 <script>
-    
+
+
     function videoDisplay()
     {
         
@@ -199,6 +200,11 @@
         
         document.querySelectorAll('.non-video').forEach(element => {element.style.display = 'none';});
         document.querySelectorAll('.video').forEach(element => {element.style.display = 'block';});
+        const videoSource = document.getElementById('videoSource');
+        const videoPlayer = document.getElementById('videoPlayer');
+        
+        videoPlayer.poster = `/thumb?${(urlParams.toString())}`;
+        
         fetch(`/search?${(urlParams.toString())}`)
             .then(response => {
                 if (!response.ok) {
@@ -208,16 +214,15 @@
             })
             .then(data => {
             
-                const videoSource = document.getElementById('videoSource');
                 videoSource.src = data;
-                const videoPlayer = document.getElementById('videoPlayer');
+                const videoId = new URLSearchParams(window.location.search).get('url');
                 videoPlayer.load();
+                videoPlayer.style.filter = 'brightness(1)';
                 
                 videoPlayer.addEventListener('loadeddata', () => {
                     adjustVideoSize();
                     window.addEventListener('resize', adjustVideoSize);
                     videoLoader.style.opacity = 0;
-                    videoPlayer.style.filter = 'brightness(1)';
                     setTimeout(() => {
                         videoLoader.style.display = 'none';
                         videoPlayer.style.transitionDuration = '0s';

@@ -5,10 +5,12 @@ import uuid
 from datetime import datetime, timedelta
 import time
 from threading import Thread
+import shlex
 
 from download_ytdlp import downloader
 import subprocess
 import requests
+from hashlib import sha1
 
 
 app = Flask(__name__)
@@ -19,10 +21,14 @@ video_cache: dict[str, dict[str, str]] = {}
 
 
 
+def gen_filename(url: str):
+    return sha1(url.encode()).hexdigest()
+
+
 def ytdlp_download():
     while True:
-        downloader()
         time.sleep(86400) # 24 hours
+        downloader()
 
 
 def delete_old_files():
@@ -64,31 +70,29 @@ def index():
 @app.route('/watch')
 def watch():
     try:
-        version = subprocess.run(['./yt-dlp', '--version'], capture_output=True, text=True).stdout.strip()
+        cmd = './yt-dlp --version'
+        version = subprocess.run(shlex.split(cmd), capture_output=True, text=True).stdout.strip()
     except:
         try:
             downloader()
-            version = subprocess.run(['yt-dlp', '--version'], capture_output=True, text=True).stdout.strip()
+            version = subprocess.run(shlex.split(cmd), capture_output=True, text=True).stdout.strip()
         except:
-            version = 'none'
+            version = '-'
     return render_template('watch.html', version=version)
-
 
 
 @app.route('/search')
 def search():
     url = get_url(request)
     
-    if not url:
-        return '', 404
+    if not url: return '', 404
     
     if url in video_cache.keys():
         print('Cache hit!')
         return video_cache[url]['file']
     
-
-    command = ['./yt-dlp', '-f', 'best', '--get-url', url]
-    result = subprocess.run(command, capture_output=True, text=True)
+    cmd = f'./yt-dlp -f best --get-url {url}'
+    result = subprocess.run(shlex.split(cmd), capture_output=True, text=True)
     streaming_url = result.stdout.strip()
     if not streaming_url:
         return '', 404
@@ -100,15 +104,36 @@ def search():
         return streaming_url
     
     unique_filename = str(uuid.uuid4())
-    output_path = os.path.join(DOWNLOAD_PATH, unique_filename + '.%(ext)s')
-    command = ['./yt-dlp', '-o', output_path, unquote(url)]
-    subprocess.run(command, check=True)
+    output_path = unique_filename + '.%(ext)s'
+    
+    cmd = f'./yt-dlp -o {output_path} {unquote(url)}'
+    subprocess.run(shlex.split(cmd), check=True, cwd='./download')
     for i in os.listdir(DOWNLOAD_PATH):
         if i.startswith(unique_filename):
             video_cache[url] = {'file': f'download/{i}','timestamp': datetime.now().isoformat()}
             return f'download/{i}'
     
     return 'Cannot gather video', 404
+
+
+
+@app.route('/thumb')
+def serve_thumbnail():
+    url = get_url(request)
+    filename = gen_filename(url)
+    for path in os.listdir(DOWNLOAD_PATH):
+        if filename in path and path.split('.')[1] in ['png', 'jpg', 'webp']:
+            print('Thumbnail cache hit!')
+            return send_from_directory(DOWNLOAD_PATH, path)
+    
+    cmd = f"./yt-dlp --write-thumbnail --skip-download --output {filename} {url}"
+    subprocess.run(cmd, cwd='./download')
+    for path in os.listdir(DOWNLOAD_PATH):
+        if filename in path and path.split('.')[1] in ['png', 'jpg', 'webp']:
+            print('Thumbnail cache hit!')
+            return send_from_directory(DOWNLOAD_PATH, path)
+    
+    return '', 404
 
 
 
@@ -134,4 +159,4 @@ if __name__ == '__main__':
     downloader_thread = Thread(target=ytdlp_download)
     thread.start()
     downloader_thread.start()
-    app.run()
+    app.run(threaded=True)
