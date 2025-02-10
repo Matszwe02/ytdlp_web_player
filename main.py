@@ -159,4 +159,4 @@ if __name__ == '__main__':
     downloader_thread = Thread(target=ytdlp_download)
     thread.start()
     downloader_thread.start()
-    app.run(threaded=True)
+    app.run()
