@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import time
 from threading import Thread
 import shlex
+import platform
 
 from download_ytdlp import downloader
 import subprocess
@@ -18,6 +19,9 @@ DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 os.environ['PATH'] = os.pathsep.join([os.getcwd(), os.environ['PATH']])
 video_cache: dict[str, dict[str, str]] = {}
+
+ytdlp_exec = 'yt-dlp'
+if platform.system() == 'Windows': ytdlp_exec = './yt-dlp'
 
 
 
@@ -70,7 +74,7 @@ def index():
 @app.route('/watch')
 def watch():
     try:
-        cmd = 'yt-dlp --version'
+        cmd = f'{ytdlp_exec} --version'
         version = subprocess.run(shlex.split(cmd), capture_output=True, text=True).stdout.strip()
     except:
         try:
@@ -91,7 +95,7 @@ def search():
         print('Cache hit!')
         return video_cache[url]['file']
     
-    cmd = f'yt-dlp -f best --get-url {url}'
+    cmd = f'{ytdlp_exec} -f best --get-url {url}'
     result = subprocess.run(shlex.split(cmd), capture_output=True, text=True)
     streaming_url = result.stdout.strip()
     if not streaming_url:
@@ -106,7 +110,7 @@ def search():
     unique_filename = str(uuid.uuid4())
     output_path = unique_filename + '.%(ext)s'
     
-    cmd = f'yt-dlp -o {output_path} {unquote(url)}'
+    cmd = f'{ytdlp_exec} -o {output_path} {unquote(url)}'
     subprocess.run(shlex.split(cmd), check=True, cwd='./download')
     for i in os.listdir(DOWNLOAD_PATH):
         if i.startswith(unique_filename):
@@ -126,7 +130,7 @@ def serve_thumbnail():
             print('Thumbnail cache hit!')
             return send_from_directory(DOWNLOAD_PATH, path)
     
-    cmd = f"yt-dlp --write-thumbnail --skip-download --output {filename} {url}"
+    cmd = f"{ytdlp_exec} --write-thumbnail --skip-download --output {filename} {url}"
     subprocess.run(shlex.split(cmd), cwd='./download')
     for path in os.listdir(DOWNLOAD_PATH):
         if filename in path and path.split('.')[1] in ['png', 'jpg', 'webp']:
@@ -135,6 +139,28 @@ def serve_thumbnail():
     
     return '', 404
 
+
+
+@app.route('/sb')
+def get_sponsor_segments():
+    """Return sponsor segments for a given YouTube video"""
+    from flask import jsonify
+    from sb import SponsorBlock
+    
+    # Get video ID from request parameters
+    url = get_url(request)
+    if not url:
+        return jsonify({"error": "Video ID is required"}), 400
+        
+    try:
+        # Create SponsorBlock instance and get segments
+        sb = SponsorBlock(url)
+        segments = sb.get_segments()
+        
+        return jsonify(segments)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/raw')

@@ -124,6 +124,24 @@
         {
             display: none;
         }
+        
+        #sponsorblock
+        {
+            filter: opacity(0);
+            transition-duration: 0.5s;
+            width: 96%;
+            margin: auto;
+            position: relative;
+            height: 4px;
+            bottom: 20px;
+            display: block;
+            z-index: 20;
+        }
+
+        .video:hover #sponsorblock
+        {
+            filter: opacity(1);
+        }
 
 
     </style>
@@ -155,6 +173,7 @@
             <source id="videoSource" type="video/mp4">
             Your browser does not support the video tag.
         </video>
+        <div id="sponsorblock"></div>
     </div>
     <a style="position: fixed; bottom: 10px; right: 10px; color: #555; text-decoration: none;" href="https://github.com/yt-dlp/yt-dlp">
         <i class="fa-solid fa-download"></i> YT-DLP version {{version}}
@@ -193,6 +212,52 @@
             videoPlayer.style.width = 'calc(90vh * ' + aspectRatio + ')';
         }
     }
+    
+    
+    
+    function addSponsorblock(data)
+    {
+        
+        // Color mapping for SB categories
+        const colorMap = {
+            'selfpromo': '#ffff00',
+            'outro': '#0000ff',
+            'sponsor': '#00ff00',
+            'preview': '#0077ff',
+            'interaction': '#ff00ff',
+            'intro': '#00ffff'
+        };
+    
+        // Create container for SB indicators if it doesn't exist
+        const video = document.getElementById('videoPlayer');
+        const duration = video.duration;
+        const sbContainer = document.getElementById('sponsorblock');
+        
+        // Add indicators for each SB entry
+        data.forEach(entry => {
+            const indicator = document.createElement('div');
+            sbContainer.appendChild(indicator);
+            
+            // Calculate position based on video progress bar
+            const startPosition = (entry.start / duration) * 100;
+            const endPosition = (entry.end / duration) * 100;
+            const width = endPosition - startPosition;
+            
+            console.log(startPosition)
+            console.log(endPosition)
+            console.log(width)
+            
+            
+            indicator.style.position = 'absolute';
+            indicator.style.left = `${startPosition}%`;
+            indicator.style.width = `${width}%`;
+            indicator.style.height = '100%';
+            indicator.style.backgroundColor = colorMap[entry.category] || '#ffffff';
+            // indicator.style.cursor = 'help';
+            indicator.title = `${entry.category}`;
+            });
+    }
+    
 
     function loadVideo()
     {
@@ -236,6 +301,15 @@
                 console.error('Error fetching video URL:', error);
                 var loader = document.getElementsByClassName('custom-loader-container')[0]
                 loader.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="font-size:7vw; color:red;"></i>'
+            });
+        
+
+        fetch(`/sb?${(urlParams.toString())}`)
+            .then(response => {
+                return response.json();
+            })
+            .then(data => {
+                videoPlayer.addEventListener('loadedmetadata', () => {addSponsorblock(data);});
             });
     }
     loadVideo();
