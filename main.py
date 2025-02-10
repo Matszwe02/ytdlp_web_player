@@ -127,7 +127,7 @@ def serve_thumbnail():
             return send_from_directory(DOWNLOAD_PATH, path)
     
     cmd = f"./yt-dlp --write-thumbnail --skip-download --output {filename} {url}"
-    subprocess.run(cmd, cwd='./download')
+    subprocess.run(shlex.split(cmd), cwd='./download')
     for path in os.listdir(DOWNLOAD_PATH):
         if filename in path and path.split('.')[1] in ['png', 'jpg', 'webp']:
             print('Thumbnail cache hit!')
