@@ -70,7 +70,7 @@ def index():
 @app.route('/watch')
 def watch():
     try:
-        cmd = './yt-dlp --version'
+        cmd = 'yt-dlp --version'
         version = subprocess.run(shlex.split(cmd), capture_output=True, text=True).stdout.strip()
     except:
         try:
@@ -91,7 +91,7 @@ def search():
         print('Cache hit!')
         return video_cache[url]['file']
     
-    cmd = f'./yt-dlp -f best --get-url {url}'
+    cmd = f'yt-dlp -f best --get-url {url}'
     result = subprocess.run(shlex.split(cmd), capture_output=True, text=True)
     streaming_url = result.stdout.strip()
     if not streaming_url:
@@ -106,7 +106,7 @@ def search():
     unique_filename = str(uuid.uuid4())
     output_path = unique_filename + '.%(ext)s'
     
-    cmd = f'./yt-dlp -o {output_path} {unquote(url)}'
+    cmd = f'yt-dlp -o {output_path} {unquote(url)}'
     subprocess.run(shlex.split(cmd), check=True, cwd='./download')
     for i in os.listdir(DOWNLOAD_PATH):
         if i.startswith(unique_filename):
@@ -126,7 +126,7 @@ def serve_thumbnail():
             print('Thumbnail cache hit!')
             return send_from_directory(DOWNLOAD_PATH, path)
     
-    cmd = f"./yt-dlp --write-thumbnail --skip-download --output {filename} {url}"
+    cmd = f"yt-dlp --write-thumbnail --skip-download --output {filename} {url}"
     subprocess.run(shlex.split(cmd), cwd='./download')
     for path in os.listdir(DOWNLOAD_PATH):
         if filename in path and path.split('.')[1] in ['png', 'jpg', 'webp']:
