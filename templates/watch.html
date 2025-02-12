@@ -132,17 +132,41 @@
             width: 96%;
             margin: auto;
             position: relative;
-            height: 4px;
+            height: 6px;
             bottom: 20px;
             display: block;
             z-index: 20;
+        }
+        
+        #sponsorblock > .seg
+        {
+            cursor: help;
+            border-radius: 2px;
         }
 
         .video:hover #sponsorblock
         {
             filter: opacity(1);
         }
-
+        
+        #skipsegment
+        {
+            padding: 10px;
+            padding-left: 20px;
+            padding-right: 20px;
+            /* height: 24px; */
+            /* border-radius: 12px; */
+            border-radius: 50vh;
+            background-color: #222;
+            color: white;
+            opacity: 0;
+            transition-duration: 0.5s;
+            cursor: pointer;
+            position: absolute;
+            bottom: 50px;
+            right: 20px;
+        }
+        
 
     </style>
 </head>
@@ -173,7 +197,9 @@
             <source id="videoSource" type="video/mp4">
             Your browser does not support the video tag.
         </video>
-        <div id="sponsorblock"></div>
+        <div id="sponsorblock">
+            <div id="skipsegment" onclick="skipclick()"></div>
+        </div>
     </div>
     <a style="position: fixed; bottom: 10px; right: 10px; color: #555; text-decoration: none;" href="https://github.com/yt-dlp/yt-dlp">
         <i class="fa-solid fa-download"></i> YT-DLP version {{version}}
@@ -183,6 +209,17 @@
 <script>
 
 
+    // const video = document.getElementById('videoPlayer');
+    const sbContainer = document.getElementById('sponsorblock');
+    const skipsegment = document.getElementById('skipsegment');
+    const videoSource = document.getElementById('videoSource');
+    const videoPlayer = document.getElementById('videoPlayer');
+    var videoControls = document.querySelector('video::-webkit-media-controls-panel');
+    
+    var segments = [];
+    var skipTime = 0;
+    
+    
     function videoDisplay()
     {
         
@@ -192,9 +229,10 @@
         loadVideo();
     }
     
+    
     function adjustVideoSize()
     {
-        const videoPlayer = document.getElementById('videoPlayer');
+        // const videoPlayer = document.getElementById('videoPlayer');
         var width = videoPlayer.videoWidth;
         var height = videoPlayer.videoHeight;
         var aspectRatio = width / height;
@@ -214,6 +252,42 @@
     }
     
     
+    function skipclick()
+    {
+        if (videoPlayer.currentTime < skipTime)
+        {
+            videoPlayer.currentTime = skipTime;
+        }
+    }
+    
+    
+    function checkSponsorTime()
+    {
+        
+        var segmentShown = null;
+        segments.forEach(segment => {
+            if (videoPlayer.currentTime > segment.start && videoPlayer.currentTime < segment.end)
+            {
+                segmentShown = segment;
+            }
+        });
+        
+        if (segmentShown == null)
+        {
+            skipsegment.style.opacity=0;
+        }
+        else
+        {
+            skipsegment.style.opacity=1;
+            skipsegment.innerHTML="skip " + segmentShown.category;
+            skipTime=segmentShown.end;
+        }
+        
+        setTimeout(() => {
+            checkSponsorTime();
+        }, 200);
+    }
+    
     
     function addSponsorblock(data)
     {
@@ -229,9 +303,7 @@
         };
     
         // Create container for SB indicators if it doesn't exist
-        const video = document.getElementById('videoPlayer');
-        const duration = video.duration;
-        const sbContainer = document.getElementById('sponsorblock');
+        const duration = videoPlayer.duration;
         
         // Add indicators for each SB entry
         data.forEach(entry => {
@@ -248,6 +320,7 @@
             console.log(width)
             
             
+            indicator.className = 'seg';
             indicator.style.position = 'absolute';
             indicator.style.left = `${startPosition}%`;
             indicator.style.width = `${width}%`;
@@ -256,6 +329,42 @@
             // indicator.style.cursor = 'help';
             indicator.title = `${entry.category}`;
             });
+        if (data.length > 0)
+        {
+            checkSponsorTime();
+        }
+    }
+    
+    
+    function readKey(e)
+    {
+        console.log(e.key);
+        if (e.key === 'Enter')
+        {
+            skipclick();
+            e.preventDefault();
+        }
+        if (e.key == ' ' || e.key == 'k')
+        {
+            if (videoPlayer.paused) videoPlayer.play();
+            else videoPlayer.pause();
+            e.preventDefault();
+        }
+        if (e.key == 'a' || e.key == 'j' || e.key == 'ArrowLeft')
+        {
+            videoPlayer.currentTime -= 10;
+            e.preventDefault();
+        }
+        if (e.key == 'd' || e.key == 'l' || e.key == 'ArrowRight')
+        {
+            videoPlayer.currentTime += 10;
+            e.preventDefault();
+        }
+        if (e.key == 'm')
+        {
+            videoPlayer.muted = !videoPlayer.muted;
+            e.preventDefault();
+        }
     }
     
 
@@ -264,13 +373,13 @@
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.toString().length < 10) return;
         
+        document.addEventListener('keydown', readKey);
+        
         document.querySelectorAll('.non-video').forEach(element => {element.style.display = 'none';});
         document.querySelectorAll('.video').forEach(element => {element.style.display = 'block';});
-        const videoSource = document.getElementById('videoSource');
-        const videoPlayer = document.getElementById('videoPlayer');
         
         videoPlayer.poster = `/thumb?${(urlParams.toString())}`;
-        
+                
         fetch(`/search?${(urlParams.toString())}`)
             .then(response => {
                 if (!response.ok) {
@@ -309,6 +418,7 @@
                 return response.json();
             })
             .then(data => {
+                segments = data;
                 videoPlayer.addEventListener('loadedmetadata', () => {addSponsorblock(data);});
             });
     }
