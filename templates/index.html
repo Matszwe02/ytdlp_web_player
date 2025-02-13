@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>YT-DLP Player</title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    </head>
+    <body>
+        <div style="display: inline-block; text-align: center; width: 50%" class="non-video">
+            <h1><i class="fa-solid fa-link"></i> Video URL:</h1>
+            <input type="text" id="standard_url" name="url" />
+            <button onclick="videoDisplay()" class="play-button"><i class="fa-solid fa-play"></i></button>
+        </div>
+
+        <div class="container video">
+            <div style="position: fixed; top: 10px; left: 10px">
+                <a href="/watch" style="text-decoration: none">
+                    <button class="video-button"><i class="fa-solid fa-house"></i> Go to Main Page</button>
+                </a>
+            </div>
+            <div style="position: fixed; bottom: 10px; left: 10px">
+                <a onclick="window.location.href = `/raw?${(new URLSearchParams(window.location.search)).toString()}`" style="text-decoration: none">
+                    <button class="video-button"><i class="fa-solid fa-film"></i> Open raw video</button>
+                </a>
+            </div>
+
+            <div class="custom-loader-container">
+                <div class="custom-loader" id="videoLoader"></div>
+            </div>
+            <video id="videoPlayer">
+                <source id="videoSource" type="video/mp4" />
+                Your browser does not support the video tag.
+            </video>
+            <div id="sponsorblock">
+                <div id="skipsegment" onclick="skipclick()"></div>
+            </div>
+        </div>
+        <a style="position: fixed; bottom: 10px; right: 10px; color: #555; text-decoration: none" href="https://github.com/yt-dlp/yt-dlp"> <i class="fa-solid fa-download"></i> YT-DLP version {{version}} </a>
+    </body>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</html>

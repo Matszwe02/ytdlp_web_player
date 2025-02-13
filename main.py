@@ -67,8 +67,7 @@ def get_url(req):
 
 @app.route('/')
 def index():
-    return redirect('/watch')
-
+    return render_template('index.html')
 
 
 @app.route('/watch')
@@ -82,7 +81,7 @@ def watch():
             version = subprocess.run(shlex.split(cmd), capture_output=True, text=True).stdout.strip()
         except:
             version = '-'
-    return render_template('watch.html', version=version)
+    return render_template('index.html', version=version)
 
 
 @app.route('/search')
@@ -185,4 +184,4 @@ if __name__ == '__main__':
     downloader_thread = Thread(target=ytdlp_download)
     thread.start()
     downloader_thread.start()
-    app.run()
+    app.run(threaded=True)
