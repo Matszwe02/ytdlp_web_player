@@ -19,6 +19,7 @@ DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 os.environ['PATH'] = os.pathsep.join([os.getcwd(), os.environ['PATH']])
 video_cache: dict[str, dict[str, str]] = {}
+immediate_downloader = Thread(target=downloader)
 
 ytdlp_exec = 'yt-dlp'
 if platform.system() == 'Windows': ytdlp_exec = './yt-dlp'
@@ -77,8 +78,8 @@ def watch():
         version = subprocess.run(shlex.split(cmd), capture_output=True, text=True).stdout.strip()
     except:
         try:
-            downloader()
-            version = subprocess.run(shlex.split(cmd), capture_output=True, text=True).stdout.strip()
+            immediate_downloader.start()
+            return ("YT-DLP is not present! Please wait as it will download", 500)
         except:
             version = '-'
     return render_template('index.html', version=version)
@@ -97,14 +98,13 @@ def search():
     cmd = f'{ytdlp_exec} -f best --get-url {url}'
     result = subprocess.run(shlex.split(cmd), capture_output=True, text=True)
     streaming_url = result.stdout.strip()
-    if not streaming_url:
-        return '', 404
+    if streaming_url:
 
-    # Check for media availability at streaming_url
-    response = requests.head(streaming_url)
-    if response.status_code == 200:
-        video_cache[url] = {'file': streaming_url,'timestamp': datetime.now().isoformat()}
-        return streaming_url
+        # Check for media availability at streaming_url
+        response = requests.head(streaming_url)
+        if response.status_code == 200:
+            video_cache[url] = {'file': streaming_url,'timestamp': datetime.now().isoformat()}
+            return streaming_url
     
     unique_filename = str(uuid.uuid4())
     output_path = unique_filename + '.%(ext)s'
@@ -184,4 +184,5 @@ if __name__ == '__main__':
     downloader_thread = Thread(target=ytdlp_download)
     thread.start()
     downloader_thread.start()
-    app.run(threaded=True)
+    # app.run(threaded=True)
+    app.run()
