@@ -63,11 +63,9 @@ function checkSponsorTime()
     else
     {
         skipsegment.style.opacity=1;
-        skipsegment.innerHTML="skip " + segmentShown.category;
+        skipsegment.innerHTML="skip " + segmentShown.category + ' <i class="fa-solid fa-angles-right"></i>';
         skipTime=segmentShown.end;
     }
-    
-    setTimeout(() => {checkSponsorTime();}, 200);
 }
 
 function addSponsorblock(data)
@@ -99,11 +97,6 @@ function addSponsorblock(data)
         indicator.style.backgroundColor = colorMap[entry.category] || '#ffffff';
         indicator.title = `${entry.category}`;
     });
-    
-    if (data.length > 0)
-    {
-        checkSponsorTime();
-    }
 }
 
 function readKey(e)
@@ -187,6 +180,7 @@ function loadVideo()
         .then(data => {
             segments = data;
             videoPlayer.addEventListener('loadedmetadata', () => {addSponsorblock(data);});
+            videoPlayer.addEventListener('timeupdate', checkSponsorTime)
         });
 }
 loadVideo();

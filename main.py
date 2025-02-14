@@ -67,7 +67,7 @@ def get_url(req):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return watch()
 
 
 @app.route('/watch')
