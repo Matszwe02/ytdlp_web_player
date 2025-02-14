@@ -79,6 +79,11 @@ input
     z-index: 1;
     transition: all 1s cubic-bezier(0.77, 0, 0.175, 1);
     filter: brightness(0.2) grayscale(1);
+    
+    @media (max-width: 500px)
+    {
+        max-width: 95vw;
+    }
 }
 
 .custom-loader-container
@@ -124,13 +129,13 @@ input
 {
     filter: opacity(0);
     transition-duration: 0.5s;
-    width: 96%;
+    width: calc(99% - 35px);
     margin: auto;
     position: relative;
     height: 6px;
-    bottom: 20px;
+    /* bottom: 20px; */
+    bottom: 12px;
     display: block;
-    z-index: 20;
 }
 
 #sponsorblock > .seg
@@ -147,8 +152,8 @@ input
 #skipsegment
 {
     padding: 10px;
-    padding-left: 20px;
-    padding-right: 20px;
+    padding-left: 15px;
+    padding-right: 15px;
     /* height: 24px; */
     /* border-radius: 12px; */
     border-radius: 50vh;
@@ -158,6 +163,11 @@ input
     transition-duration: 0.5s;
     cursor: pointer;
     position: absolute;
-    bottom: 50px;
-    right: 20px;
+    bottom: 100px;
+    right: 1vw;
+    
+    @media (max-width: 500px)
+    {
+        right: -10px;
+    }
 }

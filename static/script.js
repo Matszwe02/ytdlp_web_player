@@ -20,15 +20,18 @@ function adjustVideoSize()
     var width = videoPlayer.videoWidth;
     var height = videoPlayer.videoHeight;
     var aspectRatio = width / height;
-    var bodyAspectRatio = (document.body.clientWidth * 0.7) / (document.body.clientHeight * 0.9);
+    max_width = 70;
+    if (window.innerWidth <= 500) max_width = 95;
+    
+    var bodyAspectRatio = (document.body.clientWidth * max_width/100) / (document.body.clientHeight * 0.9);
     if (width == 0 || height == 0)
     {
-        videoPlayer.style.width = '70vw';
+        videoPlayer.style.width = max_width + 'vw';
         videoPlayer.style.height = '50px';
     }
     else if (aspectRatio > bodyAspectRatio) {
-        videoPlayer.style.width = '70vw';
-        videoPlayer.style.height = 'calc(70vw / ' + aspectRatio + ')';
+        videoPlayer.style.width = max_width + 'vw';
+        videoPlayer.style.height = 'calc(' + max_width + 'vw / ' + aspectRatio + ')';
     } else {
         videoPlayer.style.height = '90vh';
         videoPlayer.style.width = 'calc(90vh * ' + aspectRatio + ')';
