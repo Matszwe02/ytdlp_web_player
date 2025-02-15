@@ -2,6 +2,7 @@ const sbContainer = document.getElementById('sponsorblock');
 const skipsegment = document.getElementById('skipsegment');
 const videoSource = document.getElementById('videoSource');
 const videoPlayer = document.getElementById('videoPlayer');
+const loader = document.getElementsByClassName('custom-loader-container')[0];
 var videoControls = document.querySelector('video::-webkit-media-controls-panel');
 
 var segments = [];
@@ -159,9 +160,9 @@ function loadVideo()
             videoPlayer.addEventListener('loadeddata', () => {
                 adjustVideoSize();
                 window.addEventListener('resize', adjustVideoSize);
-                videoLoader.style.opacity = 0;
+                loader.style.opacity = 0;
                 setTimeout(() => {
-                    videoLoader.style.display = 'none';
+                    loader.style.display = 'none';
                     videoPlayer.style.transitionDuration = '0s';
                     videoPlayer.controls = true;
                 }, 1000);
@@ -169,7 +170,6 @@ function loadVideo()
         })
         .catch(error => {
             console.error('Error fetching video URL:', error);
-            const loader = document.getElementsByClassName('custom-loader-container')[0];
             loader.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="font-size:7vw; color:red;"></i>';
         });
 
