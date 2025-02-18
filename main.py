@@ -95,7 +95,7 @@ def index():
 @app.route('/watch')
 def watch():
     version = get_ytdlp_version()
-    if version == '-':
+    if len(version) <3:
         immediate_downloader.start()
         return ("YT-DLP is not present! Please wait as it will download", 500)
     return render_template('index.html', version=version)
