@@ -8,7 +8,7 @@ from threading import Thread
 import shlex
 import platform
 
-from download_ytdlp import downloader
+from download_ytdlp import downloader as dwnl
 import subprocess
 import requests
 from hashlib import sha1
@@ -19,6 +19,18 @@ DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 os.environ['PATH'] = os.pathsep.join([os.getcwd(), os.environ['PATH']])
 video_cache: dict[str, dict[str, str]] = {}
+ytdlp_version = ''
+
+def downloader():
+    global ytdlp_version
+    dwnl()
+    try:
+        cmd = f'{ytdlp_exec} --version'
+        ytdlp_version = subprocess.run(shlex.split(cmd), capture_output=True, text=True).stdout.strip()
+    except:
+        pass
+    
+
 immediate_downloader = Thread(target=downloader)
 
 ytdlp_exec = 'yt-dlp'
@@ -73,16 +85,10 @@ def index():
 
 @app.route('/watch')
 def watch():
-    try:
-        cmd = f'{ytdlp_exec} --version'
-        version = subprocess.run(shlex.split(cmd), capture_output=True, text=True).stdout.strip()
-    except:
-        try:
-            immediate_downloader.start()
-            return ("YT-DLP is not present! Please wait as it will download", 500)
-        except:
-            version = '-'
-    return render_template('index.html', version=version)
+    if ytdlp_version == '-':
+        immediate_downloader.start()
+        return ("YT-DLP is not present! Please wait as it will download", 500)
+    return render_template('index.html', version=ytdlp_version)
 
 
 @app.route('/search')
