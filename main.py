@@ -21,12 +21,16 @@ os.environ['PATH'] = os.pathsep.join([os.getcwd(), os.environ['PATH']])
 video_cache: dict[str, dict[str, str]] = {}
 
 
+ytdlp_exec = 'yt-dlp'
+if platform.system() == 'Windows': ytdlp_exec = './yt-dlp'
+
+
 def get_ytdlp_version():
     try:
-        with open('ytdlp-version.txt', 'r') as f:
+        with open('yt-dlp_version.txt', 'r') as f:
             return f.read()
-    finally:
-        return '-'
+    except: pass
+    return '-'
 
 
 def downloader():
@@ -34,16 +38,13 @@ def downloader():
     try:
         cmd = f'{ytdlp_exec} --version'
         ytdlp_version = subprocess.run(shlex.split(cmd), capture_output=True, text=True).stdout.strip()
-        with open('ytdlp-version.txt', 'w') as f:
+        with open('yt-dlp_version.txt', 'w') as f:
             f.write(ytdlp_version)
     except:
         pass
     
 
 immediate_downloader = Thread(target=downloader)
-
-ytdlp_exec = 'yt-dlp'
-if platform.system() == 'Windows': ytdlp_exec = './yt-dlp'
 
 
 
@@ -94,9 +95,12 @@ def index():
 
 @app.route('/watch')
 def watch():
+    global immediate_downloader
     version = get_ytdlp_version()
     if len(version) <3:
         try:
+            if not immediate_downloader.is_alive():
+                immediate_downloader = Thread(target=downloader)
             immediate_downloader.start()
         finally:
             return ("YT-DLP is not present! Please wait as it will download", 500)
