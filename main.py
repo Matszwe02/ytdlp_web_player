@@ -19,14 +19,23 @@ DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 os.environ['PATH'] = os.pathsep.join([os.getcwd(), os.environ['PATH']])
 video_cache: dict[str, dict[str, str]] = {}
-ytdlp_version = ''
+
+
+def get_ytdlp_version():
+    try:
+        with open('ytdlp-version.txt', 'r') as f:
+            return f.read()
+    finally:
+        return '-'
+
 
 def downloader():
-    global ytdlp_version
     dwnl()
     try:
         cmd = f'{ytdlp_exec} --version'
         ytdlp_version = subprocess.run(shlex.split(cmd), capture_output=True, text=True).stdout.strip()
+        with open('ytdlp-version.txt', 'w') as f:
+            f.write(ytdlp_version)
     except:
         pass
     
@@ -85,10 +94,11 @@ def index():
 
 @app.route('/watch')
 def watch():
-    if ytdlp_version == '-':
+    version = get_ytdlp_version()
+    if version == '-':
         immediate_downloader.start()
         return ("YT-DLP is not present! Please wait as it will download", 500)
-    return render_template('index.html', version=ytdlp_version)
+    return render_template('index.html', version=version)
 
 
 @app.route('/search')
