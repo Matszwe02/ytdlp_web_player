@@ -20,23 +20,18 @@ function adjustVideoSize()
 {
     var width = videoPlayer.videoWidth;
     var height = videoPlayer.videoHeight;
-    var aspectRatio = width / height;
-    max_width = 70;
-    if (window.innerWidth <= 500) max_width = 95;
+    var innerWidth = window.innerWidth * 0.9;
+    var innerHeight = window.innerHeight * 0.9;
     
-    var bodyAspectRatio = (document.body.clientWidth * max_width/100) / (document.body.clientHeight * 0.9);
-    if (width == 0 || height == 0)
-    {
-        videoPlayer.style.width = max_width + 'vw';
-        videoPlayer.style.height = '50px';
-    }
-    else if (aspectRatio > bodyAspectRatio) {
-        videoPlayer.style.width = max_width + 'vw';
-        videoPlayer.style.height = 'calc(' + max_width + 'vw / ' + aspectRatio + ')';
-    } else {
-        videoPlayer.style.height = '90vh';
-        videoPlayer.style.width = 'calc(90vh * ' + aspectRatio + ')';
-    }
+    min_dim = Math.min(innerWidth, innerHeight);
+    min_width = (min_dim + innerWidth) / 2;
+    min_height = (min_dim + innerHeight) / 2;
+    
+    scaling = Math.min(min_width / width, min_height / height);
+    
+    videoPlayer.style.width = width * scaling + 'px';
+    videoPlayer.style.height = height * scaling + 'px';
+    
 }
 
 function skipclick()
