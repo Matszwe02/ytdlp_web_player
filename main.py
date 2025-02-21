@@ -5,11 +5,8 @@ import uuid
 from datetime import datetime, timedelta
 import time
 from threading import Thread
-import shlex
-import platform
 
-from download_ytdlp import downloader as dwnl
-import subprocess
+from download_ytdlp import downloader as dwnl, yt_dlp
 import requests
 from hashlib import sha1
 
@@ -21,28 +18,16 @@ os.environ['PATH'] = os.pathsep.join([os.getcwd(), os.environ['PATH']])
 video_cache: dict[str, dict[str, str]] = {}
 
 
-ytdlp_exec = 'yt-dlp'
-if platform.system() == 'Windows': ytdlp_exec = './yt-dlp'
-
-
 def get_ytdlp_version():
     try:
-        with open('yt-dlp_version.txt', 'r') as f:
-            return f.read()
-    except: pass
-    return '-'
+        return yt_dlp.version.__version__ or '-'
+    except:
+        return '-'
 
 
 def downloader():
     dwnl()
-    try:
-        cmd = f'{ytdlp_exec} --version'
-        ytdlp_version = subprocess.run(shlex.split(cmd), capture_output=True, text=True).stdout.strip()
-        with open('yt-dlp_version.txt', 'w') as f:
-            f.write(ytdlp_version)
-    except:
-        pass
-    
+
 
 immediate_downloader = Thread(target=downloader)
 
@@ -117,9 +102,11 @@ def search():
         print('Cache hit!')
         return video_cache[url]['file']
     
-    cmd = f'{ytdlp_exec} -f best --get-url {url}'
-    result = subprocess.run(shlex.split(cmd), capture_output=True, text=True)
-    streaming_url = result.stdout.strip()
+    ydl_opts = {"ffmpeg_location": "."}
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+    
+    streaming_url = info.get('url', None)
     if streaming_url:
 
         # Check for media availability at streaming_url
@@ -129,10 +116,12 @@ def search():
             return streaming_url
     
     unique_filename = str(uuid.uuid4())
-    output_path = unique_filename + '.%(ext)s'
+    output_path = os.path.join('./download', unique_filename + '.%(ext)s')
     
-    cmd = f'{ytdlp_exec} -o {output_path} {unquote(url)}'
-    subprocess.run(shlex.split(cmd), check=True, cwd='./download')
+    ydl_opts = {"outtmpl": f"{output_path}", "ffmpeg_location": "."}
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download(unquote(url))
+    
     for i in os.listdir(DOWNLOAD_PATH):
         if i.startswith(unique_filename):
             video_cache[url] = {'file': f'download/{i}','timestamp': datetime.now().isoformat()}
@@ -151,8 +140,10 @@ def serve_thumbnail():
             print('Thumbnail cache hit!')
             return send_from_directory(DOWNLOAD_PATH, path)
     
-    cmd = f"{ytdlp_exec} --write-thumbnail --skip-download --output {filename} {url}"
-    subprocess.run(shlex.split(cmd), cwd='./download')
+    ydl_opts = {"writethumbnail": True, "skip_download": True, "outtmpl": f"{os.path.join('./download', filename)}", "ffmpeg_location": "."}
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download(unquote(url))
+    
     for path in os.listdir(DOWNLOAD_PATH):
         if filename in path and path.split('.')[1] in ['png', 'jpg', 'webp']:
             print('Thumbnail cache hit!')
@@ -206,5 +197,5 @@ if __name__ == '__main__':
     downloader_thread = Thread(target=ytdlp_download)
     thread.start()
     downloader_thread.start()
-    # app.run(threaded=True)
-    app.run()
+    app.run(threaded=True)
+    # app.run()
