@@ -124,6 +124,14 @@ function readKey(e)
         videoPlayer.muted = !videoPlayer.muted;
         e.preventDefault();
     }
+    if (e.key == 'f')
+    {
+        if (document.fullscreenElement)
+            document.exitFullscreen();
+        else
+            videoPlayer.requestFullscreen();
+        e.preventDefault();
+    }
 }
 
 function loadVideo()
@@ -147,8 +155,8 @@ function loadVideo()
             return response.text();
         })
         .then(data => {
+            videoPlayer.style.transitionDuration = '1s';
             videoSource.src = data;
-            const videoId = new URLSearchParams(window.location.search).get('url');
             videoPlayer.load();
             videoPlayer.style.filter = 'brightness(1)';
             

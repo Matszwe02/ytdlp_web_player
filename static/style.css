@@ -77,13 +77,8 @@ input
     box-shadow: 0 0 2vw rgba(0, 0, 0, 0.7);
     background-color: black;
     z-index: 1;
-    transition: all 1s cubic-bezier(0.77, 0, 0.175, 1);
+    transition: all 0s cubic-bezier(0.77, 0, 0.175, 1);
     filter: brightness(0.2) grayscale(1);
-    
-    @media (max-width: 500px)
-    {
-        max-width: 95vw;
-    }
 }
 
 .custom-loader-container
