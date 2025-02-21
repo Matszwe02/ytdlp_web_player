@@ -81,6 +81,12 @@ input
     filter: brightness(0.2) grayscale(1);
 }
 
+#videoPlayer.fullscreen {
+    border: 0px !important;
+    object-fit: contain !important;
+    border-radius: 0 !important;
+}
+
 .custom-loader-container
 {
     position: fixed;

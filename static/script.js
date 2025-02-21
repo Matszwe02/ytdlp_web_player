@@ -2,6 +2,17 @@ const sbContainer = document.getElementById('sponsorblock');
 const skipsegment = document.getElementById('skipsegment');
 const videoSource = document.getElementById('videoSource');
 const videoPlayer = document.getElementById('videoPlayer');
+
+function handleFullscreenChange() {
+    if (document.fullscreenElement === videoPlayer || document.webkitFullscreenElement === videoPlayer) {
+        videoPlayer.classList.add('fullscreen');
+    } else {
+        videoPlayer.classList.remove('fullscreen');
+    }
+}
+
+document.addEventListener('fullscreenchange', handleFullscreenChange);
+document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
 const loader = document.getElementsByClassName('custom-loader-container')[0];
 var videoControls = document.querySelector('video::-webkit-media-controls-panel');
 
