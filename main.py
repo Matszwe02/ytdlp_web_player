@@ -120,6 +120,7 @@ def search():
     
     ydl_opts = {"outtmpl": f"{output_path}", "ffmpeg_location": "."}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        print(f'YTDLP: downloading "{unquote(url)}"')
         ydl.download(unquote(url))
     
     for i in os.listdir(DOWNLOAD_PATH):
@@ -142,6 +143,7 @@ def serve_thumbnail():
     
     ydl_opts = {"writethumbnail": True, "skip_download": True, "outtmpl": f"{os.path.join('./download', filename)}", "ffmpeg_location": "."}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        print(f'YTDLP: downloading thumb for "{unquote(url)}"')
         ydl.download(unquote(url))
     
     for path in os.listdir(DOWNLOAD_PATH):
@@ -197,5 +199,5 @@ if __name__ == '__main__':
     downloader_thread = Thread(target=ytdlp_download)
     thread.start()
     downloader_thread.start()
-    app.run(threaded=True)
-    # app.run()
+    # app.run(threaded=True)
+    app.run()
