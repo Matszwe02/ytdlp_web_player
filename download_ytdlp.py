@@ -10,6 +10,7 @@ import io
 import subprocess
 from datetime import datetime
 from git import Repo
+import re
 
 
 FFMPEG = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz"
@@ -18,7 +19,7 @@ FFMPEG_WIN = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/f
 
 
 os.environ['PATH'] = os.pathsep.join([os.getcwd(), os.environ['PATH']])
-
+ffmpeg_version = '-'
 
 def download_ytdlp():
     global yt_dlp
@@ -33,6 +34,8 @@ def download_ytdlp():
 
 
 def download_ffmpeg():
+    global ffmpeg_version
+    
     if os.path.exists('ffmpeg'):
         os.remove('ffmpeg')
     if os.path.exists('ffprobe'):
@@ -78,6 +81,13 @@ def download_ffmpeg():
 
     shutil.rmtree('temp')
     
+    try:
+        ver_str = subprocess.run(shlex.split('ffmpeg -version'), capture_output=True).stdout.splitlines()[0].decode()
+        match = re.search(r'-([0-9]{8})', ver_str)
+        ffmpeg_version = f"{match.group(1)[:4]}-{match.group(1)[4:6]}-{match.group(1)[6:]}" if match else "-"
+    except:
+        ffmpeg_version = '-'
+    
     print('FFmpeg downloaded successfully')
 
 
@@ -95,6 +105,10 @@ def update_app_version():
     commit_date = datetime.fromtimestamp(latest_commit.committed_date)
     with open('version.txt', 'w') as f:
         f.write(commit_date.strftime('%Y-%m-%d'))
+
+
+def get_ffmpeg_version():
+    return ffmpeg_version
 
 
 def downloader():

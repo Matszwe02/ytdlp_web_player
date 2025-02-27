@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import time
 from threading import Thread
 
-from download_ytdlp import downloader as dwnl, yt_dlp, get_app_version
+from download_ytdlp import downloader as dwnl, yt_dlp, get_app_version, get_ffmpeg_version
 import requests
 from hashlib import sha1
 
@@ -83,6 +83,7 @@ def index():
 def watch():
     global immediate_downloader
     ydl_version = get_ytdlp_version()
+    ffmpeg_version = get_ffmpeg_version()
     original_url = get_url(request)
     if len(ydl_version) <3:
         try:
@@ -91,7 +92,7 @@ def watch():
             immediate_downloader.start()
         finally:
             return ("YT-DLP is not present! Please wait as it will download", 500)
-    return render_template('index.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version)
+    return render_template('index.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version)
 
 
 @app.route('/search')
