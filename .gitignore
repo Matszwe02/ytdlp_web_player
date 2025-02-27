@@ -8,3 +8,4 @@ download
 __pycache__/
 yt-dlp*
 ff*
+version.txt

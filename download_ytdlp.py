@@ -7,13 +7,17 @@ import requests
 import zipfile, tarfile
 import shutil
 import io
-
+import subprocess
+from datetime import datetime
+from git import Repo
 
 
 FFMPEG = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz"
 FFMPEG_ARM64 = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linuxarm64-gpl.tar.xz"
 FFMPEG_WIN = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
 
+
+os.environ['PATH'] = os.pathsep.join([os.getcwd(), os.environ['PATH']])
 
 
 def download_ytdlp():
@@ -77,6 +81,22 @@ def download_ffmpeg():
     print('FFmpeg downloaded successfully')
 
 
+def get_app_version():
+    try:
+        with open('version.txt', 'r') as f:
+            return f.read()
+    except:
+        pass
+    return '-'
+
+
+def update_app_version():
+    latest_commit = Repo().head.commit
+    commit_date = datetime.fromtimestamp(latest_commit.committed_date)
+    with open('version.txt', 'w') as f:
+        f.write(commit_date.strftime('%Y-%m-%d'))
+
+
 def downloader():
     print('Downloading yt-dlp and FFmpeg...')
     download_ytdlp()
@@ -84,6 +104,5 @@ def downloader():
     print('All downloads complete')
 
 
-download_ytdlp()
-if __name__ == '__main__':
-    download_ffmpeg()
+update_app_version()
+downloader()

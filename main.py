@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import time
 from threading import Thread
 
-from download_ytdlp import downloader as dwnl, yt_dlp
+from download_ytdlp import downloader as dwnl, yt_dlp, get_app_version
 import requests
 from hashlib import sha1
 
@@ -14,8 +14,8 @@ from hashlib import sha1
 app = Flask(__name__)
 DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
-os.environ['PATH'] = os.pathsep.join([os.getcwd(), os.environ['PATH']])
 video_cache: dict[str, dict[str, str]] = {}
+app_version = get_app_version()
 
 
 def get_ytdlp_version():
@@ -66,7 +66,8 @@ def delete_old_files():
 
 
 def get_url(req):
-    url = req.args.get('v') or req.args.get('url')
+    url = req.args.get('v') or req.args.get('url') or None
+    if url is None: return None
     if '.' not in url:
         url = 'https://youtube.com/watch?v=' + url
     return url
@@ -81,15 +82,16 @@ def index():
 @app.route('/watch')
 def watch():
     global immediate_downloader
-    version = get_ytdlp_version()
-    if len(version) <3:
+    ydl_version = get_ytdlp_version()
+    original_url = get_url(request)
+    if len(ydl_version) <3:
         try:
             if not immediate_downloader.is_alive():
                 immediate_downloader = Thread(target=downloader)
             immediate_downloader.start()
         finally:
             return ("YT-DLP is not present! Please wait as it will download", 500)
-    return render_template('index.html', version=version)
+    return render_template('index.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version)
 
 
 @app.route('/search')
