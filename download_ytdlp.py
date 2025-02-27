@@ -70,7 +70,7 @@ def download_ffmpeg():
                     shutil.copy(src, dst)
                     
                     if platform.system() == 'Windows':
-                        pass
+                        shutil.copy(src, dst + '.exe')
                     else:
                         if not os.access(dst, os.X_OK):
                             print(f'Making {dst} executable...')
