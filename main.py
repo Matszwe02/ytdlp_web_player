@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import time
 from threading import Thread
 
-from download_ytdlp import downloader as dwnl, yt_dlp, get_app_version, get_ffmpeg_version
+from source_downloader import Downloader, yt_dlp
 import requests
 from hashlib import sha1
 
@@ -15,22 +15,9 @@ app = Flask(__name__)
 DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 video_cache: dict[str, dict[str, str]] = {}
-app_version = get_app_version()
 
-
-def get_ytdlp_version():
-    try:
-        return yt_dlp.version.__version__ or '-'
-    except:
-        return '-'
-
-
-def downloader():
-    dwnl()
-
-
-immediate_downloader = Thread(target=downloader)
-
+Downloader.update_app_version()
+app_version = Downloader.get_app_version()
 
 
 def gen_filename(url: str):
@@ -39,8 +26,8 @@ def gen_filename(url: str):
 
 def ytdlp_download():
     while True:
+        Downloader.downloader()
         time.sleep(86400) # 24 hours
-        downloader()
 
 
 def delete_old_files():
@@ -81,17 +68,9 @@ def index():
 
 @app.route('/watch')
 def watch():
-    global immediate_downloader
-    ydl_version = get_ytdlp_version()
-    ffmpeg_version = get_ffmpeg_version()
+    ydl_version = Downloader.get_ytdlp_version()
+    ffmpeg_version = Downloader.get_ffmpeg_version()
     original_url = get_url(request)
-    if len(ydl_version) <3:
-        try:
-            if not immediate_downloader.is_alive():
-                immediate_downloader = Thread(target=downloader)
-            immediate_downloader.start()
-        finally:
-            return ("YT-DLP is not present! Please wait as it will download", 500)
     return render_template('index.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version)
 
 
