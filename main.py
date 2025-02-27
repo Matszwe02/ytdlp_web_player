@@ -15,6 +15,7 @@ app = Flask(__name__)
 DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 video_cache: dict[str, dict[str, str]] = {}
+app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
 
 Downloader.get_app_version()
 app_version = Downloader.get_app_version()
@@ -71,7 +72,7 @@ def watch():
     ydl_version = Downloader.get_ytdlp_version()
     ffmpeg_version = Downloader.get_ffmpeg_version()
     original_url = get_url(request)
-    return render_template('index.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version)
+    return render_template('index.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title)
 
 
 @app.route('/search')
