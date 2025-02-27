@@ -16,7 +16,7 @@ DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 video_cache: dict[str, dict[str, str]] = {}
 
-Downloader.update_app_version()
+Downloader.get_app_version()
 app_version = Downloader.get_app_version()
 
 
@@ -176,10 +176,12 @@ def download_ytdlp(filename):
 
 
 
+thread = Thread(target=delete_old_files)
+downloader_thread = Thread(target=ytdlp_download)
+thread.start()
+downloader_thread.start()
+
+
 if __name__ == '__main__':
-    thread = Thread(target=delete_old_files)
-    downloader_thread = Thread(target=ytdlp_download)
-    thread.start()
-    downloader_thread.start()
     # app.run(threaded=True)
     app.run()

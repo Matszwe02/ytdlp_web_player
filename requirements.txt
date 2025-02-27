@@ -1,4 +1,3 @@
 Flask
 requests
-GitPython
 yt-dlp

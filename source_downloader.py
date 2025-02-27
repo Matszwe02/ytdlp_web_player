@@ -8,9 +8,9 @@ import zipfile, tarfile
 import shutil
 import io
 import subprocess
-from datetime import datetime
-from git import Repo
 import re
+import random
+import time
 import yt_dlp
 import yt_dlp.version
 
@@ -38,8 +38,6 @@ class Downloader:
 
 
     def download_ffmpeg():
-        global ffmpeg_version
-        
         if os.path.exists('ffmpeg'): os.remove('ffmpeg')
         if os.path.exists('ffprobe'): os.remove('ffprobe')
         if os.path.exists('ffmpeg.exe'): os.remove('ffmpeg.exe')
@@ -85,6 +83,12 @@ class Downloader:
 
         shutil.rmtree('temp')
         
+        print('FFmpeg downloaded successfully')
+
+
+    def update_ffmpeg():
+        global ffmpeg_version
+        
         try:
             ver_str = subprocess.run(shlex.split('ffmpeg -version'), capture_output=True).stdout.splitlines()[0].decode()
             match = re.search(r'-([0-9]{8})', ver_str)
@@ -92,8 +96,6 @@ class Downloader:
         except Exception as e:
             print(e.with_traceback())
             ffmpeg_version = '-'
-        
-        print('FFmpeg downloaded successfully')
 
 
     def get_app_version():
@@ -103,13 +105,6 @@ class Downloader:
         except:
             pass
         return '-'
-
-
-    def update_app_version():
-        latest_commit = Repo().head.commit
-        commit_date = datetime.fromtimestamp(latest_commit.committed_date)
-        with open('version.txt', 'w') as f:
-            f.write(commit_date.strftime('%Y-%m-%d'))
 
 
     def get_ffmpeg_version():
@@ -126,5 +121,12 @@ class Downloader:
     def downloader():
         print('Downloading yt-dlp and FFmpeg...')
         Downloader.download_ytdlp()
-        Downloader.download_ffmpeg()
+        time.sleep(random.random())
+        if os.path.exists('lock'):
+            while os.path.exists('lock'): time.sleep(1)
+        else:
+            open('lock', 'w').close()
+            Downloader.download_ffmpeg()
+            os.remove('lock')
         print('All downloads complete')
+        Downloader.update_ffmpeg()
