@@ -108,28 +108,11 @@ input
     overflow: hidden;
 }
 
-
-#sponsorblock
-{
-    filter: opacity(0);
-    transition-duration: 0.5s;
-    width: calc(99% - 35px);
-    margin: auto;
-    position: relative;
-    height: 6px;
-    bottom: 12px;
-    display: block;
-}
-
-#sponsorblock > .seg
+.seg
 {
     cursor: help;
-    border-radius: 2px;
-}
-
-.video:hover #sponsorblock
-{
-    filter: opacity(1);
+    height: 100%;
+    position: absolute;
 }
 
 #skipsegment
@@ -146,6 +129,7 @@ input
     position: absolute;
     bottom: 100px;
     right: 1vw;
+    font-size: 12pt;
     
     @media (max-width: 500px)
     {

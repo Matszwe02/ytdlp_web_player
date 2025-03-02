@@ -1,5 +1,3 @@
-const sbContainer = document.getElementById('sponsorblock');
-const skipsegment = document.getElementById('skipsegment');
 const videoSource = document.getElementById('videoSource');
 const videoPlayer = document.getElementById('videoPlayer');
 const expandButton = document.getElementById('expand-button');
@@ -7,7 +5,18 @@ const expandableContent = document.getElementById('expandable-content');
 let isExpanded = false;
 let player;
 let playerContainer;
+let skipSegment;
+let skipTime = 0;
 
+
+const sbColorMap = {
+    'selfpromo': '#ffff00',
+    'outro': '#0000ff',
+    'sponsor': '#00ff00',
+    'preview': '#0077ff',
+    'interaction': '#ff00ff',
+    'intro': '#00ffff'
+};
 
 
 expandButton.addEventListener('click', function() {
@@ -24,18 +33,16 @@ expandButton.addEventListener('click', function() {
     }
 });
 
-window.skipclick = function()
+
+function skipclick()
 {
-    if (player && player.currentTime() < skipTime)
-    {
-        player.currentTime(skipTime);
-    }
+    if (player && player.currentTime() < skipTime) player.currentTime(skipTime);
 };
 
 
 function adjustVideoSize()
 {
-    const videoElement = player.el().querySelector('video');
+    const videoElement = playerContainer.querySelector('video');
     
     const width = videoElement.videoWidth;
     const height = videoElement.videoHeight;
@@ -67,27 +74,20 @@ function checkSponsorTime()
     
     if (segmentShown == null)
     {
-        skipsegment.style.opacity = 0;
+        skipSegment.style.opacity = 0;
     }
     else
     {
-        skipsegment.style.opacity = 1;
-        skipsegment.innerHTML = "skip " + segmentShown.category + ' <i class="fa-solid fa-angles-right"></i>';
+        skipSegment.style.opacity = 1;
+        skipSegment.innerHTML = "skip " + segmentShown.category + ' <i class="fa-solid fa-angles-right"></i>';
         skipTime = segmentShown.end;
     }
 }
 
 function addSponsorblock(data)
 {
-    const colorMap = {
-        'selfpromo': '#ffff00',
-        'outro': '#0000ff',
-        'sponsor': '#00ff00',
-        'preview': '#0077ff',
-        'interaction': '#ff00ff',
-        'intro': '#00ffff'
-    };
     const duration = player.duration();
+    const sbContainer = document.querySelector('.vjs-progress-holder.vjs-slider.vjs-slider-horizontal');
     const existingSegments = sbContainer.querySelectorAll('.seg');
     existingSegments.forEach(el => el.remove());
     
@@ -100,11 +100,9 @@ function addSponsorblock(data)
         const width = endPosition - startPosition;
         
         indicator.className = 'seg';
-        indicator.style.position = 'absolute';
         indicator.style.left = `${startPosition}%`;
         indicator.style.width = `${width}%`;
-        indicator.style.height = '100%';
-        indicator.style.backgroundColor = colorMap[entry.category] || '#ffffff';
+        indicator.style.backgroundColor = sbColorMap[entry.category] || '#ffffff';
         indicator.title = `${entry.category}`;
     });
 }
@@ -140,15 +138,28 @@ function loadVideo() {
                 ]
             },
             plugins: {  
-                hotkeys: {},
+                hotkeys: {
+                    customKeys: {
+                        sbKey: {
+                            key: function (event) {return event.code == "Enter";},
+                            handler: function (player, options, event) {skipclick();},
+                        },
+                    },
+                    captureDocumentHotkeys: true,
+                    documentHotkeysFocusElementFilter: e => e.tagName.toLowerCase() === 'body',
+                    enableHoverScroll: true,
+                },
             },
         });
         playerContainer = player.el();
         
-        if (playerContainer) {
-            playerContainer.style.filter = 'brightness(0.5)';
-            playerContainer.style.transitionDuration = '1s';
-        }
+        playerContainer.style.filter = 'brightness(0.5).greyscale(0.5)';
+        playerContainer.style.transitionDuration = '1s';
+        
+        skipSegment = document.createElement('div');
+        playerContainer.appendChild(skipSegment);
+        skipSegment.id = "skipsegment";
+        skipSegment.onclick = function() {skipclick();};
     }
     
     fetch(`/search?${urlParams.toString()}`)
@@ -185,7 +196,7 @@ function loadVideo() {
         .then(response => {return response.json();})
         .then(data => {
             segments = data;
-            player.on('loadedmetadata', () => {
+            player.on('loadeddata', () => {
                 addSponsorblock(data);
             });
             player.on('timeupdate', checkSponsorTime);

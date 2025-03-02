@@ -23,6 +23,10 @@
   color: #fff;
 }
 
+.vjs-theme-custom .vjs-mouse-display {
+    pointer-events: none;
+}
+
 .vjs-theme-custom .vjs-control-bar {
   height: 54px;
   background: linear-gradient(0deg, black, transparent);
