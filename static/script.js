@@ -16,15 +16,11 @@ expandButton.addEventListener('click', function() {
     {
         expandableContent.style.maxHeight = expandableContent.scrollHeight + "px";
         expandButton.classList.add('expanded');
-        const icon = expandButton.querySelector('i');
-        if (icon) icon.className = 'fa-solid fa-chevron-down';
     }
     else
     {
         expandableContent.style.maxHeight = "0";
         expandButton.classList.remove('expanded');
-        const icon = expandButton.querySelector('i');
-        if (icon) icon.className = 'fa-solid fa-chevron-up';
     }
 });
 
