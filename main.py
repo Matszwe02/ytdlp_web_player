@@ -16,6 +16,11 @@ DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 video_cache: dict[str, dict[str, str]] = {}
 app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
+try:
+    os.remove('lock')
+except:
+    pass
+
 
 Downloader.get_app_version()
 app_version = Downloader.get_app_version()
