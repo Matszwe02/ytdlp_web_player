@@ -32,6 +32,12 @@
   line-height: 54px;
 }
 
+.vjs-theme-custom .vjs-control:focus,
+.vjs-theme-custom .vjs-control:focus:before,
+.vjs-theme-custom .vjs-control:hover:before {
+    text-shadow: 0 0 0;
+}
+
 .vjs-theme-custom .vjs-time-control {
   line-height: 54px;
 }
