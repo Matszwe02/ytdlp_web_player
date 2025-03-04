@@ -65,6 +65,39 @@ input
     color: #aaa;
 }
 
+.vjs-error-display
+{
+    z-index: 2;
+    left: 50% !important;
+    top: 50% !important;
+    overflow: visible !important;
+}
+
+.vjs-error-display>.vjs-modal-dialog-content
+{
+    z-index: 2;
+    width: 7vw;
+    height: 7vw;
+    position: absolute;
+    left: 0;
+    top: 0;
+    border-radius: 50%;
+    background: 
+        radial-gradient(farthest-side,#F4F4F4 94%,#0000) top/0.8vw 0.8vw no-repeat,
+        conic-gradient(#0000 30%,#F4F4F4);
+    -webkit-mask: radial-gradient(farthest-side,#0000 calc(100% - 0.8vw),#000 0);
+    mask: radial-gradient(farthest-side,#0000 calc(100% - 0.8vw),#000 0);
+    animation:s3 1s infinite linear;
+    
+    transition-duration: 1s;
+    transform: translateX(-50%) translateY(-50%);
+}
+
+@keyframes s3
+{ 
+    100%{transform: translateX(-50%) translateY(-50%) rotate(1turn)}
+}
+
 #videoPlayer
 {
     border-radius: 1.7vw;
@@ -77,7 +110,6 @@ input
     background-color: black;
     z-index: 1;
     transition: all 0s cubic-bezier(0.77, 0, 0.175, 1);
-    filter: brightness(0.2) grayscale(1);
 }
 #videoPlayer>video
 {
@@ -87,7 +119,14 @@ input
 .vjs-poster>img
 {
     object-fit: cover !important;
+    filter: brightness(0.5) grayscale(0.8) blur(2px);
 }
+
+
+.loaded-img {
+    filter: none !important;
+}
+
 
 /* #videoPlayer.fullscreen {
     border: 0px !important;

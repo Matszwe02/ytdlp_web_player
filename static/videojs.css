@@ -27,6 +27,16 @@
     pointer-events: none;
 }
 
+.vjs-theme-custom .vjs-error-display {
+    background: transparent;
+    font-size: 0;
+}
+
+.vjs-theme-custom .vjs-loading-spinner {
+    border: none;
+    margin: 0;
+}
+
 .vjs-theme-custom .vjs-control-bar {
   height: 54px;
   background: linear-gradient(0deg, black, transparent);

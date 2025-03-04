@@ -152,8 +152,6 @@ function loadVideo() {
             },
         });
         playerContainer = player.el();
-        
-        playerContainer.style.filter = 'brightness(0.5).greyscale(0.5)';
         playerContainer.style.transitionDuration = '1s';
         
         skipSegment = document.createElement('div');
@@ -161,6 +159,14 @@ function loadVideo() {
         skipSegment.id = "skipsegment";
         skipSegment.onclick = function() {skipclick();};
     }
+    let errorDisplay = playerContainer.querySelector('.vjs-error-display').querySelector('.vjs-modal-dialog-content');
+    errorDisplay.innerHTML = '<div class="custom-loader-container"><div class="custom-loader" id="videoLoader"></div></div>';
+    
+    const spinnerBody = document.createElement('div');
+    const spinnerParent = playerContainer.querySelector('.vjs-loading-spinner')
+    spinnerParent.appendChild(spinnerBody);
+    spinnerBody.classList.add('vjs-modal-dialog-content');
+    spinnerParent.classList.add('vjs-error-display');
     
     fetch(`/search?${urlParams.toString()}`)
         .then(response => {
@@ -170,10 +176,11 @@ function loadVideo() {
             return response.text();
         })
         .then(data => {
-            playerContainer.style.filter = 'brightness(1)';
+            playerContainer.querySelector('.vjs-poster').style.filter = '';
             
             // Set video source with the stream URL
             player.src({src: data, type: 'video/mp4'});
+            playerContainer.querySelector('img').classList.add('loaded-img')
             
             // When video is loaded
             player.on('loadeddata', () => {
@@ -186,9 +193,7 @@ function loadVideo() {
         })
         .catch(error => {
             console.error('Error fetching video URL:', error);
-            // if (loader) {
-            //     loader.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="font-size:7vw; color:red;"></i>';
-            // }
+            errorDisplay.innerHTML = '<div class="custom-loader-container"><i class="fa-solid fa-circle-exclamation"></i></div>';
         });
     
     // Fetch SponsorBlock
