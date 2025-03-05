@@ -151,8 +151,8 @@ function loadVideo() {
                 },
             },
         });
+        player.doubleTapFF();
         playerContainer = player.el();
-        playerContainer.style.transitionDuration = '1s';
         
         skipSegment = document.createElement('div');
         playerContainer.appendChild(skipSegment);
@@ -194,6 +194,7 @@ function loadVideo() {
         .catch(error => {
             console.error('Error fetching video URL:', error);
             errorDisplay.innerHTML = '<div class="custom-loader-container"><i class="fa-solid fa-circle-exclamation"></i></div>';
+            errorDisplay.classList.add('error-icon');
         });
     
     // Fetch SponsorBlock

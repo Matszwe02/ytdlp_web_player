@@ -78,6 +78,7 @@ input
     z-index: 2;
     width: 7vw;
     height: 7vw;
+    padding: 0;
     position: absolute;
     left: 0;
     top: 0;
@@ -98,6 +99,21 @@ input
     100%{transform: translateX(-50%) translateY(-50%) rotate(1turn)}
 }
 
+
+.error-icon
+{
+    mask: none !important;
+    -webkit-mask: none !important;
+    background: transparent !important;
+    font-size: 100pt !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    height: fit-content !important;
+    color: red !important;
+    animation: none !important;
+}
+
+
 #videoPlayer
 {
     border-radius: 1.7vw;
@@ -109,7 +125,7 @@ input
     box-shadow: 0 0 2vw rgba(0, 0, 0, 0.7);
     background-color: black;
     z-index: 1;
-    transition: all 0s cubic-bezier(0.77, 0, 0.175, 1);
+    transition: all 1s cubic-bezier(0.77, 0, 0.175, 1);
 }
 #videoPlayer>video
 {
@@ -120,6 +136,7 @@ input
 {
     object-fit: cover !important;
     filter: brightness(0.5) grayscale(0.8) blur(2px);
+    transition-duration: 1s;
 }
 
 
