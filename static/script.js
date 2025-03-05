@@ -159,14 +159,16 @@ function loadVideo() {
         skipSegment.id = "skipsegment";
         skipSegment.onclick = function() {skipclick();};
     }
-    let errorDisplay = playerContainer.querySelector('.vjs-error-display').querySelector('.vjs-modal-dialog-content');
-    errorDisplay.innerHTML = '<div class="custom-loader-container"><div class="custom-loader" id="videoLoader"></div></div>';
+    
+    const errorDisplay = playerContainer.querySelector('.vjs-error-display');
+    errorDisplay.classList.add('spinner-parent');
+    errorDisplay.querySelector('.vjs-modal-dialog-content').classList.add('spinner-body');
     
     const spinnerBody = document.createElement('div');
     const spinnerParent = playerContainer.querySelector('.vjs-loading-spinner')
     spinnerParent.appendChild(spinnerBody);
-    spinnerBody.classList.add('vjs-modal-dialog-content');
-    spinnerParent.classList.add('vjs-error-display');
+    spinnerBody.classList.add('spinner-body');
+    spinnerParent.classList.add('spinner-parent');
     
     fetch(`/search?${urlParams.toString()}`)
         .then(response => {
@@ -188,13 +190,15 @@ function loadVideo() {
                 window.addEventListener('resize', adjustVideoSize);
                 setTimeout(() => {playerContainer.style.transitionDuration = '0s';}, 1000);
                 player.controls(true);
+                errorDisplay.classList.remove('spinner-parent');
+                errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
             });
             player.load();
         })
         .catch(error => {
             console.error('Error fetching video URL:', error);
-            errorDisplay.innerHTML = '<div class="custom-loader-container"><i class="fa-solid fa-circle-exclamation"></i></div>';
-            errorDisplay.classList.add('error-icon');
+            errorDisplay.classList.remove('spinner-parent');
+            errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
         });
     
     // Fetch SponsorBlock

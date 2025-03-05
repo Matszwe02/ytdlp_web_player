@@ -65,15 +65,18 @@ input
     color: #aaa;
 }
 
-.vjs-error-display
+.spinner-parent
 {
     z-index: 2;
     left: 50% !important;
     top: 50% !important;
     overflow: visible !important;
+    font-size: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
 }
 
-.vjs-error-display>.vjs-modal-dialog-content
+.spinner-parent>.spinner-body
 {
     z-index: 2;
     width: 7vw;
@@ -131,6 +134,18 @@ input
 {
     object-fit: cover;
 }
+
+
+.vjs-fullscreen
+{
+    border: none !important;
+    border-radius: 0 !important;
+}
+.vjs-fullscreen>video
+{
+    object-fit: contain !important;
+}
+
 
 .vjs-poster>img
 {
