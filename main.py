@@ -1,10 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory, jsonify
 from urllib.parse import unquote
 import os
 import uuid
 from datetime import datetime, timedelta
 import time
 from threading import Thread
+from sb import SponsorBlock
 
 from source_downloader import Downloader, yt_dlp
 import requests
@@ -146,8 +147,6 @@ def serve_thumbnail():
 @app.route('/sb')
 def get_sponsor_segments():
     """Return sponsor segments for a given YouTube video"""
-    from flask import jsonify
-    from sb import SponsorBlock
     
     # Get video ID from request parameters
     url = get_url(request)
