@@ -91,18 +91,18 @@ def search():
         print('Cache hit!')
         return video_cache[url]['file']
     
-    ydl_opts = {"ffmpeg_location": "."}
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
+    # ydl_opts = {"ffmpeg_location": "."}
+    # with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+    #     info = ydl.extract_info(url, download=False)
     
-    streaming_url = info.get('url', None)
-    if streaming_url:
+    # streaming_url = info.get('url', None)
+    # if streaming_url: 
 
-        # Check for media availability at streaming_url
-        response = requests.head(streaming_url)
-        if response.status_code == 200:
-            video_cache[url] = {'file': streaming_url,'timestamp': datetime.now().isoformat()}
-            return streaming_url
+    #     # Check for media availability at streaming_url
+    #     response = requests.head(streaming_url)
+    #     if response.status_code == 200:
+    #         video_cache[url] = {'file': streaming_url,'timestamp': datetime.now().isoformat()}
+    #         return streaming_url
     
     unique_filename = str(uuid.uuid4())
     output_path = os.path.join('./download', unique_filename + '.%(ext)s')
