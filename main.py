@@ -21,6 +21,8 @@ try:
     os.remove('lock')
 except:
     pass
+video_format = "bestvideo[height<={res}][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+
 
 
 Downloader.get_app_version()
@@ -107,7 +109,8 @@ def search():
     unique_filename = str(uuid.uuid4())
     output_path = os.path.join('./download', unique_filename + '.%(ext)s')
     
-    ydl_opts = {"outtmpl": f"{output_path}", "ffmpeg_location": "."}
+    res = 720
+    ydl_opts = {"outtmpl": f"{output_path}", "ffmpeg_location": ".", "format": video_format.format(res=res)}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         print(f'YTDLP: downloading "{unquote(url)}"')
         ydl.download(unquote(url))
