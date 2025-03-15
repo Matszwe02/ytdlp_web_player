@@ -131,8 +131,8 @@ function loadVideo() {
             controlBar: {
                 children: [
                     'playToggle',
-                    'progressControl',
                     'volumePanel',
+                    'progressControl',
                     'PictureInPictureToggle',
                     'fullscreenToggle'
                 ]
@@ -153,6 +153,11 @@ function loadVideo() {
         });
         player.doubleTapFF();
         playerContainer = player.el();
+
+        
+        const spacer = document.createElement('div');
+        playerContainer.querySelector('.vjs-control-bar').appendChild(spacer);
+        spacer.style="flex: auto;order: 3;";
         
         skipSegment = document.createElement('div');
         playerContainer.appendChild(skipSegment);
