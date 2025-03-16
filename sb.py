@@ -4,8 +4,8 @@ import requests
 class SponsorBlock:
     def __init__(self, video: str):
         if 'youtu' not in video: raise ValueError('incompatible link passed to sponsorblock')
-        self.video_id = video.split('/')[-1].split('?v=')[-1]
-        self.categories = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "music_offtopic"]
+        self.video_id = video.split('/')[-1].split('?v=')[-1].split('&')[0]
+        self.categories = ["sponsor", "selfpromo", "interaction", "intro", "outro", "preview", "music_offtopic", "poi_highlight"]
         self.url = f"https://sponsor.ajay.app/api/skipSegments"
         self.segments = []
 
@@ -16,7 +16,6 @@ class SponsorBlock:
         """
         
         try:
-            
             params = {"videoID" : self.video_id, "category" : self.categories}
             response = requests.get(self.url, params=params)
             

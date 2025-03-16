@@ -15,7 +15,8 @@ const sbColorMap = {
     'sponsor': '#00ff00',
     'preview': '#0077ff',
     'interaction': '#ff00ff',
-    'intro': '#00ffff'
+    'intro': '#00ffff',
+    'poi_highlight': '#ef4c9b'
 };
 
 
@@ -99,9 +100,11 @@ function addSponsorblock(data)
         const endPosition = (entry.end / duration) * 100;
         const width = endPosition - startPosition;
         
+        if (entry.category == 'poi_highlight') indicator.style.aspectRatio = 1;
+        else indicator.style.width = `${width}%`;
+        
         indicator.className = 'seg';
         indicator.style.left = `${startPosition}%`;
-        indicator.style.width = `${width}%`;
         indicator.style.backgroundColor = sbColorMap[entry.category] || '#ffffff';
         indicator.title = `${entry.category}`;
     });
