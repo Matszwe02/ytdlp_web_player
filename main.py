@@ -180,6 +180,7 @@ def download_ytdlp(filename):
     print(filename)
     print(os.path.join('download', filename))
     print(os.path.exists(os.path.join('download', filename)))
+    os.utime(os.path.join('download', filename))
     return send_from_directory('download', filename)
 
 
