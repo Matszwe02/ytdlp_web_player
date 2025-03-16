@@ -147,6 +147,10 @@
     background: rgba(127, 127, 127, 0.3);
 }
 
+.video-js.vjs-layout-tiny .vjs-progress-control, .video-js.vjs-layout-x-small .vjs-progress-control {
+    display: block;
+}
+
 .vjs-theme-custom .vjs-progress-control {
   font-size: 14px;
 }
