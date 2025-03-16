@@ -110,8 +110,8 @@
 
 .video-js .vjs-progress-holder {
   position: absolute;
-  margin: 0 2% !important;
-  width: 96%;
+  margin: 0 0.5em !important;
+  width: calc(100% - 1em);
 }
 
 .vjs-theme-custom .vjs-play-progress {
@@ -144,7 +144,7 @@
 }
 
 .vjs-theme-custom .vjs-slider {
-    background: rgba(127, 127, 127, 0.5);
+    background: rgba(127, 127, 127, 0.3);
 }
 
 .vjs-theme-custom .vjs-progress-control {
