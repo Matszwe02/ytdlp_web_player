@@ -72,7 +72,9 @@ def get_url(req):
 
 @app.route('/')
 def index():
-    return watch()
+    ydl_version = Downloader.get_ytdlp_version()
+    ffmpeg_version = Downloader.get_ffmpeg_version()
+    return render_template('index.html', ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title)
 
 
 @app.route('/watch')
@@ -80,7 +82,7 @@ def watch():
     ydl_version = Downloader.get_ytdlp_version()
     ffmpeg_version = Downloader.get_ffmpeg_version()
     original_url = get_url(request)
-    return render_template('index.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title)
+    return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title)
 
 
 @app.route('/search')

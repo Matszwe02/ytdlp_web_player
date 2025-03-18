@@ -117,61 +117,52 @@ function loadVideo() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.toString().length < 10) return;
     
-    // TODO: split index.html
-    document.querySelectorAll('.non-video').forEach(element => {
-        element.style.display = 'none';
-    });
-    document.querySelectorAll('.video').forEach(element => {
-        element.style.display = 'block';
-    });
-    
     // Initialize Video.js
-    if (!player && document.getElementById('videoPlayer')) {
-        player = videojs('videoPlayer', {
-            controls: false,
-            preload: 'auto',
-            responsive: true,
-            fluid: true,
-            poster: `/thumb?${urlParams.toString()}`,
-            controlBar: {
-                children: [
-                    'playToggle',
-                    'volumePanel',
-                    'CurrentTimeDisplay',
-                    'TimeDivider',
-                    'DurationDisplay',
-                    'progressControl',
-                    'PictureInPictureToggle',
-                    'fullscreenToggle'
-                ]
-            },
-            plugins: {  
-                hotkeys: {
-                    customKeys: {
-                        sbKey: {
-                            key: function (event) {return event.code == "Enter";},
-                            handler: function (player, options, event) {skipclick();},
-                        },
+    
+    player = videojs('videoPlayer', {
+        controls: false,
+        preload: 'auto',
+        responsive: true,
+        fluid: true,
+        poster: `/thumb?${urlParams.toString()}`,
+        controlBar: {
+            children: [
+                'playToggle',
+                'volumePanel',
+                'CurrentTimeDisplay',
+                'TimeDivider',
+                'DurationDisplay',
+                'progressControl',
+                'PictureInPictureToggle',
+                'fullscreenToggle'
+            ]
+        },
+        plugins: {  
+            hotkeys: {
+                customKeys: {
+                    sbKey: {
+                        key: function (event) {return event.code == "Enter";},
+                        handler: function (player, options, event) {skipclick();},
                     },
-                    captureDocumentHotkeys: true,
-                    documentHotkeysFocusElementFilter: e => e.tagName.toLowerCase() === 'body',
-                    enableHoverScroll: true,
                 },
+                captureDocumentHotkeys: true,
+                documentHotkeysFocusElementFilter: e => e.tagName.toLowerCase() === 'body',
+                enableHoverScroll: true,
             },
-        });
-        player.doubleTapFF();
-        playerContainer = player.el();
+        },
+    });
+    player.doubleTapFF();
+    playerContainer = player.el();
 
-        
-        const spacer = document.createElement('div');
-        playerContainer.querySelector('.vjs-control-bar').appendChild(spacer);
-        spacer.style="flex: auto;order: 3;";
-        
-        skipSegment = document.createElement('div');
-        playerContainer.appendChild(skipSegment);
-        skipSegment.id = "skipsegment";
-        skipSegment.onclick = function() {skipclick();};
-    }
+    
+    const spacer = document.createElement('div');
+    playerContainer.querySelector('.vjs-control-bar').appendChild(spacer);
+    spacer.style="flex: auto;order: 3;";
+    
+    skipSegment = document.createElement('div');
+    playerContainer.appendChild(skipSegment);
+    skipSegment.id = "skipsegment";
+    skipSegment.onclick = function() {skipclick();};
     
     const errorDisplay = playerContainer.querySelector('.vjs-error-display');
     errorDisplay.classList.add('spinner-parent');
@@ -182,6 +173,8 @@ function loadVideo() {
     spinnerParent.appendChild(spinnerBody);
     spinnerBody.classList.add('spinner-body');
     spinnerParent.classList.add('spinner-parent');
+    
+    document.querySelector('.video').style.display = 'block';
     
     fetch(`/search?${urlParams.toString()}`)
         .then(response => {

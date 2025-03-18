@@ -130,6 +130,8 @@ input
     z-index: 1;
     transition: all 1s cubic-bezier(0.77, 0, 0.175, 1);
 }
+
+
 #videoPlayer>video
 {
     object-fit: cover;
@@ -155,16 +157,10 @@ input
 }
 
 
-.loaded-img {
+.loaded-img
+{
     filter: none !important;
 }
-
-
-/* #videoPlayer.fullscreen {
-    border: 0px !important;
-    object-fit: contain !important;
-    border-radius: 0 !important;
-} */
 
 
 .video

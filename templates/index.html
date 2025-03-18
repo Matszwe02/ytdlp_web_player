@@ -5,34 +5,17 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>{{ app_title }}</title>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-        <!-- VideoJS CSS -->
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.3.0/video-js.min.css" rel="stylesheet" />
         <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
-        <link rel="stylesheet" href="{{ url_for('static', filename='videojs.css') }}" />
         <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
         <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
     </head>
     <body>
         <div style="display: inline-block; text-align: center; width: 50%" class="non-video">
             <h1><i class="fa-solid fa-link"></i> Video URL:</h1>
             <input type="text" id="standard_url" name="url" />
             <button onclick="window.location.href='/watch?url=' + encodeURIComponent(document.getElementById('standard_url').value)" class="play-button"><i class="fa-solid fa-play"></i></button>
-        </div>
-
-        <div class="container video">
-            <div style="position: fixed; top: 10px; left: 10px">
-                <a href="/watch" style="text-decoration: none">
-                    <button class="video-button"><i class="fa-solid fa-house"></i> Go to Main Page</button>
-                </a>
-            </div>
-            <!-- Replace standard video with VideoJS -->
-            <video id="videoPlayer" class="video-js vjs-default-skin vjs-big-play-centered vjs-theme-custom" controls preload="auto" width="100%" height="100%">
-                <source id="videoSource" type="video/mp4" />
-                <p class="vjs-no-js">
-                    To view this video please enable JavaScript, and consider upgrading to a
-                    web browser that <a href="https://videojs.com/html5-video-support/" target="_blank">supports HTML5 video</a>
-                </p>
-            </video>
         </div>
         <!-- Expandable menu -->
         <div id="expandable-menu-container">
@@ -41,25 +24,12 @@
             </button>
             <div id="expandable-content" class="expandable-content">
                 <ul>
-                    {% if request.query_string.decode() %}
-                    <li><a href="/raw?{{(request.query_string.decode())}}"><i class="fa-solid fa-film"></i> Watch raw video</a></li>
-                    <li><a href="{{original_url}}" target="_blank"><i class="fa-solid fa-link"></i> Open video url</a></li>
-                    {% endif %}
                     <li><a href="https://github.com/yt-dlp/yt-dlp" target="_blank"><i class="fa-solid fa-download"></i> YT-DLP version: <b>{{ydl_version}}</b></a></li>
                     <li><a href="https://github.com/yt-dlp/FFmpeg-Builds" target="_blank"><i class="fa-solid fa-cogs"></i> FFmpeg version: <b>{{ffmpeg_version}}</b></a></li>
                     <li><a href="https://github.com/Matszwe02/ytdlp_web_player" target="_blank"><i class="fa-brands fa-github"></i></i> App version: <b>{{app_version}}</b></a></li>
                 </ul>
             </div>
         </div>
-        
-        <!-- VideoJS Script -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.3.0/video.min.js"></script>
-        <!-- https://github.com/ctd1500/videojs-hotkeys -->
-        <script src="//cdn.sc.gl/videojs-hotkeys/latest/videojs.hotkeys.min.js"></script>
-        
-        <!-- https://github.com/humbertorodrigues/videojs-doubletap -->
-        <script src="{{ url_for('static', filename='videojs.doubletapff.js') }}"></script>
-        
-        <script src="{{ url_for('static', filename='script.js') }}"></script>
+        <script src="{{ url_for('static', filename='sw.js') }}"></script>
     </body>
 </html>
