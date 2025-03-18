@@ -155,6 +155,10 @@
   font-size: 14px;
 }
 
+.vjs-play-progress > .vjs-time-tooltip {
+  display: none !important;
+}
+
 .vjs-theme-custom .vjs-picture-in-picture-control {
   order: 5;
 }
@@ -165,4 +169,21 @@
 
 .vjs-theme-custom .vjs-remaining-time {
   display: none;
+}
+
+.vjs-theme-custom .vjs-current-time {
+  order: 3;
+  display: block;
+  padding-right: 0;
+}
+
+.vjs-theme-custom .vjs-time-divider {
+  order: 3;
+  display: block;
+}
+
+.vjs-theme-custom .vjs-duration {
+  order: 3;
+  display: block;
+  padding-left: 0;
 }

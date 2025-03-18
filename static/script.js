@@ -135,6 +135,9 @@ function loadVideo() {
                 children: [
                     'playToggle',
                     'volumePanel',
+                    'CurrentTimeDisplay',
+                    'TimeDivider',
+                    'DurationDisplay',
                     'progressControl',
                     'PictureInPictureToggle',
                     'fullscreenToggle'
