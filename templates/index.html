@@ -12,11 +12,15 @@
         <meta name="apple-mobile-web-app-capable" content="yes">
     </head>
     <body>
+    
         <div style="display: inline-block; text-align: center; width: 50%" class="non-video">
             <h1><i class="fa-solid fa-link"></i> Video URL:</h1>
             <input type="text" id="standard_url" name="url" />
-            <button onclick="window.location.href='/watch?url=' + encodeURIComponent(document.getElementById('standard_url').value)" class="play-button"><i class="fa-solid fa-play"></i></button>
+            <button onclick="window.location.href='/watch?url=' + encodeURIComponent(document.getElementById('standard_url').value)" class="play-button">
+                <i class="fa-solid fa-play"></i>
+            </button>
         </div>
+        
         <!-- Expandable menu -->
         <div id="expandable-menu-container">
             <button id="expand-button" class="expand-button">
@@ -30,6 +34,23 @@
                 </ul>
             </div>
         </div>
-        <script src="{{ url_for('static', filename='sw.js') }}"></script>
+        <script>
+            const expandButton = document.getElementById('expand-button');
+            const expandableContent = document.getElementById('expandable-content');
+            let isExpanded = false;
+            expandButton.addEventListener('click', function() {
+                isExpanded = !isExpanded;
+                if (isExpanded)
+                {
+                    expandableContent.style.maxHeight = expandableContent.scrollHeight + "px";
+                    expandButton.classList.add('expanded');
+                }
+                else
+                {
+                    expandableContent.style.maxHeight = "0";
+                    expandButton.classList.remove('expanded');
+                }
+            });
+        </script>
     </body>
 </html>

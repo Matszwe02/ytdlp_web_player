@@ -1,13 +1,9 @@
 const videoSource = document.getElementById('videoSource');
 const videoPlayer = document.getElementById('videoPlayer');
-const expandButton = document.getElementById('expand-button');
-const expandableContent = document.getElementById('expandable-content');
-let isExpanded = false;
 let player;
 let playerContainer;
 let skipSegment;
 let skipTime = 0;
-
 
 const sbColorMap = {
     'selfpromo': '#ffff00',
@@ -19,20 +15,6 @@ const sbColorMap = {
     'poi_highlight': '#ef4c9b'
 };
 
-
-expandButton.addEventListener('click', function() {
-    isExpanded = !isExpanded;
-    if (isExpanded)
-    {
-        expandableContent.style.maxHeight = expandableContent.scrollHeight + "px";
-        expandButton.classList.add('expanded');
-    }
-    else
-    {
-        expandableContent.style.maxHeight = "0";
-        expandButton.classList.remove('expanded');
-    }
-});
 
 
 function skipclick()
@@ -174,7 +156,7 @@ function loadVideo() {
     spinnerBody.classList.add('spinner-body');
     spinnerParent.classList.add('spinner-parent');
     
-    document.querySelector('.video').style.display = 'block';
+    document.getElementById('video').style.filter = 'brightness(1)';
     
     fetch(`/search?${urlParams.toString()}`)
         .then(response => {

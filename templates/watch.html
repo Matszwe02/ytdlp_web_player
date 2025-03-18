@@ -12,13 +12,14 @@
         <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
     </head>
     <body>
-        <div class="container video">
-            <div style="position: fixed; top: 10px; left: 10px">
-                <a href="/" style="text-decoration: none">
-                    <button class="video-button"><i class="fa-solid fa-house"></i> Go to Main Page</button>
-                </a>
-            </div>
-            <!-- Replace standard video with VideoJS -->
+    
+        <div style="position: fixed; top: 10px; left: 10px">
+            <a href="/" style="text-decoration: none">
+                <button class="video-button"><i class="fa-solid fa-house"></i> Go to Main Page</button>
+            </a>
+        </div>
+        
+        <div class="container" id="video">
             <video id="videoPlayer" class="video-js vjs-default-skin vjs-big-play-centered vjs-theme-custom" controls preload="auto" width="100%" height="100%">
                 <source id="videoSource" type="video/mp4" />
                 <p class="vjs-no-js">
@@ -27,6 +28,7 @@
                 </p>
             </video>
         </div>
+        
         <!-- Expandable menu -->
         <div id="expandable-menu-container">
             <button id="expand-button" class="expand-button">
@@ -53,5 +55,24 @@
         <script src="{{ url_for('static', filename='videojs.doubletapff.js') }}"></script>
         
         <script src="{{ url_for('static', filename='script.js') }}"></script>
+        
+        <script>
+            const expandButton = document.getElementById('expand-button');
+            const expandableContent = document.getElementById('expandable-content');
+            let isExpanded = false;
+            expandButton.addEventListener('click', function() {
+                isExpanded = !isExpanded;
+                if (isExpanded)
+                {
+                    expandableContent.style.maxHeight = expandableContent.scrollHeight + "px";
+                    expandButton.classList.add('expanded');
+                }
+                else
+                {
+                    expandableContent.style.maxHeight = "0";
+                    expandButton.classList.remove('expanded');
+                }
+            });
+        </script>
     </body>
 </html>

@@ -163,9 +163,9 @@ input
 }
 
 
-.video
+#video
 {
-    display: none;
+    filter: brightness(0);
 }
 
 
