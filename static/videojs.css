@@ -159,6 +159,10 @@
   display: none !important;
 }
 
+.video-js .vjs-time-control {
+  font-size: 1.2em;
+}
+
 .vjs-theme-custom .vjs-picture-in-picture-control {
   order: 5;
 }
