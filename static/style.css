@@ -202,11 +202,6 @@ input
     font-size: 12pt;
     transform: translate(120%, 0);
     opacity: 0;
-    
-    @media (max-width: 500px)
-    {
-        right: -10px;
-    }
 }
 
 /* Expandable menu styles */
