@@ -76,10 +76,12 @@ function checkSponsorTime()
     if (segmentShown == null)
     {
         skipSegment.style.opacity = 0;
+        skipSegment.style.transform = 'translate(120%, 0)';
     }
     else
     {
         skipSegment.style.opacity = 1;
+        skipSegment.style.transform = 'translate(0, 0)';
         skipSegment.innerHTML = "skip " + segmentShown.category + ' <i class="fa-solid fa-angles-right"></i>';
         skipTime = segmentShown.end;
     }

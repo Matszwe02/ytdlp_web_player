@@ -194,13 +194,14 @@ input
     border-radius: 50vh;
     background-color: #222;
     color: white;
-    opacity: 0;
     transition-duration: 0.5s;
     cursor: pointer;
     position: absolute;
-    bottom: 100px;
+    bottom: 70px;
     right: 1vw;
     font-size: 12pt;
+    transform: translate(120%, 0);
+    opacity: 0;
     
     @media (max-width: 500px)
     {
