@@ -15,9 +15,9 @@ import yt_dlp
 import yt_dlp.version
 
 
-FFMPEG = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz"
-FFMPEG_ARM64 = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linuxarm64-gpl.tar.xz"
-FFMPEG_WIN = "https://github.com/yt-dlp/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+FFMPEG = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz"
+FFMPEG_ARM64 = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linuxarm64-gpl.tar.xz"
+FFMPEG_WIN = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
 
 
 os.environ['PATH'] = os.pathsep.join([os.getcwd(), os.environ['PATH']])
@@ -94,7 +94,7 @@ class Downloader:
             match = re.search(r'-([0-9]{8})', ver_str)
             ffmpeg_version = f"{match.group(1)[:4]}-{match.group(1)[4:6]}-{match.group(1)[6:]}" if match else "-"
         except Exception as e:
-            print(e.with_traceback())
+            print(e)
             ffmpeg_version = '-'
 
 
@@ -120,13 +120,9 @@ class Downloader:
 
     def downloader():
         print('Downloading yt-dlp and FFmpeg...')
-        Downloader.download_ytdlp()
-        time.sleep(random.random())
-        if os.path.exists('lock'):
-            while os.path.exists('lock'): time.sleep(1)
-        else:
-            open('lock', 'w').close()
-            Downloader.download_ffmpeg()
-            os.remove('lock')
-        print('All downloads complete')
         Downloader.update_ffmpeg()
+        ydl_version = Downloader.get_ytdlp_version()
+        Downloader.download_ytdlp()
+        if Downloader.get_ytdlp_version() != ydl_version or Downloader.get_ffmpeg_version() == '-':
+            Downloader.download_ffmpeg()
+            Downloader.update_ffmpeg()
