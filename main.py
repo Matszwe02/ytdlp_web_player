@@ -57,7 +57,7 @@ def delete_old_files():
                     del video_cache[i]
         
         except: pass
-        time.sleep(3000)
+        time.sleep(1800)
 
 
 
