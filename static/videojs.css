@@ -167,8 +167,21 @@
   order: 5;
 }
 
-.vjs-theme-custom .vjs-fullscreen-control {
+.vjs-zoom-control {
   order: 6;
+  cursor: pointer;
+}
+
+.vjs-zoom-control {
+    display: none !important;
+}
+
+.vjs-fullscreen .vjs-zoom-control {
+    display: block !important;
+}
+
+.vjs-theme-custom .vjs-fullscreen-control {
+  order: 7;
 }
 
 .vjs-theme-custom .vjs-remaining-time {

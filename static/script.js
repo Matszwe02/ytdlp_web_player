@@ -17,6 +17,34 @@ const sbColorMap = {
 
 
 
+class ZoomToFitToggle extends videojs.getComponent('Button') {
+    constructor(player, options) {
+        super(player, options);
+        this.addClass('vjs-zoom-control');
+        this.controlText('Zoom to Fit');
+        this.el().innerHTML = '<span class="fa-solid fa-up-right-and-down-left-from-center"></span>';
+
+        this.on('click', () => {
+            const video = player.el().querySelector('video');
+            if (video.style.objectFit == 'cover')
+            {
+                video.style.setProperty('object-fit', 'contain');
+                this.el().innerHTML = '<span class="fa-solid fa-up-right-and-down-left-from-center"></span>';
+                this.controlText('Zoom to Fit');
+            }
+            else
+            {
+                video.style.setProperty('object-fit', 'cover');
+                this.el().innerHTML = '<span class="fa-solid fa-down-left-and-up-right-to-center"></span>';
+                this.controlText('Restore Zoom');
+            }
+        });
+    }
+}
+videojs.registerComponent('ZoomToFitToggle', ZoomToFitToggle);
+
+
+
 function skipclick()
 {
     if (player && player.currentTime() < skipTime) player.currentTime(skipTime);
@@ -116,6 +144,7 @@ function loadVideo() {
                 'DurationDisplay',
                 'progressControl',
                 'PictureInPictureToggle',
+                'ZoomToFitToggle',
                 'fullscreenToggle'
             ]
         },
@@ -126,6 +155,10 @@ function loadVideo() {
                         key: function (event) {return event.code == "Enter";},
                         handler: function (player, options, event) {skipclick();},
                     },
+                    zoomKey: {
+                        key: function (event) {return event.code == "KeyG";},
+                        handler: function (player, options, event) {document.querySelector('.vjs-zoom-control').click();},
+                    },
                 },
                 captureDocumentHotkeys: true,
                 documentHotkeysFocusElementFilter: e => e.tagName.toLowerCase() === 'body',
@@ -135,7 +168,6 @@ function loadVideo() {
     });
     player.doubleTapFF();
     playerContainer = player.el();
-
     
     const spacer = document.createElement('div');
     playerContainer.querySelector('.vjs-control-bar').appendChild(spacer);
