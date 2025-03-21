@@ -43,7 +43,7 @@ def delete_old_files():
     while True:
         try:
             now = datetime.now()
-            cutoff = now - timedelta(minutes=10)
+            cutoff = now - timedelta(minutes=60)
             for filename in os.listdir(DOWNLOAD_PATH):
                 file_path = os.path.join(DOWNLOAD_PATH, filename)
                 if os.path.isfile(file_path):
@@ -57,7 +57,7 @@ def delete_old_files():
                     del video_cache[i]
         
         except: pass
-        time.sleep(600)
+        time.sleep(3000)
 
 
 
