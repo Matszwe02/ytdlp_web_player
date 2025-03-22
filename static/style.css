@@ -132,7 +132,7 @@ input
 }
 
 
-:not(.vjs-fullscreen) video
+#videoPlayer:not(.vjs-fullscreen) video
 {
     object-fit: cover !important;
 }
@@ -143,10 +143,6 @@ input
     border: none !important;
     border-radius: 0 !important;
 }
-/* .vjs-fullscreen>video
-{
-    object-fit: contain !important;
-} */
 
 
 .vjs-poster>img
