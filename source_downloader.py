@@ -108,6 +108,7 @@ class Downloader:
 
 
     def get_ffmpeg_version():
+        if ffmpeg_version == '-': Downloader.update_ffmpeg()
         return ffmpeg_version
 
 

@@ -112,10 +112,17 @@ def search():
     output_path = os.path.join('./download', unique_filename + '.%(ext)s')
     
     res = 720
-    ydl_opts = {"outtmpl": f"{output_path}", "ffmpeg_location": ".", "format": video_format.format(res=res)}
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        print(f'YTDLP: downloading "{unquote(url)}"')
-        ydl.download(unquote(url))
+    try:
+        ydl_opts = {"outtmpl": f"{output_path}", "ffmpeg_location": ".", "format": video_format.format(res=res)}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            print(f'YTDLP: downloading "{unquote(url)}"')
+            ydl.download(unquote(url))
+    except yt_dlp.utils.DownloadError:
+        ydl_opts = {"outtmpl": f"{output_path}", "ffmpeg_location": ".", "format": "best"}
+        print('Unavailable format: using default format')
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            print(f'YTDLP: downloading "{unquote(url)}"')
+            ydl.download(unquote(url))
     
     for i in os.listdir(DOWNLOAD_PATH):
         if i.startswith(unique_filename):
