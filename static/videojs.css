@@ -204,3 +204,7 @@
   display: block;
   padding-left: 0;
 }
+
+.video-js.vjs-layout-small .vjs-current-time, .video-js.vjs-layout-small .vjs-time-divider, .video-js.vjs-layout-small .vjs-duration {
+    display: block !important;
+}
