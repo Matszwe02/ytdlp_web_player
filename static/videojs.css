@@ -163,12 +163,21 @@
   font-size: 1.2em;
 }
 
-.vjs-theme-custom .vjs-picture-in-picture-control {
+.video-js.vjs-layout-tiny .vjs-download-button, .video-js.vjs-layout-x-small .vjs-download-button {
+  display: none;
+}
+
+.vjs-theme-custom .vjs-download-button {
   order: 5;
+  cursor: pointer;
+}
+
+.vjs-theme-custom .vjs-picture-in-picture-control {
+  order: 6;
 }
 
 .vjs-zoom-control {
-  order: 6;
+  order: 7;
   cursor: pointer;
 }
 
@@ -181,7 +190,7 @@
 }
 
 .vjs-theme-custom .vjs-fullscreen-control {
-  order: 7;
+  order: 8;
 }
 
 .vjs-theme-custom .vjs-remaining-time {

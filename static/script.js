@@ -47,6 +47,37 @@ class ZoomToFitToggle extends videojs.getComponent('Button')
 videojs.registerComponent('ZoomToFitToggle', ZoomToFitToggle);
 
 
+class DownloadButton extends videojs.getComponent('Button') {
+    constructor(player, options) {
+        super(player, options);
+        this.addClass('vjs-download-button');
+        this.controlText('Download Video');
+        this.el().innerHTML = '<span class="fa-solid fa-download"></span>';
+    }
+
+    handleClick() {
+        const videoSrc = this.player_.currentSrc();
+        if (videoSrc) {
+            const link = document.createElement('a');
+            link.href = videoSrc;
+            // Try to extract a filename from the URL, default to 'video.mp4'
+            try {
+                const url = new URL(videoSrc);
+                const pathnameParts = url.pathname.split('/');
+                link.download = pathnameParts[pathnameParts.length - 1] || 'video.mp4';
+            } catch (e) {
+                link.download = 'video.mp4';
+            }
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else {
+            console.error('No video source found for download.');
+        }
+    }
+}
+videojs.registerComponent('DownloadButton', DownloadButton);
+
 
 function skipclick()
 {
@@ -125,7 +156,7 @@ function addSponsorblock(data)
     });
 }
     
-// Main function to load video
+
 function loadVideo() {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.toString().length < 10) return;
@@ -146,12 +177,13 @@ function loadVideo() {
                 'TimeDivider',
                 'DurationDisplay',
                 'progressControl',
+                'DownloadButton',
                 'PictureInPictureToggle',
                 'ZoomToFitToggle',
                 'fullscreenToggle'
             ]
         },
-        plugins: {  
+        plugins: {
             hotkeys: {
                 customKeys: {
                     sbKey: {
