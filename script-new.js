@@ -1,0 +1,342 @@
+const videoSource = document.getElementById('videoSource');
+const videoPlayer = document.getElementById('videoPlayer');
+let player;
+let playerContainer;
+let skipSegment;
+let skipTime = 0;
+
+const sbColorMap = {
+    'selfpromo': '#ffff00',
+    'outro': '#0000ff',
+    'sponsor': '#00ff00',
+    'preview': '#0077ff',
+    'interaction': '#ff00ff',
+    'intro': '#00ffff',
+    'poi_highlight': '#ef4c9b'
+};
+
+
+
+class ZoomToFillToggle extends videojs.getComponent('Button')
+{
+    constructor(player, options)
+    {
+        super(player, options);
+        this.addClass('vjs-zoom-control');
+    }
+    
+    handleClick(state = null)
+    {
+        const video = player.el().querySelector('video');
+        var newState = video.style.objectFit == 'contain';
+        if (state === false || state === true)
+        {
+            newState = state;
+        }
+        if (newState === true)
+        {
+            video.style.setProperty('object-fit', 'cover');
+            this.el().innerHTML = '<span class="fa-solid fa-down-left-and-up-right-to-center"></span>';
+            this.controlText('Restore Zoom');
+            document.cookie = "zoomToFill=true; path=/";
+        }
+        else
+        {
+            video.style.setProperty('object-fit', 'contain');
+            this.el().innerHTML = '<span class="fa-solid fa-up-right-and-down-left-from-center"></span>';
+            this.controlText('Zoom to Fill');
+            document.cookie = "zoomToFill=false; path=/";
+        }
+    };
+}
+videojs.registerComponent('ZoomToFillToggle', ZoomToFillToggle);
+
+
+class DownloadButton extends videojs.getComponent('Button') {
+    constructor(player, options) {
+        super(player, options);
+        this.menuOpen = false;
+        this.addClass('vjs-download-button');
+        this.controlText('Download Video');
+        this.el().innerHTML = '<span class="fa-solid fa-download"></span>';
+
+        // Create the download options menu
+        this.menu = videojs.dom.createEl('div', {
+            className: 'vjs-download-menu vjs-hidden' // Initially hidden
+        });
+
+        const qualities = [
+            { label: 'High Quality', value: 'high' },
+            { label: 'Normal Quality', value: 'normal' },
+            { label: 'Audio Only', value: 'audio' }
+        ];
+
+        qualities.forEach(quality => {
+            const option = videojs.dom.createEl('div', {
+                className: 'vjs-download-option',
+                innerText: quality.label
+            });
+            option.dataset.quality = quality.value; // Store quality value
+            this.menu.appendChild(option);
+
+            // Add click listener for each option
+            this.on(option, 'click', (event) => {
+                event.stopPropagation(); // Prevent button click from triggering
+                this.handleOptionClick(quality.value);
+                this.toggleMenu(false); // Close menu after selection
+            });
+        });
+
+        // Append menu to the button element itself or player element
+        this.el().appendChild(this.menu);
+
+        // Close menu if clicking outside
+        this.on(document, 'click', (event) => {
+            if (this.menuOpen && !this.el().contains(event.target)) {
+                this.toggleMenu(false);
+            }
+        });
+    }
+
+    // Override handleClick to toggle the menu
+    handleClick(event) {
+        event.stopPropagation(); // Prevent clicks inside menu from closing it immediately
+        this.toggleMenu();
+    }
+
+    // Toggle menu visibility
+    toggleMenu(forceState) {
+        this.menuOpen = typeof forceState === 'boolean' ? forceState : !this.menuOpen;
+        if (this.menuOpen) {
+            videojs.dom.removeClass(this.menu, 'vjs-hidden');
+        } else {
+            videojs.dom.addClass(this.menu, 'vjs-hidden');
+        }
+    }
+
+    // Handle click on a download option
+    handleOptionClick(quality) {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (!urlParams.toString()) {
+            console.error('No video parameters found for download.');
+            return;
+        }
+
+        // Construct download URL (assuming backend endpoint /download?quality=...)
+        const downloadUrl = `/download?quality=${quality}&${urlParams.toString()}`;
+
+        // Trigger download
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        // We don't know the exact filename beforehand, let the browser/server handle it
+        // link.download = `video_${quality}.mp4`; // Optional: suggest a filename
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Clean up event listeners when the component is disposed
+    dispose() {
+        // Remove the document click listener if it exists
+        // Note: Video.js might handle some cleanup automatically, but being explicit is safer
+        // this.off(document, 'click', this.boundClickHandler); // Need to store the bound function if using this approach
+        super.dispose();
+    }
+}
+videojs.registerComponent('DownloadButton', DownloadButton);
+
+
+function skipclick()
+{
+    if (player && player.currentTime() < skipTime) player.currentTime(skipTime);
+};
+
+
+function adjustVideoSize()
+{
+    const videoElement = playerContainer.querySelector('video');
+    
+    const width = videoElement.videoWidth;
+    const height = videoElement.videoHeight;
+    const innerWidth = window.innerWidth * 0.9;
+    const innerHeight = window.innerHeight * 0.9;
+    
+    const min_dim = Math.min(innerWidth, innerHeight);
+    const min_width = (min_dim + innerWidth) / 2;
+    const min_height = (min_dim + innerHeight) / 2;
+    
+    const scaling = Math.min(min_width / width, min_height / height);
+    
+    playerContainer.style.width = width * scaling + 'px';
+    playerContainer.style.height = height * scaling + 'px';
+}
+
+
+function checkSponsorTime()
+{
+    var segmentShown = null;
+    const currentTime = player.currentTime();
+    
+    segments.forEach(segment => {
+        if (currentTime > segment.start && currentTime < segment.end)
+        {
+            segmentShown = segment;
+        }
+    });
+    
+    if (segmentShown == null)
+    {
+        skipSegment.style.opacity = 0;
+        skipSegment.style.transform = 'translate(120%, 0)';
+    }
+    else
+    {
+        skipSegment.style.opacity = 1;
+        skipSegment.style.transform = 'translate(0, 0)';
+        skipSegment.innerHTML = "skip " + segmentShown.category + ' <i class="fa-solid fa-angles-right"></i>';
+        skipTime = segmentShown.end;
+    }
+}
+
+function addSponsorblock(data)
+{
+    const duration = player.duration();
+    const sbContainer = document.querySelector('.vjs-progress-holder.vjs-slider.vjs-slider-horizontal');
+    const existingSegments = sbContainer.querySelectorAll('.seg');
+    existingSegments.forEach(el => el.remove());
+    
+    data.forEach(entry => {
+        const indicator = document.createElement('div');
+        sbContainer.appendChild(indicator);
+        
+        const startPosition = (entry.start / duration) * 100;
+        const endPosition = (entry.end / duration) * 100;
+        const width = endPosition - startPosition;
+        
+        if (entry.category == 'poi_highlight') indicator.style.aspectRatio = 1;
+        else indicator.style.width = `${width}%`;
+        
+        indicator.className = 'seg';
+        indicator.style.left = `${startPosition}%`;
+        indicator.style.backgroundColor = sbColorMap[entry.category] || '#ffffff';
+        indicator.title = `${entry.category}`;
+    });
+}
+    
+
+function loadVideo() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.toString().length < 10) return;
+    
+    // Initialize Video.js
+    
+    player = videojs('videoPlayer', {
+        controls: false,
+        preload: 'auto',
+        responsive: true,
+        fluid: true,
+        poster: `/thumb?${urlParams.toString()}`,
+        controlBar: {
+            children: [
+                'playToggle',
+                'volumePanel',
+                'CurrentTimeDisplay',
+                'TimeDivider',
+                'DurationDisplay',
+                'progressControl',
+                'DownloadButton',
+                'PictureInPictureToggle',
+                'ZoomToFillToggle',
+                'fullscreenToggle'
+            ]
+        },
+        plugins: {
+            hotkeys: {
+                customKeys: {
+                    sbKey: {
+                        key: function (event) {return event.code == "Enter";},
+                        handler: function (player, options, event) {skipclick();},
+                    },
+                    zoomKey: {
+                        key: function (event) {return event.code == "KeyG";},
+                        handler: function (player, options, event) {document.querySelector('.vjs-zoom-control').click();},
+                    },
+                },
+                captureDocumentHotkeys: true,
+                documentHotkeysFocusElementFilter: e => e.tagName.toLowerCase() === 'body',
+                enableHoverScroll: true,
+            },
+        },
+    });
+    player.doubleTapFF();
+    playerContainer = player.el();
+    
+    const zoomToFillCookie = document.cookie.split('; ').find(row => row.startsWith('zoomToFill='));
+    player.controlBar.ZoomToFillToggle.handleClick(zoomToFillCookie?.split('=')[1] === 'true');
+    
+    const spacer = document.createElement('div');
+    playerContainer.querySelector('.vjs-control-bar').appendChild(spacer);
+    spacer.style="flex: auto;order: 3;";
+    
+    skipSegment = document.createElement('div');
+    playerContainer.appendChild(skipSegment);
+    skipSegment.id = "skipsegment";
+    skipSegment.onclick = function() {skipclick();};
+    
+    const errorDisplay = playerContainer.querySelector('.vjs-error-display');
+    errorDisplay.classList.add('spinner-parent');
+    errorDisplay.querySelector('.vjs-modal-dialog-content').classList.add('spinner-body');
+    
+    const spinnerBody = document.createElement('div');
+    const spinnerParent = playerContainer.querySelector('.vjs-loading-spinner')
+    spinnerParent.appendChild(spinnerBody);
+    spinnerBody.classList.add('spinner-body');
+    spinnerParent.classList.add('spinner-parent');
+    
+    document.getElementById('video').style.filter = 'brightness(1)';
+    
+    fetch(`/search?${urlParams.toString()}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(response.status);
+            }
+            return response.text();
+        })
+        .then(data => {
+            playerContainer.querySelector('.vjs-poster').style.filter = '';
+            
+            // Set video source with the stream URL
+            player.src({src: data, type: 'video/mp4'});
+            playerContainer.querySelector('img').classList.add('loaded-img')
+            
+            // When video is loaded
+            player.on('loadeddata', () => {
+                adjustVideoSize();
+                window.addEventListener('resize', adjustVideoSize);
+                setTimeout(() => {playerContainer.style.transitionDuration = '0s';}, 1000);
+                player.controls(true);
+                errorDisplay.classList.remove('spinner-parent');
+                errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
+            });
+            player.load();
+        })
+        .catch(error => {
+            console.error('Error fetching video URL:', error);
+            errorDisplay.classList.remove('spinner-parent');
+            errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
+        });
+    
+    // Fetch SponsorBlock
+    fetch(`/sb?${urlParams.toString()}`)
+        .then(response => {return response.json();})
+        .then(data => {
+            segments = data;
+            player.on('loadeddata', () => {
+                addSponsorblock(data);
+            });
+            player.on('timeupdate', checkSponsorTime);
+        });
+}
+
+
+loadVideo();

@@ -277,3 +277,38 @@ input
     width: 16px;
     text-align: center;
 }
+
+
+/* Download Button Menu Styles */
+.vjs-download-button {
+    position: relative; /* Needed for absolute positioning of the menu */
+}
+
+.vjs-download-menu {
+    position: absolute;
+    bottom: 100%; /* Position above the button */
+    right: 0; /* Align to the right of the button */
+    background-color: #2B333F; /* Video.js dark theme background */
+    border: 1px solid #444;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    width: 150px; /* Adjust width as needed */
+    z-index: 10; /* Ensure it's above other controls */
+    margin-bottom: 5px; /* Space between button and menu */
+}
+
+.vjs-download-menu.vjs-hidden {
+    display: none; /* Use display none for hidden state */
+}
+
+.vjs-download-option {
+    padding: 8px 12px;
+    color: #FFF;
+    cursor: pointer;
+    font-size: 0.9em;
+    white-space: nowrap;
+}
+
+.vjs-download-option:hover {
+    background-color: #555;
+}
