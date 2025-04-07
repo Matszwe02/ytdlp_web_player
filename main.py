@@ -17,11 +17,6 @@ DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 video_cache: dict[str, dict[str, str]] = {}
 app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
-try:
-    os.remove('lock')
-except:
-    pass
-video_format = "bestvideo[height<={res}][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4]/best"
 
 
 
@@ -29,14 +24,17 @@ Downloader.get_app_version()
 app_version = Downloader.get_app_version()
 
 
+
 def gen_filename(url: str):
     return sha1(url.encode()).hexdigest()
+
 
 
 def ytdlp_download():
     while True:
         Downloader.downloader()
         time.sleep(86400) # 24 hours
+
 
 
 def delete_old_files():
@@ -70,11 +68,44 @@ def get_url(req):
 
 
 
+def download_file(url:str, vid_format: str|int = 720):
+    unique_filename = str(uuid.uuid4())
+    output_path = os.path.join('./download', unique_filename + '.%(ext)s')
+    
+    video_format = "bestvideo[height<={res}][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+    
+    if type(vid_format) == int: video_format.format(res=vid_format)
+    else: video_format = vid_format
+    
+    try:
+        ydl_opts = {"outtmpl": output_path, "ffmpeg_location": ".", "format": video_format}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            print(f'YTDLP: downloading "{unquote(url)}"')
+            ydl.download(unquote(url))
+    
+    except yt_dlp.utils.DownloadError:
+        ydl_opts = {"outtmpl": f"{output_path}", "ffmpeg_location": ".", "format": "best"}
+        print('Unavailable format: using default format')
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            print(f'YTDLP: downloading "{unquote(url)}"')
+            ydl.download(unquote(url))
+    
+    for i in os.listdir(DOWNLOAD_PATH):
+        if i.startswith(unique_filename):
+            video_cache[url] = {'file': f'download/{i}','timestamp': datetime.now().isoformat()}
+            return f'download/{i}'
+    
+    return None
+
+
+
 @app.route('/')
 def index():
     ydl_version = Downloader.get_ytdlp_version()
     ffmpeg_version = Downloader.get_ffmpeg_version()
     return render_template('index.html', ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title)
+
 
 
 @app.route('/watch')
@@ -83,6 +114,7 @@ def watch():
     ffmpeg_version = Downloader.get_ffmpeg_version()
     original_url = get_url(request)
     return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title)
+
 
 
 @app.route('/search')
@@ -95,40 +127,9 @@ def search():
         print('Cache hit!')
         return video_cache[url]['file']
     
-    # ydl_opts = {"ffmpeg_location": "."}
-    # with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-    #     info = ydl.extract_info(url, download=False)
+    filename = download_file(url)
     
-    # streaming_url = info.get('url', None)
-    # if streaming_url: 
-
-    #     # Check for media availability at streaming_url
-    #     response = requests.head(streaming_url)
-    #     if response.status_code == 200:
-    #         video_cache[url] = {'file': streaming_url,'timestamp': datetime.now().isoformat()}
-    #         return streaming_url
-    
-    unique_filename = str(uuid.uuid4())
-    output_path = os.path.join('./download', unique_filename + '.%(ext)s')
-    
-    res = 720
-    try:
-        ydl_opts = {"outtmpl": f"{output_path}", "ffmpeg_location": ".", "format": video_format.format(res=res)}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            print(f'YTDLP: downloading "{unquote(url)}"')
-            ydl.download(unquote(url))
-    except yt_dlp.utils.DownloadError:
-        ydl_opts = {"outtmpl": f"{output_path}", "ffmpeg_location": ".", "format": "best"}
-        print('Unavailable format: using default format')
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            print(f'YTDLP: downloading "{unquote(url)}"')
-            ydl.download(unquote(url))
-    
-    for i in os.listdir(DOWNLOAD_PATH):
-        if i.startswith(unique_filename):
-            video_cache[url] = {'file': f'download/{i}','timestamp': datetime.now().isoformat()}
-            return f'download/{i}'
-    
+    if filename: return filename
     return 'Cannot gather video', 404
 
 
@@ -176,6 +177,7 @@ def get_sponsor_segments():
         return jsonify({"error": str(e)}), 500
 
 
+
 @app.route('/raw')
 def raw():
     url = search()
@@ -198,6 +200,7 @@ thread = Thread(target=delete_old_files)
 downloader_thread = Thread(target=ytdlp_download)
 thread.start()
 downloader_thread.start()
+
 
 
 if __name__ == '__main__':
