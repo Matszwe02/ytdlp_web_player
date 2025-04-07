@@ -117,7 +117,11 @@ def download_file(url: str, media_type='video'):
         dwnl(url, {"writethumbnail": True, "skip_download": True, "outtmpl": f"{output_path}", "ffmpeg_location": "."})
     
     
-    if media_type.startswith('video'):
+    elif media_type == 'audio':
+        dwnl(url, {"outtmpl": output_path, "ffmpeg_location": ".", "format": "bestaudio/best", "extract_audio": True})
+    
+    
+    elif media_type.startswith('video'):
         res = int(re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or 720)
         video_format = f"bestvideo[height<={res}][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4]/best"
         
