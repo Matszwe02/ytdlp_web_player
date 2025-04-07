@@ -17,34 +17,39 @@ const sbColorMap = {
 
 
 
-class ZoomToFitToggle extends videojs.getComponent('Button')
+class ZoomToFillToggle extends videojs.getComponent('Button')
 {
     constructor(player, options)
     {
         super(player, options);
         this.addClass('vjs-zoom-control');
-        this.controlText('Zoom to Fill');
-        this.el().innerHTML = '<span class="fa-solid fa-up-right-and-down-left-from-center"></span>';
-
     }
-    handleClick()
+    
+    handleClick(state = null)
     {
         const video = player.el().querySelector('video');
-        if (video.style.objectFit == 'cover')
+        var newState = video.style.objectFit == 'contain';
+        if (state === false || state === true)
         {
-            video.style.setProperty('object-fit', 'contain');
-            this.el().innerHTML = '<span class="fa-solid fa-up-right-and-down-left-from-center"></span>';
-            this.controlText('Zoom to Fill');
+            newState = state;
         }
-        else
+        if (newState === true)
         {
             video.style.setProperty('object-fit', 'cover');
             this.el().innerHTML = '<span class="fa-solid fa-down-left-and-up-right-to-center"></span>';
             this.controlText('Restore Zoom');
+            document.cookie = "zoomToFill=true; path=/";
+        }
+        else
+        {
+            video.style.setProperty('object-fit', 'contain');
+            this.el().innerHTML = '<span class="fa-solid fa-up-right-and-down-left-from-center"></span>';
+            this.controlText('Zoom to Fill');
+            document.cookie = "zoomToFill=false; path=/";
         }
     };
 }
-videojs.registerComponent('ZoomToFitToggle', ZoomToFitToggle);
+videojs.registerComponent('ZoomToFillToggle', ZoomToFillToggle);
 
 
 class DownloadButton extends videojs.getComponent('Button') {
@@ -179,7 +184,7 @@ function loadVideo() {
                 'progressControl',
                 'DownloadButton',
                 'PictureInPictureToggle',
-                'ZoomToFitToggle',
+                'ZoomToFillToggle',
                 'fullscreenToggle'
             ]
         },
@@ -203,6 +208,9 @@ function loadVideo() {
     });
     player.doubleTapFF();
     playerContainer = player.el();
+    
+    const zoomToFillCookie = document.cookie.split('; ').find(row => row.startsWith('zoomToFill='));
+    player.controlBar.ZoomToFillToggle.handleClick(zoomToFillCookie?.split('=')[1] === 'true');
     
     const spacer = document.createElement('div');
     playerContainer.querySelector('.vjs-control-bar').appendChild(spacer);
