@@ -4,9 +4,10 @@ import os
 import uuid
 from datetime import datetime, timedelta
 import time
+import shutil
 from threading import Thread
 from sb import SponsorBlock
-
+import re
 from source_downloader import Downloader, yt_dlp
 import requests
 from hashlib import sha1
@@ -15,7 +16,6 @@ from hashlib import sha1
 app = Flask(__name__)
 DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
-video_cache: dict[str, dict[str, str]] = {}
 app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
 
 
@@ -25,7 +25,7 @@ app_version = Downloader.get_app_version()
 
 
 
-def gen_filename(url: str):
+def gen_pathname(url: str):
     return sha1(url.encode()).hexdigest()
 
 
@@ -38,24 +38,33 @@ def ytdlp_download():
 
 
 def delete_old_files():
+    max_file_age = 3600 # 1 hour
     while True:
+        threshold = time.time() - max_file_age
+
         try:
-            now = datetime.now()
-            cutoff = now - timedelta(minutes=60)
-            for filename in os.listdir(DOWNLOAD_PATH):
-                file_path = os.path.join(DOWNLOAD_PATH, filename)
-                if os.path.isfile(file_path):
-                    file_time = datetime.fromtimestamp(os.path.getmtime(file_path))
-                    if file_time < cutoff:
-                        os.remove(file_path)
-                        print(f"Deleted old file: {file_path}")
-            
-            for i in list(video_cache.keys()).copy():
-                if datetime.fromisoformat(video_cache[i]['timestamp']) < cutoff:
-                    del video_cache[i]
-        
-        except: pass
-        time.sleep(1800)
+            for item_name in os.listdir(DOWNLOAD_PATH):
+                item_path = os.path.join(DOWNLOAD_PATH, item_name)
+
+                if os.path.isdir(item_path):
+                    try:
+                        files = [f for f in os.listdir(item_path) if os.path.isfile(os.path.join(item_path, f))]
+
+                        for filename in files:
+                            if os.path.getmtime(os.path.join(item_path, filename)) >= threshold:
+                                break
+
+                        else:
+                            print(f"Deleting old directory: {item_path}")
+                            shutil.rmtree(item_path)
+
+                    except OSError as e:
+                        print(f"Error processing directory {item_path}: {e}")
+
+        except Exception as e:
+            print(f"Error in delete_old_files: {e}")
+
+        time.sleep(max_file_age / 2)
 
 
 
@@ -68,35 +77,60 @@ def get_url(req):
 
 
 
-def download_file(url:str, vid_format: str|int = 720):
-    unique_filename = str(uuid.uuid4())
-    output_path = os.path.join('./download', unique_filename + '.%(ext)s')
-    
-    video_format = "bestvideo[height<={res}][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4]/best"
-    
-    if type(vid_format) == int: video_format.format(res=vid_format)
-    else: video_format = vid_format
-    
+def check_media(url: str, media_type: str):
+    unique_path = gen_pathname(url)
+    data_dir = os.path.join('./download', unique_path)
     try:
-        ydl_opts = {"outtmpl": output_path, "ffmpeg_location": ".", "format": video_format}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            print(f'YTDLP: downloading "{unquote(url)}"')
-            ydl.download(unquote(url))
-    
-    except yt_dlp.utils.DownloadError:
-        ydl_opts = {"outtmpl": f"{output_path}", "ffmpeg_location": ".", "format": "best"}
-        print('Unavailable format: using default format')
-        
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            print(f'YTDLP: downloading "{unquote(url)}"')
-            ydl.download(unquote(url))
-    
-    for i in os.listdir(DOWNLOAD_PATH):
-        if i.startswith(unique_filename):
-            video_cache[url] = {'file': f'download/{i}','timestamp': datetime.now().isoformat()}
-            return f'download/{i}'
-    
+        for i in os.listdir(data_dir):
+            if i.startswith(media_type):
+                path = os.path.join(data_dir, i)
+                print(f'Serving {path}')
+                os.utime(path)
+                return path
+    except:
+        return None
     return None
+
+
+
+def download_file(url: str, media_type='video'):
+    """
+    media_type = video | thumb | audio | video-720p
+    """
+    print(f'Downloading {media_type} for {url}')
+    if i := check_media(url=url, media_type=media_type):
+        print(f'Cache hit for {media_type}!')
+        return i
+    
+    data_dir = os.path.join('./download', gen_pathname(url))
+    os.makedirs(data_dir, exist_ok=True)
+    output_path = os.path.join(data_dir, f'{media_type}.%(ext)s')
+    
+    
+    def dwnl(url, ydl_opts):
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            print(f'YTDLP: downloading "{unquote(url)}"')
+            ydl.download(unquote(url))
+    
+    
+    if media_type == 'thumb':
+        dwnl(url, {"writethumbnail": True, "skip_download": True, "outtmpl": f"{output_path}", "ffmpeg_location": "."})
+    
+    
+    if media_type.startswith('video'):
+        res = int(re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or 720)
+        video_format = f"bestvideo[height<={res}][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+        
+        print(f'{video_format=}')
+        
+        try:
+            dwnl(url, {"outtmpl": output_path, "ffmpeg_location": ".", "format": video_format})
+        
+        except yt_dlp.utils.DownloadError:
+            dwnl(url, {"outtmpl": f"{output_path}", "ffmpeg_location": ".", "format": "best"})
+            print('Unavailable format: using default format')
+    
+    return check_media(url=url, media_type=media_type)
 
 
 
@@ -120,14 +154,9 @@ def watch():
 @app.route('/search')
 def search():
     url = get_url(request)
+    if not url: return 'url param empty', 404
     
-    if not url: return '', 404
-    
-    if url in video_cache.keys():
-        print('Cache hit!')
-        return video_cache[url]['file']
-    
-    filename = download_file(url)
+    filename = download_file(url, 'video-720p')
     
     if filename: return filename
     return 'Cannot gather video', 404
@@ -137,23 +166,12 @@ def search():
 @app.route('/thumb')
 def serve_thumbnail():
     url = get_url(request)
-    filename = gen_filename(url)
-    for path in os.listdir(DOWNLOAD_PATH):
-        if filename in path and path.split('.')[1] in ['png', 'jpg', 'webp']:
-            print('Thumbnail cache hit!')
-            return send_from_directory(DOWNLOAD_PATH, path)
+    if not url: return 'url param empty', 404
     
-    ydl_opts = {"writethumbnail": True, "skip_download": True, "outtmpl": f"{os.path.join('./download', filename)}", "ffmpeg_location": "."}
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        print(f'YTDLP: downloading thumb for "{unquote(url)}"')
-        ydl.download(unquote(url))
+    filename = download_file(url, 'thumb')
     
-    for path in os.listdir(DOWNLOAD_PATH):
-        if filename in path and path.split('.')[1] in ['png', 'jpg', 'webp']:
-            print('Thumbnail cache hit!')
-            return send_from_directory(DOWNLOAD_PATH, path)
-    
-    return '', 404
+    if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
+    return 'Cannot gather thumbnail', 404
 
 
 
@@ -186,13 +204,26 @@ def raw():
 
 
 
+@app.route('/download')
+def download_media():
+    
+    url = get_url(request)
+    if not url: return 'url param empty', 404
+    
+    res = request.args.get('quality') or '720'
+    filename = download_file(url, f'video-{res.removesuffix("p")}p')
+    
+    if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
+    return 'Cannot gather video', 404
+
+
+
 @app.route('/download/<path:filename>')
 def download_ytdlp(filename):
     print(filename)
-    print(os.path.join('download', filename))
-    print(os.path.exists(os.path.join('download', filename)))
-    os.utime(os.path.join('download', filename))
-    return send_from_directory('download', filename)
+    serve_path = (os.path.join('download', filename))
+    os.utime(os.path.join(serve_path))
+    return send_from_directory(os.path.dirname(serve_path), os.path.basename(serve_path))
 
 
 

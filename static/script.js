@@ -61,13 +61,14 @@ class DownloadButton extends videojs.getComponent('Button') {
     }
 
     handleClick() {
-        const videoSrc = this.player_.currentSrc();
-        if (videoSrc) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const downloadUrl = `/download?${urlParams.toString()}`;
+        if (downloadUrl) {
             const link = document.createElement('a');
-            link.href = videoSrc;
+            link.href = downloadUrl;
             // Try to extract a filename from the URL, default to 'video.mp4'
             try {
-                const url = new URL(videoSrc);
+                const url = new URL(downloadUrl);
                 const pathnameParts = url.pathname.split('/');
                 link.download = pathnameParts[pathnameParts.length - 1] || 'video.mp4';
             } catch (e) {
