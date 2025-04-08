@@ -201,6 +201,7 @@
   order: 3;
   display: block;
   padding-right: 0;
+  margin-right: -5pt;
 }
 
 .vjs-theme-custom .vjs-time-divider {
@@ -212,6 +213,7 @@
   order: 3;
   display: block;
   padding-left: 0;
+  margin-left: -5pt;
 }
 
 .video-js.vjs-layout-small .vjs-current-time, .video-js.vjs-layout-small .vjs-time-divider, .video-js.vjs-layout-small .vjs-duration {
