@@ -95,9 +95,10 @@ def check_media(url: str, media_type: str):
 
 def download_file(url: str, media_type='video'):
     """
-    media_type = video | thumb | audio | video-720p
+    media_type = video | thumb | audio | video-720p | video-720p_4.20-21.37
     """
     print(f'Downloading {media_type} for {url}')
+    
     if i := check_media(url=url, media_type=media_type):
         print(f'Cache hit for {media_type}!')
         return i
@@ -106,32 +107,47 @@ def download_file(url: str, media_type='video'):
     os.makedirs(data_dir, exist_ok=True)
     output_path = os.path.join(data_dir, f'{media_type}.%(ext)s')
     
+    ydl_opts = {"outtmpl": output_path, "ffmpeg_location": "."}
+    
+    timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
+    res = int(re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or 720)
+    
+    if timestamps:
+        try:
+            start_time = float(timestamps.group(1))
+            end_time = float(timestamps.group(2))
+            ydl_opts.update({'download_ranges': yt_dlp.utils.download_range_func(None, [(start_time, end_time)]), 'force_keyframes_at_cuts': True})
+            print(f"Downloading section {start_time}-{end_time}")
+        except ValueError:
+            print("Error parsing start/end times from media_type")
+    
     
     def dwnl(url, ydl_opts):
+        print(f'YTDLP: downloading "{unquote(url)}" with options "{ydl_opts}"')
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            print(f'YTDLP: downloading "{unquote(url)}"')
             ydl.download(unquote(url))
     
     
     if media_type == 'thumb':
-        dwnl(url, {"writethumbnail": True, "skip_download": True, "outtmpl": f"{output_path}", "ffmpeg_location": "."})
+        ydl_opts.update({"writethumbnail": True, "skip_download": True})
+        dwnl(url, ydl_opts)
     
     
-    elif media_type == 'audio':
-        dwnl(url, {"outtmpl": output_path, "ffmpeg_location": ".", "format": "bestaudio/best", "extract_audio": True})
+    elif media_type.startswith('audio'):
+        ydl_opts.update({"format": "bestaudio/best", "extract_audio": True})
+        dwnl(url, ydl_opts)
     
     
     elif media_type.startswith('video'):
-        res = int(re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or 720)
-        video_format = f"bestvideo[height<={res}][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4]/best"
-        
-        print(f'{video_format=}')
+        print(f"Downloading quality {res}p")
         
         try:
-            dwnl(url, {"outtmpl": output_path, "ffmpeg_location": ".", "format": video_format})
+            ydl_opts.update({"format": f"bestvideo[height<={res}][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4]/best"})
+            dwnl(url, ydl_opts)
         
         except yt_dlp.utils.DownloadError:
-            dwnl(url, {"outtmpl": f"{output_path}", "ffmpeg_location": ".", "format": "best"})
+            ydl_opts.update({"format": "best"})
+            dwnl(url, ydl_opts)
             print('Unavailable format: using default format')
     
     return check_media(url=url, media_type=media_type)
@@ -214,8 +230,16 @@ def download_media():
     url = get_url(request)
     if not url: return 'url param empty', 404
     
-    res = request.args.get('quality') or '720'
-    filename = download_file(url, f'video-{res.removesuffix("p")}p')
+    res = (request.args.get('quality') or '720').removesuffix("p") + 'p'
+    start_time = request.args.get('start', 0, type=float)
+    end_time = request.args.get('end', 0, type=float)
+    
+    media_type = f'video-{res}'
+    
+    if start_time > 0 or end_time > 0:
+        media_type += f'_{start_time:.1f}-{end_time:.1f}'
+
+    filename = download_file(url, media_type)
     
     if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
     return 'Cannot gather video', 404
@@ -225,9 +249,10 @@ def download_media():
 @app.route('/download/<path:filename>')
 def download_ytdlp(filename):
     print(filename)
-    serve_path = (os.path.join('download', filename))
-    os.utime(os.path.join(serve_path))
-    return send_from_directory(os.path.dirname(serve_path), os.path.basename(serve_path))
+    path = (os.path.join('download', filename))
+    print(f'Serving {path}')
+    os.utime(path)
+    return send_from_directory(os.path.dirname(path), os.path.basename(path))
 
 
 
