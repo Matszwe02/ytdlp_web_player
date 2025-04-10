@@ -269,11 +269,13 @@ function loadVideo() {
     fetch(`/sb?${urlParams.toString()}`)
         .then(response => {return response.json();})
         .then(data => {
-            segments = data;
-            player.on('loadeddata', () => {
-                addSponsorblock(data);
-            });
-            player.on('timeupdate', checkSponsorTime);
+            if (Array.isArray(data)) {
+                segments = data;
+                player.on('loadeddata', () => {
+                    addSponsorblock(data);
+                });
+                player.on('timeupdate', checkSponsorTime);
+            }
         });
 }
 
