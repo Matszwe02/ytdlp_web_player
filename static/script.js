@@ -57,29 +57,52 @@ class DownloadButton extends videojs.getComponent('Button') {
         super(player, options);
         this.addClass('vjs-download-button');
         this.controlText('Download Video');
+        this.menu = this.createDownloadMenu();
         this.el().innerHTML = '<span class="fa-solid fa-download"></span>';
+        this.el().appendChild(this.menu);
     }
 
-    handleClick() {
+    handleClick()
+    {
+        this.menu.style.height = (this.menu.style.height == '3.5em')?'0em':'3.5em';
+    }
+
+    createDownloadMenu()
+    {
         const urlParams = new URLSearchParams(window.location.search);
-        const downloadUrl = `/download?${urlParams.toString()}`;
-        if (downloadUrl) {
-            const link = document.createElement('a');
-            link.href = downloadUrl;
-            // Try to extract a filename from the URL, default to 'video.mp4'
-            try {
-                const url = new URL(downloadUrl);
-                const pathnameParts = url.pathname.split('/');
-                link.download = pathnameParts[pathnameParts.length - 1] || 'video.mp4';
-            } catch (e) {
-                link.download = 'video.mp4';
-            }
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } else {
-            console.error('No video source found for download.');
-        }
+        const baseDownloadUrl = `/download?${urlParams.toString()}`;
+        
+        const menu = document.createElement('div');
+        menu.classList.add('vjs-download-menu');
+        
+        const options = [
+            { html: '<i class="fa-solid fa-circle-up"></i>', quality: 'best', title: 'Highest Quality' },
+            { html: '<i class="fa-solid fa-film"></i>', quality: '720p', title: 'Current Quality' },
+            { html: '<i class="fa-solid fa-music"></i>', quality: 'audio', title: 'Audio Only' }
+        ];
+        
+        options.forEach(option => {
+            const button = document.createElement('button');
+            button.innerHTML = option.html;
+            button.title = option.title;
+            button.classList.add('vjs-download-option');
+            
+            button.onclick = () => {
+                const link = document.createElement('a');
+                link.href = `${baseDownloadUrl}&quality=${option.quality}`;
+                link.download = 'file';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                menu.style.height = '4.5em';
+                setTimeout(() => { menu.style.height = '0em'; }, 200);
+                event.stopPropagation();
+            };
+            menu.appendChild(button);
+        });
+        
+        return menu;
     }
 }
 videojs.registerComponent('DownloadButton', DownloadButton);
