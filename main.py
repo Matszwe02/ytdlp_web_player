@@ -95,7 +95,7 @@ def check_media(url: str, media_type: str):
 
 def download_file(url: str, media_type='video'):
     """
-    media_type = video | thumb | audio | video-720p | video-720p_4.20-21.37
+    media_type = video | thumb | audio | video-720p | video-720p_4.20-21.37 | video-best
     """
     print(f'Downloading {media_type} for {url}')
     
@@ -134,21 +134,24 @@ def download_file(url: str, media_type='video'):
     
     
     elif media_type.startswith('audio'):
-        ydl_opts.update({"format": "bestaudio/best", "extract_audio": True})
+        ydl_opts.update({"format": "bestaudio/best", "extract_audio": True, "outtmpl": os.path.join(data_dir, f'{media_type}.mp3')})
         dwnl(url, ydl_opts)
     
     
     elif media_type.startswith('video'):
-        print(f"Downloading quality {res}p")
+        download_best = media_type.startswith('video-best')
+        if not download_best:
+            print(f"Downloading quality {res}p")
+            try:
+                ydl_opts.update({"format": f"bestvideo[height<={res}][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4]/best"})
+                dwnl(url, ydl_opts)
+            except yt_dlp.utils.DownloadError:
+                download_best = True
         
-        try:
-            ydl_opts.update({"format": f"bestvideo[height<={res}][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4]/best"})
-            dwnl(url, ydl_opts)
-        
-        except yt_dlp.utils.DownloadError:
+        if download_best:
+            print("Downloading best quality")
             ydl_opts.update({"format": "best"})
             dwnl(url, ydl_opts)
-            print('Unavailable format: using default format')
     
     return check_media(url=url, media_type=media_type)
 
@@ -230,11 +233,11 @@ def download_media():
     url = get_url(request)
     if not url: return 'url param empty', 404
     
-    res = (request.args.get('quality') or '720').removesuffix("p") + 'p'
+    res = (request.args.get('quality') or '720').removesuffix("p")
     start_time = request.args.get('start', 0, type=float)
     end_time = request.args.get('end', 0, type=float)
     
-    media_type = f'video-{res}'
+    media_type = 'audio' if res == 'audio' else f'video-{res}'
     
     if start_time > 0 or end_time > 0:
         media_type += f'_{start_time:.1f}-{end_time:.1f}'
