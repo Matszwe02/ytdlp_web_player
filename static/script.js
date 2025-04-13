@@ -52,8 +52,10 @@ class ZoomToFillToggle extends videojs.getComponent('Button')
 videojs.registerComponent('ZoomToFillToggle', ZoomToFillToggle);
 
 
-class DownloadButton extends videojs.getComponent('Button') {
-    constructor(player, options) {
+class DownloadButton extends videojs.getComponent('Button')
+{
+    constructor(player, options)
+    {
         super(player, options);
         this.addClass('vjs-download-button');
         this.controlText('Download Video');
@@ -186,11 +188,10 @@ function addSponsorblock(data)
 }
     
 
-function loadVideo() {
+function loadVideo()
+{
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.toString().length < 10) return;
-    
-    // Initialize Video.js
     
     player = videojs('videoPlayer', {
         controls: false,
@@ -198,8 +199,10 @@ function loadVideo() {
         responsive: true,
         fluid: true,
         poster: `/thumb?${urlParams.toString()}`,
-        controlBar: {
-            children: [
+        controlBar:
+        {
+            children:
+            [
                 'playToggle',
                 'volumePanel',
                 'CurrentTimeDisplay',
@@ -212,14 +215,19 @@ function loadVideo() {
                 'fullscreenToggle'
             ]
         },
-        plugins: {
-            hotkeys: {
-                customKeys: {
-                    sbKey: {
+        plugins:
+        {
+            hotkeys:
+            {
+                customKeys:
+                {
+                    sbKey:
+                    {
                         key: function (event) {return event.code == "Enter";},
                         handler: function (player, options, event) {skipclick();},
                     },
-                    zoomKey: {
+                    zoomKey:
+                    {
                         key: function (event) {return event.code == "KeyG";},
                         handler: function (player, options, event) {document.querySelector('.vjs-zoom-control').click();},
                     },
@@ -259,7 +267,8 @@ function loadVideo() {
     
     fetch(`/search?${urlParams.toString()}`)
         .then(response => {
-            if (!response.ok) {
+            if (!response.ok)
+            {
                 throw new Error(response.status);
             }
             return response.text();
@@ -288,7 +297,6 @@ function loadVideo() {
             errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
         });
     
-    // Fetch SponsorBlock
     fetch(`/sb?${urlParams.toString()}`)
         .then(response => {return response.json();})
         .then(data => {
