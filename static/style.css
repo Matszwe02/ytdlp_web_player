@@ -303,3 +303,58 @@ input
 .vjs-download-option:hover {
     background-color: #666;
 }
+
+.time_disp {
+    font-size: 10pt;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+/* Time selection menu styles */
+.time-selection-menu {
+    position: absolute;
+    bottom: 100%; /* Appear above the download menu */
+    right: 50%;
+    transform: translateX(50%);
+    background-color: #333;
+    border-radius: 7px;
+    color: #eee;
+    text-align: center;
+    display: flex;
+    flex-direction: column; /* Stack items vertically */
+    padding: 10px;
+    gap: 5px; /* Spacing between items */
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s cubic-bezier(0.86, 0, 0.07, 1);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.time-selection-menu.hidden {
+    display: none !important; /* Hide when not toggled */
+}
+
+.time-selection-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+.time-button {
+    background-color: #444;
+    color: #eee;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.time-button:hover {
+    background-color: #555;
+}
+
+.time-button i {
+    margin-right: 5px; /* Add space between icon and text */
+}

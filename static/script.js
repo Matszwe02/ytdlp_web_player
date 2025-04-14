@@ -5,6 +5,16 @@ let playerContainer;
 let skipSegment;
 let skipTime = 0;
 
+function formatTime(timeInSeconds)
+{
+    if (timeInSeconds === null || isNaN(timeInSeconds)) return '-';
+    const hours = Math.floor(timeInSeconds / 3600);
+    const minutes = Math.floor((timeInSeconds % 3600) / 60);
+    const seconds = Math.floor(timeInSeconds % 60);
+    const milliseconds = Math.floor((timeInSeconds % 1) * 10);
+    return String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(milliseconds);
+}
+
 const sbColorMap = {
     'selfpromo': '#ffff00',
     'outro': '#0000ff',
@@ -59,14 +69,35 @@ class DownloadButton extends videojs.getComponent('Button')
         super(player, options);
         this.addClass('vjs-download-button');
         this.controlText('Download Video');
+        this.startTime = null;
+        this.endTime = null;
+        this.startBtn = null;
+        this.endBtn = null;
         this.menu = this.createDownloadMenu();
+        this.trimMenu = this.createTrimMenu();
         this.el().innerHTML = '<span class="fa-solid fa-download"></span>';
         this.el().appendChild(this.menu);
+        this.el().appendChild(this.trimMenu);
     }
 
     handleClick()
     {
         this.menu.style.height = (this.menu.style.height == '3.5em')?'0em':'3.5em';
+        this.trimMenu.style.height = '0em';
+    }
+
+    handleCloseMenu()
+    {
+        this.menu.style.height = '0em';
+        this.trimMenu.style.height = '0em';
+    }
+    
+    updateTimeLabels()
+    {
+        if (this.startBtn != null)
+            this.startBtn.innerHTML = "Start<br><div class=time_disp>" + formatTime(this.startTime) + "</div>";
+        if (this.endBtn != null)
+            this.endBtn.innerHTML = "End<br><div class=time_disp>" + formatTime(this.endTime) + "</div>";
     }
 
     createDownloadMenu()
@@ -80,7 +111,8 @@ class DownloadButton extends videojs.getComponent('Button')
         const options = [
             { html: '<i class="fa-solid fa-circle-up"></i>', quality: 'best', title: 'Highest Quality' },
             { html: '<i class="fa-solid fa-film"></i>', quality: '720p', title: 'Current Quality' },
-            { html: '<i class="fa-solid fa-music"></i>', quality: 'audio', title: 'Audio Only' }
+            { html: '<i class="fa-solid fa-music"></i>', quality: 'audio', title: 'Audio Only' },
+            { html: '<i class="fa-solid fa-scissors"></i>', quality: 'trim', title: 'Trim Video' }
         ];
         
         options.forEach(option => {
@@ -89,20 +121,68 @@ class DownloadButton extends videojs.getComponent('Button')
             button.title = option.title;
             button.classList.add('vjs-download-option');
             
-            button.onclick = () => {
-                const link = document.createElement('a');
-                link.href = `${baseDownloadUrl}&quality=${option.quality}`;
-                link.download = 'file';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                menu.style.height = '4.5em';
-                setTimeout(() => { menu.style.height = '0em'; }, 200);
-                event.stopPropagation();
-            };
+            if (option.quality == 'trim')
+                button.onclick = () => {
+                    this.trimMenu.style.height = (this.trimMenu.style.height == '3.5em')?'0em':'3.5em';
+                    this.startTime = null;
+                    this.endTime = null;
+                    this.updateTimeLabels();
+                    event.stopPropagation();
+                };
+            else
+                button.onclick = () => {
+                    const link = document.createElement('a');
+                    link.href = `${baseDownloadUrl}&quality=${option.quality}`;
+                    
+                    if (this.startTime != null && this.endTime != null)
+                        link.href += `&start=${this.startTime.toFixed(1)}&end=${this.endTime.toFixed(1)}`;
+                    
+                    link.download = 'file';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    menu.style.height = '4.5em';
+                    setTimeout(() => { this.handleCloseMenu(); }, 200);
+                    event.stopPropagation();
+                };
             menu.appendChild(button);
         });
+        
+        return menu;
+    }
+
+    createTrimMenu()
+    {
+        
+        const menu = document.createElement('div');
+        menu.classList.add('vjs-download-menu');
+        menu.style.bottom='200%';
+        
+        
+        this.startBtn = document.createElement('button');
+        this.startBtn.classList.add('vjs-download-option');
+        this.startBtn.title = 'Click To Adjust Start Time';
+        
+        this.endBtn = document.createElement('button');
+        this.endBtn.classList.add('vjs-download-option');
+        this.endBtn.title = 'Click To Adjust End Time';
+        
+        this.updateTimeLabels();
+        
+        this.startBtn.onclick = () => {
+            this.startTime = player.currentTime();
+            this.updateTimeLabels();
+            event.stopPropagation();
+        };
+        this.endBtn.onclick = () => {
+            this.endTime = player.currentTime();
+            this.updateTimeLabels();
+            event.stopPropagation();
+        };
+        
+        menu.appendChild(this.startBtn);
+        menu.appendChild(this.endBtn);
         
         return menu;
     }
