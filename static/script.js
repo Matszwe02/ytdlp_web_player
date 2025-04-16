@@ -79,6 +79,12 @@ class DownloadButton extends videojs.getComponent('Button')
         this.el().appendChild(this.menu);
         this.el().appendChild(this.trimMenu);
     }
+    
+    clickEventHandler(event)
+    {
+        if (event.type === 'touchend') event.preventDefault();
+        event.stopPropagation();
+    }
 
     handleClick()
     {
@@ -124,16 +130,18 @@ class DownloadButton extends videojs.getComponent('Button')
             button.title = option.title;
             button.classList.add('vjs-download-option');
             
-            if (option.quality == 'trim')
-                button.onclick = () => {
+            const handleEvent = (event) => {
+                this.clickEventHandler(event);
+                
+                if (option.quality == 'trim')
+                {
                     this.trimMenu.style.height = (this.trimMenu.style.height == '3.5em')?'0em':'3.5em';
                     this.startTime = null;
                     this.endTime = null;
                     this.updateTimeLabels();
-                    event.stopPropagation();
-                };
-            else
-                button.onclick = () => {
+                }
+                else
+                {
                     const link = document.createElement('a');
                     link.href = `${baseDownloadUrl}&quality=${option.quality}`;
                     
@@ -147,8 +155,12 @@ class DownloadButton extends videojs.getComponent('Button')
                     
                     menu.style.height = '4.5em';
                     setTimeout(() => { this.handleCloseMenu(); }, 200);
-                    event.stopPropagation();
-                };
+                }
+            };
+            
+            button.addEventListener('touchend', handleEvent);
+            button.addEventListener('click', handleEvent);
+            
             menu.appendChild(button);
         });
         
@@ -173,16 +185,22 @@ class DownloadButton extends videojs.getComponent('Button')
         
         this.updateTimeLabels();
         
-        this.startBtn.onclick = () => {
+        const startEvent = (event) => {
+            this.clickEventHandler(event);
             this.startTime = player.currentTime();
             this.updateTimeLabels();
-            event.stopPropagation();
         };
-        this.endBtn.onclick = () => {
+        
+        const endEvent = (event) => {
+            this.clickEventHandler(event);
             this.endTime = player.currentTime();
             this.updateTimeLabels();
-            event.stopPropagation();
         };
+        
+        this.startBtn.addEventListener('touchend', (e) => startEvent(e));
+        this.startBtn.addEventListener('click', (e) => startEvent(e));
+        this.endBtn.addEventListener('touchend', (e) => endEvent(e));
+        this.endBtn.addEventListener('click', (e) => endEvent(e));
         
         menu.appendChild(this.startBtn);
         menu.appendChild(this.endBtn);
