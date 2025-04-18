@@ -260,6 +260,7 @@ function checkSponsorTime()
     {
         skipSegment.style.opacity = 1;
         skipSegment.style.transform = 'translate(0, 0)';
+        skipSegment.title = "skip " + segmentShown.category + ' [Enter]';
         skipSegment.innerHTML = "skip " + segmentShown.category + ' <i class="fa-solid fa-angles-right"></i>';
         skipTime = segmentShown.end;
     }
@@ -289,12 +290,24 @@ function addSponsorblock(data)
         indicator.title = `${entry.category}`;
     });
 }
-    
+
 
 function loadVideo()
 {
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.toString().length < 10) return;
+    
+    videojs.options.languages.en = videojs.mergeOptions(videojs.options.languages.en, {
+        "Play": "Play [Space]",
+        "Pause": "Pause [Space]",
+        "Fullscreen": "Fullscreen [f]",
+        "Exit Fullscreen": "Exit Fullscreen [f]",
+        "Mute": "Mute [m]",
+        "Unmute": "Unmute [m]",
+        "Zoom to Fill" : "Zoom to Fill [g]",
+        "Restore Zoom" : "Restore Zoom [g]",
+        "Picture-in-Picture" : "Picture-in-Picture [p]",
+    });
     
     player = videojs('videoPlayer', {
         controls: false,
@@ -333,6 +346,11 @@ function loadVideo()
                     {
                         key: function (event) {return event.code == "KeyG";},
                         handler: function (player, options, event) {document.querySelector('.vjs-zoom-control').click();},
+                    },
+                    pipKey:
+                    {
+                        key: function (event) {return event.code == "KeyP";},
+                        handler: function (player, options, event) {document.querySelector('.vjs-picture-in-picture-control').click();},
                     },
                 },
                 captureDocumentHotkeys: true,
