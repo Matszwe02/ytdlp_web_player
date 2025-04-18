@@ -171,6 +171,11 @@ input
     overflow: hidden;
 }
 
+.video-js.download-menu-open .vjs-control-bar
+{
+    opacity: 1 !important;
+}
+
 .seg
 {
     cursor: help;

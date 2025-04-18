@@ -88,19 +88,21 @@ class DownloadButton extends videojs.getComponent('Button')
 
     handleClick()
     {
-        if (!this.menu.contains(event.target))
-        {
-            this.menu.style.height = (this.menu.style.height == '3.5em')?'0em':'3.5em';
-            this.trimMenu.style.height = '0em';
-        }
+        if (this.menu.contains(event.target)) return;
+        if (this.menu.style.height == '3.5em') return this.handleCloseMenu();
+        
+        this.menu.style.height = '3.5em';
+        this.trimMenu.style.height = '0em';
+        player.addClass('download-menu-open');
     }
 
     handleCloseMenu()
     {
         this.menu.style.height = '0em';
         this.trimMenu.style.height = '0em';
+        player.removeClass('download-menu-open');
     }
-    
+
     updateTimeLabels()
     {
         if (this.startBtn != null)
