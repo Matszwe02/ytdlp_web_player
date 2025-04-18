@@ -28,6 +28,14 @@
 }
 
 .vjs-theme-custom .vjs-error-display {
+  pointer-events: none;
+}
+
+.vjs-controls-disabled .vjs-control-bar, .vjs-error .vjs-control-bar {
+  display: flex !important;
+}
+
+.vjs-theme-custom .vjs-error-display {
     background: transparent;
     font-size: 10pt;
     overflow: visible;
