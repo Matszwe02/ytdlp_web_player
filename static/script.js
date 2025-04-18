@@ -391,6 +391,7 @@ function loadVideo()
                 player.controls(true);
                 errorDisplay.classList.remove('spinner-parent');
                 errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
+                playerContainer.querySelector('.vjs-control-bar').classList.add('display-flex');
             });
             player.load();
         })
