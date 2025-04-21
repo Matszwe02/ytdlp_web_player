@@ -30,6 +30,32 @@ def gen_pathname(url: str):
 
 
 
+def get_video_formats(url):
+    resolutions = []
+    ydl_opts = {'quiet': True, 'skip_download': True}
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info_dict = ydl.extract_info(url, download=False)
+        formats = info_dict.get('formats', [])
+        
+        for f in formats:
+            if f.get('vcodec') != 'none' and f.get('height') and f.get('height') not in resolutions:
+                resolutions.append(f['height'])
+    
+    return resolutions
+
+
+
+@app.route('/formats')
+def formats():
+    url = get_url(request)
+    if not url:
+        return jsonify({"error": "URL parameter ('v' or 'url') is required"}), 400
+    
+    video_formats = get_video_formats(url)
+    return jsonify(video_formats)
+
+
+
 def ytdlp_download():
     while True:
         Downloader.downloader()
@@ -110,7 +136,7 @@ def download_file(url: str, media_type='video'):
     ydl_opts = {"outtmpl": output_path, "ffmpeg_location": "."}
     
     timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
-    res = int(re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or 720)
+    res = int((re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or '720p').removesuffix('p'))
     
     if timestamps:
         try:
@@ -237,7 +263,7 @@ def download_media():
     start_time = request.args.get('start', 0, type=float)
     end_time = request.args.get('end', 0, type=float)
     
-    media_type = 'audio' if res == 'audio' else f'video-{res}'
+    media_type = 'audio' if res == 'audio' else f'video-{res}p'
     
     if start_time > 0 or end_time > 0:
         media_type += f'_{start_time:.1f}-{end_time:.1f}'
