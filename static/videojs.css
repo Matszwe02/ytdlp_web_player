@@ -180,12 +180,17 @@
   cursor: pointer;
 }
 
+.vjs-resolution-button {
+    order: 6;
+    cursor: pointer;
+}
+
 .vjs-theme-custom .vjs-picture-in-picture-control {
-  order: 6;
+  order: 7;
 }
 
 .vjs-zoom-control {
-  order: 7;
+  order: 8;
   cursor: pointer;
 }
 
@@ -198,7 +203,7 @@
 }
 
 .vjs-theme-custom .vjs-fullscreen-control {
-  order: 8;
+  order: 9;
 }
 
 .vjs-theme-custom .vjs-remaining-time {

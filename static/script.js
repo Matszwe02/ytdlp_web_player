@@ -4,6 +4,7 @@ let player;
 let playerContainer;
 let skipSegment;
 let skipTime = 0;
+let currentVideoQuality = '720p';
 
 function formatTime(timeInSeconds)
 {
@@ -86,8 +87,9 @@ class DownloadButton extends videojs.getComponent('Button')
         event.stopPropagation();
     }
 
-    handleClick()
+    handleClick(event)
     {
+        event.stopPropagation();
         if (this.menu.contains(event.target)) return;
         if (this.menu.style.height == '3.5em') return this.handleCloseMenu();
         
@@ -121,7 +123,7 @@ class DownloadButton extends videojs.getComponent('Button')
         
         const options = [
             { html: '<i class="fa-solid fa-circle-up"></i>', quality: 'best', title: 'Highest Quality' },
-            { html: '<i class="fa-solid fa-film"></i>', quality: '720p', title: 'Current Quality' },
+            { html: '<i class="fa-solid fa-film"></i>', quality: 'current', title: 'Current Quality' },
             { html: '<i class="fa-solid fa-music"></i>', quality: 'audio', title: 'Audio Only' },
             { html: '<i class="fa-solid fa-scissors"></i>', quality: 'trim', title: 'Trim Video' }
         ];
@@ -144,6 +146,8 @@ class DownloadButton extends videojs.getComponent('Button')
                 }
                 else
                 {
+                    if (option.quality == 'current') option.quality = currentVideoQuality;
+                                        
                     const link = document.createElement('a');
                     link.href = `${baseDownloadUrl}&quality=${option.quality}`;
                     
@@ -211,6 +215,100 @@ class DownloadButton extends videojs.getComponent('Button')
     }
 }
 videojs.registerComponent('DownloadButton', DownloadButton);
+
+
+class ResolutionSwitcherButton extends videojs.getComponent('Button') {
+    constructor(player, options)
+    {
+        super(player, options);
+        this.addClass('vjs-resolution-button');
+        this.controlText('Select Resolution');
+        this.el().innerHTML = '<i class="fa-solid fa-gear"></i>';
+        
+        this.menu = this.createResolutionMenu();
+        this.el().appendChild(this.menu);
+    }
+
+    handleClick(event)
+    {
+        event.stopPropagation();
+        if (this.menu.style.display === 'block')
+        {
+            this.handleCloseMenu();
+        }
+        else
+        {
+            this.handleOpenMenu();
+        }
+    }
+
+    handleOpenMenu()
+    {
+        this.menu.style.display = 'block';
+    }
+
+    handleCloseMenu()
+    {
+        this.menu.style.display = 'none';
+    }
+
+
+    updateResolutions(resolutions)
+    {
+        while (this.menu.firstChild)
+        {
+            this.menu.removeChild(this.menu.firstChild);
+        }
+        
+        if (!resolutions || resolutions.length === 0)
+        {
+             return;
+        }
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        resolutions.sort((a, b) => (b.height || b) - (a.height || a)); // Sort descending
+        resolutions.forEach(resItem => {
+            const height = resItem.height || resItem;
+            if (typeof height !== 'number' || isNaN(height)) return;
+            
+            const button = document.createElement('button');
+            button.textContent = `${height}p`;
+            button.classList.add('vjs-resolution-option');
+            
+            button.onclick = (event) => {
+                event.stopPropagation();
+                currentVideoQuality = `${height}p`;
+                
+                const buttons = this.menu.querySelectorAll('.vjs-resolution-option');
+                buttons.forEach(btn => btn.classList.remove('vjs-resolution-option-current'));
+                button.classList.add('vjs-resolution-option-current');
+                
+                const downloadUrl = `/download?${urlParams.toString()}&quality=${height}p`;
+                const switchTime = player.currentTime();
+                const isPlaying = !player.paused();
+                player.src({ src: downloadUrl, type: 'video/mp4' });
+                player.currentTime(switchTime);
+                if (isPlaying)
+                {
+                    player.play();
+                }
+                this.handleCloseMenu();
+            };
+            this.menu.appendChild(button);
+        });
+    }
+
+
+    createResolutionMenu()
+    {
+        const menu = document.createElement('div');
+        menu.classList.add('vjs-resolution-menu');
+        menu.style.display = 'none';
+        return menu;
+    }
+}
+videojs.registerComponent('ResolutionSwitcherButton', ResolutionSwitcherButton);
 
 
 function skipclick()
@@ -325,6 +423,7 @@ function loadVideo()
                 'TimeDivider',
                 'DurationDisplay',
                 'progressControl',
+                'ResolutionSwitcherButton',
                 'DownloadButton',
                 'PictureInPictureToggle',
                 'ZoomToFillToggle',
@@ -399,10 +498,23 @@ function loadVideo()
             
             // Set video source with the stream URL
             player.src({src: data, type: 'video/mp4'});
-            playerContainer.querySelector('img').classList.add('loaded-img')
+            
+            fetch(`/formats?${urlParams.toString()}`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Failed to fetch formats');
+                    return response.json();
+                })
+                .then(formats => {
+                    console.log('Available formats:', formats);
+                    if (player.controlBar && player.controlBar.ResolutionSwitcherButton)
+                    {
+                        player.controlBar.ResolutionSwitcherButton.updateResolutions(formats);
+                    }
+                });
             
             // When video is loaded
             player.on('loadeddata', () => {
+                playerContainer.querySelector('img').classList.add('loaded-img');
                 adjustVideoSize();
                 window.addEventListener('resize', adjustVideoSize);
                 setTimeout(() => {playerContainer.style.transitionDuration = '0s';}, 1000);
