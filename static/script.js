@@ -224,6 +224,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
         this.addClass('vjs-resolution-button');
         this.controlText('Select Resolution');
         this.el().innerHTML = '<i class="fa-solid fa-gear"></i>';
+        this.el().style.display = 'none';
         
         this.menu = this.createResolutionMenu();
         this.el().appendChild(this.menu);
@@ -254,16 +255,9 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
 
 
     updateResolutions(resolutions)
-    {
-        while (this.menu.firstChild)
-        {
-            this.menu.removeChild(this.menu.firstChild);
-        }
-        
-        if (!resolutions || resolutions.length === 0)
-        {
-             return;
-        }
+    {        
+        if (!resolutions || resolutions.length < 2) return;
+        this.el().style.display = '';
         
         const urlParams = new URLSearchParams(window.location.search);
         
