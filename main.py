@@ -56,6 +56,38 @@ def formats():
 
 
 
+def get_subtitles(url):
+    ydl_opts = {'quiet': True, 'skip_download': True}
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info_dict = ydl.extract_info(url, download=False)
+        subtitles = info_dict.get('subtitles', {})
+        automatic_captions = info_dict.get('automatic_captions', {})
+        
+        all_subtitles = []
+        
+        for lang, subs in subtitles.items():
+            if subs:
+                all_subtitles.append(lang)
+        
+        for lang, subs in automatic_captions.items():
+            if lang not in all_subtitles and subs:
+                all_subtitles.append(lang)
+        
+        return all_subtitles
+
+
+
+@app.route('/subtitles')
+def subtitles():
+    url = get_url(request)
+    if not url:
+        return jsonify({"error": "URL parameter ('v' or 'url') is required"}), 400
+    
+    subtitles = get_subtitles(url)
+    return jsonify(subtitles)
+
+
+
 def ytdlp_download():
     while True:
         Downloader.downloader()
@@ -179,6 +211,19 @@ def download_file(url: str, media_type='video'):
             ydl_opts.update({"format": "best"})
             dwnl(url, ydl_opts)
     
+    elif media_type.startswith('sub'):
+        lang = media_type.split('-')[1]
+        print(f'downloading sub for {lang=}')
+        ydl_opts.update({
+            'skip_download': True,
+            'writesubtitles': True,
+            'writeautomaticsub': True,
+            'subtitleslangs': [lang],
+            'subtitlesformat': 'srt',
+            'outtmpl': os.path.join(data_dir, f'{media_type}.%(ext)s'),
+        })
+        dwnl(url, ydl_opts)
+    
     return check_media(url=url, media_type=media_type)
 
 
@@ -289,6 +334,19 @@ thread = Thread(target=delete_old_files)
 downloader_thread = Thread(target=ytdlp_download)
 thread.start()
 downloader_thread.start()
+
+
+
+@app.route('/subtitle')
+def serve_subtitle():
+    url = get_url(request)
+    lang = request.args.get('lang')
+    
+    if not url or not lang:
+        return jsonify({"error": "URL parameter ('v' or 'url') and 'lang' parameter are required"}), 400
+    
+    path = download_file(url, f'sub-{lang}')
+    return send_from_directory(os.path.dirname(path), os.path.basename(path))
 
 
 
