@@ -205,6 +205,8 @@ def download_file(url: str, media_type='video'):
                 dwnl(url, ydl_opts)
             except yt_dlp.utils.DownloadError:
                 download_best = True
+                formats = get_video_formats(url)
+                print(f'WARNING: Counld not download selected format. Available formats:\n{formats}')
         
         if download_best:
             print("Downloading best quality")
