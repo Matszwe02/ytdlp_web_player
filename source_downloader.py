@@ -25,6 +25,7 @@ ffmpeg_version = '-'
 
 class Downloader:
 
+    @staticmethod
     def download_ytdlp():
         global yt_dlp
         pip.main(shlex.split('install --upgrade yt-dlp'))
@@ -37,6 +38,7 @@ class Downloader:
 
 
 
+    @staticmethod
     def download_ffmpeg():
         if os.path.exists('ffmpeg'): os.remove('ffmpeg')
         if os.path.exists('ffprobe'): os.remove('ffprobe')
@@ -86,6 +88,7 @@ class Downloader:
         print('FFmpeg downloaded successfully')
 
 
+    @staticmethod
     def update_ffmpeg():
         global ffmpeg_version
         
@@ -98,6 +101,7 @@ class Downloader:
             ffmpeg_version = '-'
 
 
+    @staticmethod
     def get_app_version():
         try:
             with open('version.txt', 'r') as f:
@@ -107,11 +111,13 @@ class Downloader:
         return '-'
 
 
+    @staticmethod
     def get_ffmpeg_version():
         if ffmpeg_version == '-': Downloader.update_ffmpeg()
         return ffmpeg_version
 
 
+    @staticmethod
     def get_ytdlp_version():
         try:
             return yt_dlp.version.__version__ or '-'
@@ -119,6 +125,7 @@ class Downloader:
             return '-'
 
 
+    @staticmethod
     def downloader():
         print('Downloading yt-dlp and FFmpeg...')
         Downloader.update_ffmpeg()
