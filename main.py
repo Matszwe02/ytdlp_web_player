@@ -232,28 +232,34 @@ def download_file(url: str, media_type='video'):
 
 @app.route('/')
 def index():
+    print('Started serving root')
     ydl_version = Downloader.get_ytdlp_version()
     ffmpeg_version = Downloader.get_ffmpeg_version()
+    print('Stopped serving root')
     return render_template('index.html', ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title)
 
 
 
 @app.route('/watch')
 def watch():
+    print('Started serving watch')
     ydl_version = Downloader.get_ytdlp_version()
     ffmpeg_version = Downloader.get_ffmpeg_version()
     original_url = get_url(request)
+    print('Stopped serving watch')
     return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title)
 
 
 
 @app.route('/search')
 def search():
+    print('Started serving search')
     url = get_url(request)
     if not url: return 'url param empty', 404
     
     filename = download_file(url, 'video-720p')
     
+    print('Stopped serving search')
     if filename: return filename
     return 'Cannot gather video', 404
 
@@ -261,11 +267,13 @@ def search():
 
 @app.route('/thumb')
 def serve_thumbnail():
+    print('Started serving thumb')
     url = get_url(request)
     if not url: return 'url param empty', 404
     
     filename = download_file(url, 'thumb')
     
+    print('Stopped serving thumb')
     if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
     return 'Cannot gather thumbnail', 404
 
@@ -275,6 +283,7 @@ def serve_thumbnail():
 def get_sponsor_segments():
     """Return sponsor segments for a given YouTube video"""
     
+    print('Started serving sb')
     # Get video ID from request parameters
     url = get_url(request)
     if not url:
@@ -285,6 +294,7 @@ def get_sponsor_segments():
         sb = SponsorBlock(url)
         segments = sb.get_segments()
         
+        print('Stopped serving sb')
         return jsonify(segments)
         
     except Exception as e:
@@ -303,6 +313,7 @@ def raw():
 @app.route('/download')
 def download_media():
     
+    print('Started serving download')
     url = get_url(request)
     if not url: return 'url param empty', 404
     
@@ -317,6 +328,7 @@ def download_media():
 
     filename = download_file(url, media_type)
     
+    print('Stopped serving download')
     if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
     return 'Cannot gather video', 404
 
@@ -324,10 +336,12 @@ def download_media():
 
 @app.route('/download/<path:filename>')
 def download_ytdlp(filename):
+    print('Started serving download/path')
     print(filename)
     path = (os.path.join('download', filename))
     print(f'Serving {path}')
     os.utime(path)
+    print('Stopped serving download/path')
     return send_from_directory(os.path.dirname(path), os.path.basename(path))
 
 
@@ -341,6 +355,7 @@ downloader_thread.start()
 
 @app.route('/subtitle')
 def serve_subtitle():
+    print('Started serving subtitle')
     url = get_url(request)
     lang = request.args.get('lang')
     
@@ -348,6 +363,7 @@ def serve_subtitle():
         return jsonify({"error": "URL parameter ('v' or 'url') and 'lang' parameter are required"}), 400
     
     path = download_file(url, f'sub-{lang}')
+    print('Stopped serving subtitle')
     return send_from_directory(os.path.dirname(path), os.path.basename(path))
 
 
