@@ -305,6 +305,123 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
 videojs.registerComponent('ResolutionSwitcherButton', ResolutionSwitcherButton);
 
 
+class SubtitleSwitcherButton extends videojs.getComponent('Button') {
+    constructor(player, options) {
+        super(player, options);
+        this.addClass('vjs-subtitle-button');
+        this.controlText('Subtitles');
+        this.el().innerHTML = '<i class="fa-solid fa-closed-captioning"></i>';
+        this.el().style.display = 'none';
+
+        this.menu = this.createSubtitleMenu();
+        this.el().appendChild(this.menu);
+
+        this.subtitles = {};
+        this.loadSubtitles();
+    }
+
+    handleClick(event) {
+        event.stopPropagation();
+        if (this.menu.style.display === 'block') {
+            this.handleCloseMenu();
+        } else {
+            this.handleOpenMenu();
+        }
+    }
+
+    handleOpenMenu() {
+        this.menu.style.display = 'block';
+    }
+
+    handleCloseMenu() {
+        this.menu.style.display = 'none';
+    }
+
+    loadSubtitles() {
+        const urlParams = new URLSearchParams(window.location.search);
+        fetch(`/subtitles?${urlParams.toString()}`)
+            .then(response => {
+                if (!response.ok) throw new Error('Failed to fetch subtitles');
+                return response.json();
+            })
+            .then(subtitleList => {
+                this.subtitles = subtitleList;
+                this.updateSubtitles(subtitleList);
+            })
+            .catch(error => {
+                console.error('Error fetching subtitles:', error);
+            });
+    }
+
+    updateSubtitles(subtitleList) {
+        if (!subtitleList || subtitleList.length === 0) return;
+        this.el().style.display = '';
+
+        // Prepend "none" to the subtitle list
+        subtitleList.unshift('none');
+
+        // Sort subtitle languages alphabetically (excluding "none")
+        const sortedSubtitleList = subtitleList.slice(1).sort();
+        sortedSubtitleList.unshift('none'); // Add "none" back to the beginning
+
+        sortedSubtitleList.forEach(lang => {
+            const button = document.createElement('button');
+            button.textContent = lang === 'none' ? 'None' : lang;
+            button.classList.add('vjs-subtitle-option');
+
+            button.onclick = (event) => {
+                event.stopPropagation();
+                this.handleSubtitleSelection(lang);
+                this.handleCloseMenu();
+            };
+            this.menu.appendChild(button);
+        });
+    }
+
+    handleSubtitleSelection(lang) {
+        const tracks = player.textTracks();
+        for (let i = 0; i < tracks.length; i++) {
+            if (tracks[i].kind === 'subtitles') {
+                if (tracks[i].language === lang) {
+                    tracks[i].mode = 'showing';
+                } else {
+                    tracks[i].mode = 'disabled';
+                }
+            }
+        }
+
+        if (lang !== 'none') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const subtitleSrc = `/subtitle?${urlParams.toString()}&lang=${lang}`;
+            // Check if the track already exists before adding
+            let trackExists = false;
+            for (let i = 0; i < tracks.length; i++) {
+                if (tracks[i].kind === 'subtitles' && tracks[i].language === lang && tracks[i].src === subtitleSrc) {
+                    trackExists = true;
+                    break;
+                }
+            }
+            if (!trackExists) {
+                 player.addRemoteTextTrack({
+                    kind: 'subtitles',
+                    src: subtitleSrc,
+                    srclang: lang,
+                    label: lang
+                });
+            }
+        }
+    }
+
+    createSubtitleMenu() {
+        const menu = document.createElement('div');
+        menu.classList.add('vjs-subtitle-menu');
+        menu.style.display = 'none';
+        return menu;
+    }
+}
+videojs.registerComponent('SubtitleSwitcherButton', SubtitleSwitcherButton);
+
+
 function skipclick()
 {
     if (player && player.currentTime() < skipTime) player.currentTime(skipTime);
@@ -418,6 +535,7 @@ function loadVideo()
                 'DurationDisplay',
                 'progressControl',
                 'ResolutionSwitcherButton',
+                'SubtitleSwitcherButton',
                 'DownloadButton',
                 'PictureInPictureToggle',
                 'ZoomToFillToggle',
