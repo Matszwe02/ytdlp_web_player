@@ -7,14 +7,16 @@
 - implemented sponsorblock for supported sites (currently YouTube)
 - PWA support with "share with" target for Android
 - nice animations while loading video
+- video download option
+- video format selection (default is 720p)
+- closed captions support
 
 **Daily auto update of yt-dlp and ffmpeg to immediately support new yt-dlp codecs and sites**
 
 ## Planned
 - HLS support for shorter load times and livestream support
-- video download option
-- closed captions support
-- video format selection (currently forced 720p)
+- hot reload of video formats
+- 
 
 ## Images
 
