@@ -1,7 +1,7 @@
 services:
     ytdlp_web_player:
-        # build: .
-        image: matszwe02/ytdlp_web_player
+        build: .
+        # image: matszwe02/ytdlp_web_player
         restart: unless-stopped
         environment:
             - APP_TITLE=YT-DLP Player
