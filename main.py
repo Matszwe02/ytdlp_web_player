@@ -267,8 +267,14 @@ def search():
 
 @app.route('/thumb')
 def serve_thumbnail():
-    print('Started serving thumb')
     url = get_url(request)
+    return serve_thumbnail_by_path(url)
+
+
+
+@app.route('/thumb/<path:url>')
+def serve_thumbnail_by_path(url):
+    print('Started serving thumb')
     if not url: return 'url param empty', 404
     
     filename = download_file(url, 'thumb')
