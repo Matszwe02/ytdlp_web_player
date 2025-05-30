@@ -9,7 +9,18 @@
         <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.3.0/video-js.min.css" rel="stylesheet" />
         <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
         <link rel="stylesheet" href="{{ url_for('static', filename='videojs.css') }}" />
-        <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+        <link rel="icon" type="image/png" href="/thumb/{{original_url}}">
+        
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <link rel="shortcut icon" href="/thumb/{{original_url}}">
+        <link rel="icon" href="/thumb/{{original_url}}">
+        <meta property="og:site_name" content="{{app_title}}">
+        <meta property="og:description" content="{{app_title}}">
+        <meta property="og:title" content="{{app_title}}">
+        <meta property="og:url" content="/watch?{{(request.query_string.decode())}}">
+        <meta property="og:image" content="/thumb/{{original_url}}">
+        <meta name="twitter:card" content="summary_large_image">
+        
     </head>
     <body>
     
