@@ -155,6 +155,7 @@ def download_file(url: str, media_type='video'):
     """
     media_type = video | thumb | audio | video-720p | video-720p_4.20-21.37 | video-best
     """
+    url = re.sub(r'(https?):/{1,}', r'\1://', url)
     print(f'Downloading {media_type} for {url}')
     
     if i := check_media(url=url, media_type=media_type):
