@@ -140,6 +140,7 @@ def check_media(url: str, media_type: str):
     data_dir = os.path.join('./download', unique_path)
     try:
         for i in os.listdir(data_dir):
+            if i.endswith('.part'): continue
             if i.startswith(media_type):
                 path = os.path.join(data_dir, i)
                 print(f'Serving {path}')
