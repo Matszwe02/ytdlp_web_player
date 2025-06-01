@@ -2,6 +2,7 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, viewport-fit=cover, initial-scale=1.0" />
         <title>{{ app_title }}</title>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
@@ -11,16 +12,24 @@
         <link rel="stylesheet" href="{{ url_for('static', filename='videojs.css') }}" />
         <link rel="icon" type="image/png" href="/thumb/{{original_url|urlencode}}">
         
-        <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <link rel="shortcut icon" href="/thumb/{{original_url|urlencode}}">
         <link rel="icon" href="/thumb/{{original_url|urlencode}}">
         <meta property="og:site_name" content="{{app_title}}">
-        <meta property="og:description" content="{{app_title}}">
-        <meta property="og:title" content="{{app_title}}">
         <meta property="og:url" content="/watch?{{(request.query_string.decode())}}">
+        <meta property="og:title" content="{{app_title}}">
         <meta property="og:image" content="/thumb/{{original_url|urlencode}}">
-        <meta name="twitter:card" content="summary_large_image">
-        
+        <meta property="og:description" content="{{app_title}}">
+        <meta property="al:web:url" content="/watch?{{(request.query_string.decode())}}">
+        <meta property="og:type" content="video.other">
+        <meta property="og:video:url" content="/raw?{{(request.query_string.decode())}}">
+        <meta property="og:video:secure_url" content="/raw?{{(request.query_string.decode())}}">
+        <meta property="og:video:type" content="text/html">
+        <meta name="twitter:card" content="player">
+        <meta name="twitter:url" content="/watch?{{(request.query_string.decode())}}">
+        <meta name="twitter:title" content="{{app_title}}">
+        <meta name="twitter:description" content="{{app_title}}">
+        <meta name="twitter:image" content="/thumb/{{original_url|urlencode}}">
+        <meta name="twitter:player" content="/raw?{{(request.query_string.decode())}}">
     </head>
     <body>
     
