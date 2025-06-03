@@ -281,23 +281,25 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
         const urlParams = new URLSearchParams(window.location.search);
         
         resolutions.sort((a, b) => (b.height || b) - (a.height || a)); // Sort descending
+        resolutions.push('audio');
+        
         resolutions.forEach(resItem => {
-            const height = resItem.height || resItem;
-            if (typeof height !== 'number' || isNaN(height)) return;
+            const height = resItem === 'audio' ? 'audio' : (resItem.height || resItem);
+            if (typeof height !== 'number' && height !== 'audio') return;
             
             const button = document.createElement('button');
-            button.textContent = `${height}p`;
+            button.textContent = height === 'audio' ? 'Audio' : `${height}p`;
             button.classList.add('vjs-resolution-option');
             
             button.onclick = (event) => {
                 event.stopPropagation();
-                currentVideoQuality = `${height}p`;
+                currentVideoQuality = height;
                 
                 const buttons = this.menu.querySelectorAll('.vjs-resolution-option');
                 buttons.forEach(btn => btn.classList.remove('vjs-resolution-option-current'));
                 button.classList.add('vjs-resolution-option-current');
                 
-                const downloadUrl = `/download?${urlParams.toString()}&quality=${height}p`;
+                const downloadUrl = `/download?${urlParams.toString()}&quality=${height}`;
                 const switchTime = player.currentTime();
                 const isPlaying = !player.paused();
                 player.src({ src: downloadUrl, type: 'video/mp4' });
