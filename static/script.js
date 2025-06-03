@@ -6,6 +6,25 @@ let skipSegment;
 let skipTime = 0;
 let currentVideoQuality = '720p';
 
+async function retryFetch(url, options = {}, retries = 5, delay = 5000) {
+    try {
+        const response = await fetch(url, options);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response;
+    } catch (error) {
+        console.error(`Fetch failed, retrying in ${delay / 1000} seconds...`, error);
+        if (retries > 0) {
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return retryFetch(url, options, retries - 1, delay);
+        } else {
+            console.error('Max retries reached. Fetch failed.');
+            throw error; // Re-throw the error to be caught by the caller
+        }
+    }
+}
+
 function formatTime(timeInSeconds)
 {
     if (timeInSeconds === null || isNaN(timeInSeconds)) return '-';
@@ -339,11 +358,8 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button') {
 
     loadSubtitles() {
         const urlParams = new URLSearchParams(window.location.search);
-        fetch(`/subtitles?${urlParams.toString()}`)
-            .then(response => {
-                if (!response.ok) throw new Error('Failed to fetch subtitles');
-                return response.json();
-            })
+        retryFetch(`/subtitles?${urlParams.toString()}`)
+            .then(response => response.json())
             .then(subtitleList => {
                 this.subtitles = subtitleList;
                 this.updateSubtitles(subtitleList);
@@ -597,25 +613,16 @@ function loadVideo()
     
     document.getElementById('video').style.filter = 'brightness(1)';
     
-    fetch(`/search?${urlParams.toString()}`)
-        .then(response => {
-            if (!response.ok)
-            {
-                throw new Error(response.status);
-            }
-            return response.text();
-        })
+    retryFetch(`/search?${urlParams.toString()}`)
+        .then(response => response.text())
         .then(data => {
             playerContainer.querySelector('.vjs-poster').style.filter = '';
             
             // Set video source with the stream URL
             player.src({src: data, type: 'video/mp4'});
             
-            fetch(`/formats?${urlParams.toString()}`)
-                .then(response => {
-                    if (!response.ok) throw new Error('Failed to fetch formats');
-                    return response.json();
-                })
+            retryFetch(`/formats?${urlParams.toString()}`)
+                .then(response => response.json())
                 .then(formats => {
                     console.log('Available formats:', formats);
                     if (player.controlBar && player.controlBar.ResolutionSwitcherButton)
@@ -643,8 +650,8 @@ function loadVideo()
             errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
         });
     
-    fetch(`/sb?${urlParams.toString()}`)
-        .then(response => {return response.json();})
+    retryFetch(`/sb?${urlParams.toString()}`)
+        .then(response => response.json())
         .then(data => {
             if (Array.isArray(data)) {
                 segments = data;
