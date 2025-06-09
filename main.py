@@ -203,7 +203,7 @@ def download_file(url: str, media_type='video'):
         if not download_best:
             print(f"Downloading quality {res}p")
             try:
-                ydl_opts.update({"format": f"bestvideo[height<={res}][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4]/best"})
+                ydl_opts.update({"format": f"bestvideo[height<={res}]+bestaudio/best"})
                 dwnl(url, ydl_opts)
             except yt_dlp.utils.DownloadError:
                 download_best = True
