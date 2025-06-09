@@ -623,16 +623,6 @@ function loadVideo()
             // Set video source with the stream URL
             player.src({src: data, type: 'video/mp4'});
             
-            retryFetch(`/formats?${urlParams.toString()}`)
-                .then(response => response.json())
-                .then(formats => {
-                    console.log('Available formats:', formats);
-                    if (player.controlBar && player.controlBar.ResolutionSwitcherButton)
-                    {
-                        player.controlBar.ResolutionSwitcherButton.updateResolutions(formats);
-                    }
-                });
-            
             // When video is loaded
             player.on('loadeddata', () => {
                 playerContainer.querySelector('img').classList.add('loaded-img');
@@ -652,6 +642,18 @@ function loadVideo()
             errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
         });
     
+            
+    retryFetch(`/formats?${urlParams.toString()}`)
+        .then(response => response.json())
+        .then(formats => {
+            console.log('Available formats:', formats);
+            if (player.controlBar && player.controlBar.ResolutionSwitcherButton)
+            {
+                player.controlBar.ResolutionSwitcherButton.updateResolutions(formats);
+            }
+        });
+        
+        
     retryFetch(`/sb?${urlParams.toString()}`)
         .then(response => response.json())
         .then(data => {
