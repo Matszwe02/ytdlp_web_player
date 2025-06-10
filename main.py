@@ -11,6 +11,9 @@ import re
 from source_downloader import Downloader, yt_dlp
 import requests
 from hashlib import sha1
+import subprocess
+from PIL import Image
+import math
 
 
 app = Flask(__name__)
@@ -27,6 +30,23 @@ app_version = Downloader.get_app_version()
 
 def gen_pathname(url: str):
     return sha1(url.encode()).hexdigest()
+
+
+
+def get_video_duration(file_path):
+    command = [
+        'ffprobe',
+        '-v', 'error',
+        '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        file_path
+    ]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        return float(result.stdout.strip())
+    except (subprocess.CalledProcessError, ValueError) as e:
+        print(f"Error getting video duration for {file_path}: {e}")
+        return None
 
 
 
@@ -227,6 +247,69 @@ def download_file(url: str, media_type='video'):
             'outtmpl': os.path.join(data_dir, f'{media_type}.%(ext)s'),
         })
         dwnl(url, ydl_opts)
+
+
+    elif media_type.startswith('sprite'):
+        sprite_path = check_media(url=url, media_type='sprite')
+        if sprite_path:
+            return sprite_path
+        video_path = check_media(url=url, media_type='video')
+        if not video_path:
+            print(f"Video not found for sprite generation for {url}")
+            return None
+
+        duration = get_video_duration(video_path)
+        if duration is None:
+            print(f"Could not get duration for {video_path}")
+            return None
+
+        sprite_path = os.path.join(data_dir, 'sprite.jpg')
+
+        if os.path.exists(sprite_path):
+            print(f'Cache hit for sprite!')
+            return sprite_path
+
+        frame_interval = 10 # seconds
+        frame_width = 160
+        frame_height = 90
+
+        ffmpeg_command = [
+            'ffmpeg',
+            '-i', video_path,
+            '-vf', f'fps=1/{frame_interval},scale={frame_width}:{frame_height}',
+            os.path.join(data_dir, 'frame_%04d.jpg')
+        ]
+
+        try:
+            subprocess.run(ffmpeg_command, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Error extracting frames with ffmpeg: {e}")
+            return None
+
+        # Create sprite image
+        frame_files = sorted([f for f in os.listdir(data_dir) if f.startswith('frame_') and f.endswith('.jpg')])
+        num_frames = len(frame_files)
+        frames_per_row = 10
+        num_rows = math.ceil(num_frames / frames_per_row)
+        canvas_width = frames_per_row * frame_width
+        canvas_height = num_rows * frame_height
+
+        sprite_image = Image.new('RGB', (canvas_width, canvas_height))
+
+        for i, frame_file in enumerate(frame_files):
+            frame_path = os.path.join(data_dir, frame_file)
+            with Image.open(frame_path) as img:
+                row = i // frames_per_row
+                col = i % frames_per_row
+                x = col * frame_width
+                y = row * frame_height
+                sprite_image.paste(img, (x, y))
+            os.remove(frame_path) # Clean up individual frames
+
+        sprite_image.save(sprite_path)
+
+        return sprite_path
+
     
     return check_media(url=url, media_type=media_type)
 
@@ -284,6 +367,25 @@ def serve_thumbnail_by_path(url):
     print('Stopped serving thumb')
     if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
     return 'Cannot gather thumbnail', 404
+
+
+
+@app.route('/sprite')
+def serve_sprite():
+    url = get_url(request)
+    return serve_sprite_by_path(url)
+
+
+@app.route('/sprite/<path:url>')
+def serve_sprite_by_path(url):
+    print('Started serving sprite')
+    if not url: return 'url param empty', 404
+
+    filename = download_file(url, 'sprite')
+
+    print('Stopped serving sprite')
+    if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
+    return 'Cannot gather sprite', 404
 
 
 

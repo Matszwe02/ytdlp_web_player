@@ -1,3 +1,4 @@
 Flask
 requests
 yt-dlp
+pillow

@@ -589,6 +589,7 @@ function loadVideo()
         },
     });
     player.doubleTapFF();
+    player.spriteThumbnails({ url: `/sprite?${urlParams.toString()}`, width: 160, height: 90, columns: 10, interval: 10 });
     playerContainer = player.el();
     
     const zoomToFillCookie = document.cookie.split('; ').find(row => row.startsWith('zoomToFill='));
@@ -618,6 +619,8 @@ function loadVideo()
     retryFetch(`/search?${urlParams.toString()}`)
         .then(response => response.text())
         .then(data => {
+        
+            fetch(`/sprite?${urlParams.toString()}`).then(response => response.text()).then(data => {});
             playerContainer.querySelector('.vjs-poster').style.filter = '';
             
             // Set video source with the stream URL
