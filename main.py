@@ -177,15 +177,25 @@ def download_file(url: str, media_type='video'):
     media_type = video | thumb | audio | video-720p | video-720p_4.20-21.37 | video-best
     """
     url = re.sub(r'(https?):/{1,}', r'\1://', url)
-    print(f'Downloading {media_type} for {url}')
-    
-    if i := check_media(url=url, media_type=media_type):
-        print(f'Cache hit for {media_type}!')
-        return i
-    
     data_dir = os.path.join('./download', gen_pathname(url))
     os.makedirs(data_dir, exist_ok=True)
     output_path = os.path.join(data_dir, f'{media_type}.%(ext)s')
+    print(f'Downloading {media_type} for {url}')
+    
+    for _ in range(3600):
+        if not os.path.exists(os.path.join(data_dir, f'{media_type}.part')):
+            break
+        time.sleep(1)
+        print(f'Waiting for download of {media_type}')
+    
+    with open(os.path.join(data_dir, f'{media_type}.part'), 'w') as f:
+        pass
+    
+    if i := check_media(url=url, media_type=media_type):
+        print(f'Cache hit for {media_type}!')
+        try: os.remove(os.path.join(data_dir, f'{media_type}.part'))
+        except: pass
+        return i
     
     ydl_opts = {"outtmpl": output_path, "ffmpeg_location": "."}
     
@@ -256,67 +266,48 @@ def download_file(url: str, media_type='video'):
 
 
     elif media_type.startswith('sprite'):
-        sprite_path = check_media(url=url, media_type='sprite')
-        if sprite_path:
-            return sprite_path
         video_path = check_media(url=url, media_type='video')
-        if not video_path:
-            print(f"Video not found for sprite generation for {url}")
-            return None
+        if video_path:
+            
+            frame_interval = 10 # seconds
+            frame_width = 160
+            frame_height = 90
+            frames_per_row = 10
 
-        duration = get_video_duration(video_path)
-        if duration is None:
-            print(f"Could not get duration for {video_path}")
-            return None
+            ffmpeg_command = [
+                'ffmpeg',
+                '-i', video_path,
+                '-vf', f'fps={1/frame_interval},scale={frame_width}:{frame_height}',
+                os.path.join(data_dir, 'frame_%04d.jpg')
+            ]
 
-        sprite_path = os.path.join(data_dir, 'sprite.jpg')
+            try:
+                subprocess.run(ffmpeg_command, check=True)
+                # Create sprite image
+                frame_files = sorted([f for f in os.listdir(data_dir) if f.startswith('frame_') and f.endswith('.jpg')])
+                num_frames = len(frame_files)
+                num_rows = math.ceil(num_frames / frames_per_row)
+                canvas_width = frames_per_row * frame_width
+                canvas_height = num_rows * frame_height
 
-        if os.path.exists(sprite_path):
-            print(f'Cache hit for sprite!')
-            return sprite_path
+                sprite_image = Image.new('RGB', (canvas_width, canvas_height))
 
-        frame_interval = 10 # seconds
-        frame_width = 160
-        frame_height = 90
+                for i, frame_file in enumerate(frame_files):
+                    frame_path = os.path.join(data_dir, frame_file)
+                    with Image.open(frame_path) as img:
+                        row = i // frames_per_row
+                        col = i % frames_per_row
+                        x = col * frame_width
+                        y = row * frame_height
+                        sprite_image.paste(img, (x, y))
+                    os.remove(frame_path) # Clean up individual frames
+                sprite_image.save(os.path.join(data_dir, 'sprite.jpg'))
+            except Exception as e:
+                print(f"Sprite error: {e}")
 
-        ffmpeg_command = [
-            'ffmpeg',
-            '-i', video_path,
-            '-vf', f'fps=1/{frame_interval},scale={frame_width}:{frame_height}',
-            os.path.join(data_dir, 'frame_%04d.jpg')
-        ]
 
-        try:
-            subprocess.run(ffmpeg_command, check=True)
-        except subprocess.CalledProcessError as e:
-            print(f"Error extracting frames with ffmpeg: {e}")
-            return None
-
-        # Create sprite image
-        frame_files = sorted([f for f in os.listdir(data_dir) if f.startswith('frame_') and f.endswith('.jpg')])
-        num_frames = len(frame_files)
-        frames_per_row = 10
-        num_rows = math.ceil(num_frames / frames_per_row)
-        canvas_width = frames_per_row * frame_width
-        canvas_height = num_rows * frame_height
-
-        sprite_image = Image.new('RGB', (canvas_width, canvas_height))
-
-        for i, frame_file in enumerate(frame_files):
-            frame_path = os.path.join(data_dir, frame_file)
-            with Image.open(frame_path) as img:
-                row = i // frames_per_row
-                col = i % frames_per_row
-                x = col * frame_width
-                y = row * frame_height
-                sprite_image.paste(img, (x, y))
-            os.remove(frame_path) # Clean up individual frames
-
-        sprite_image.save(sprite_path)
-
-        return sprite_path
-
-    
+    try: os.remove(os.path.join(data_dir, f'{media_type}.part'))
+    except: pass
     return check_media(url=url, media_type=media_type)
 
 
