@@ -42,7 +42,8 @@ const sbColorMap = {
     'preview': '#0077ff',
     'interaction': '#ff00ff',
     'intro': '#00ffff',
-    'poi_highlight': '#ef4c9b'
+    'poi_highlight': '#ef4c9b',
+    'music_offtopic': '#ff9900',
 };
 
 
@@ -512,8 +513,8 @@ function checkSponsorTime()
     {
         skipSegment.style.opacity = 1;
         skipSegment.style.transform = 'translate(0, 0)';
-        skipSegment.title = "skip " + segmentShown.category + ' [Enter]';
-        skipSegment.innerHTML = "skip " + segmentShown.category + ' <i class="fa-solid fa-angles-right"></i>';
+        skipSegment.title = "skip " + segmentShown.category.replaceAll('_', ' ') + ' [Enter]';
+        skipSegment.innerHTML = "skip <b>" + segmentShown.category.replaceAll('_', ' ') + '</b> <i class="fa-solid fa-angles-right"></i>';
         skipTime = segmentShown.end;
     }
 }
@@ -539,7 +540,7 @@ function addSponsorblock(data)
         indicator.className = 'seg';
         indicator.style.left = `${startPosition}%`;
         indicator.style.backgroundColor = sbColorMap[entry.category] || '#ffffff';
-        indicator.title = `${entry.category}`;
+        indicator.title = `${entry.category.replaceAll('_', ' ')}`;
     });
 }
 
