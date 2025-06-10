@@ -247,6 +247,12 @@ def download_file(url: str, media_type='video'):
             'outtmpl': os.path.join(data_dir, f'{media_type}.%(ext)s'),
         })
         dwnl(url, ydl_opts)
+        file = check_media(url=url, media_type=media_type)
+        if file:
+            with open(file, 'r') as f:
+                data = f.read()
+            with open(file, 'w') as f:
+                f.write('WEBVTT\n\n')
 
 
     elif media_type.startswith('sprite'):
