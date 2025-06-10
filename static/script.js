@@ -294,45 +294,45 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
             
             button.onclick = (event) => {
                 event.stopPropagation();
-                currentVideoQuality = height;
                 
                 const buttons = this.menu.querySelectorAll('.vjs-resolution-option');
-                buttons.forEach(btn => btn.classList.remove('vjs-resolution-option-current'));
-                button.classList.add('vjs-resolution-option-current');
-                
-                const downloadUrl = `/download?${urlParams.toString()}&quality=${height}`;
-                const switchTime = player.currentTime();
-                const isPlaying = !player.paused();
-                player.src({ src: downloadUrl, type: 'video/mp4' });
-                player.currentTime(switchTime);
-                if (isPlaying)
-                {
-                    player.play();
-                }
-
                 const videoEl = player.el().querySelector('video');
                 const posterEl = player.el().querySelector('.vjs-poster');
+                const downloadUrl = `/download?${urlParams.toString()}&quality=${height}`;
+                
+                retryFetch(downloadUrl)
+                    .then(response => response.text())
+                    .then(x => {
+                        const switchTime = player.currentTime();
+                        const isPlaying = !player.paused();
+                        currentVideoQuality = height;
+                        player.src({ src: downloadUrl, type: 'video/mp4' });
+                        player.currentTime(switchTime);
+                        if (isPlaying) player.play();
 
-                if (currentVideoQuality === 'audio')
-                {
-                    if (videoEl) videoEl.style.display = 'none';
-                    if (posterEl)
-                    {
-                        posterEl.style.display = 'block';
-                        posterEl.style.backgroundImage = `url('${player.poster()}')`;
-                        posterEl.style.backgroundSize = 'cover';
-                        posterEl.style.backgroundRepeat = 'no-repeat';
-                        posterEl.style.backgroundPosition = 'center';
-                    }
-                } else
-                {
-                    if (videoEl) videoEl.style.display = 'block';
-                    if (posterEl)
-                    {
-                        posterEl.style.display = '';
-                        posterEl.style.backgroundImage = '';
-                    }
-                }
+                        if (currentVideoQuality === 'audio')
+                        {
+                            if (videoEl) videoEl.style.display = 'none';
+                            if (posterEl)
+                            {
+                                posterEl.style.display = 'block';
+                                posterEl.style.backgroundImage = `url('${player.poster()}')`;
+                                posterEl.style.backgroundSize = 'cover';
+                                posterEl.style.backgroundRepeat = 'no-repeat';
+                                posterEl.style.backgroundPosition = 'center';
+                            }
+                        } else
+                        {
+                            if (videoEl) videoEl.style.display = 'block';
+                            if (posterEl)
+                            {
+                                posterEl.style.display = '';
+                                posterEl.style.backgroundImage = '';
+                            }
+                        }
+                        buttons.forEach(btn => btn.classList.remove('vjs-resolution-option-current'));
+                        button.classList.add('vjs-resolution-option-current');
+                    });
 
                 this.handleCloseMenu();
             };
