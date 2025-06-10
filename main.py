@@ -262,8 +262,9 @@ def download_file(url: str, media_type='video'):
         if file:
             with open(file, 'r') as f:
                 data = f.read()
+            data = re.sub(r'(\d{2}:\d{2}:\d{2}),(\d{3})', r'\1.\2', data)
             with open(file, 'w') as f:
-                f.write('WEBVTT\n\n')
+                f.write('WEBVTT\n' + data)
 
 
     elif media_type.startswith('sprite'):
