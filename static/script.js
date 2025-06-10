@@ -423,21 +423,11 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button') {
     }
 
     handleSubtitleSelection(lang) {
-        const tracks = player.textTracks();
-        for (let i = 0; i < tracks.length; i++) {
-            if (tracks[i].kind === 'subtitles') {
-                if (tracks[i].language === lang) {
-                    tracks[i].mode = 'showing';
-                } else {
-                    tracks[i].mode = 'disabled';
-                }
-            }
-        }
-
+        let tracks = player.textTracks();
         if (lang !== 'none') {
             const urlParams = new URLSearchParams(window.location.search);
             const subtitleSrc = `/subtitle?${urlParams.toString()}&lang=${lang}`;
-            // Check if the track already exists before adding
+            
             let trackExists = false;
             for (let i = 0; i < tracks.length; i++) {
                 if (tracks[i].kind === 'subtitles' && tracks[i].language === lang && tracks[i].src === subtitleSrc) {
@@ -446,12 +436,22 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button') {
                 }
             }
             if (!trackExists) {
-                 player.addRemoteTextTrack({
+                player.addRemoteTextTrack({
                     kind: 'subtitles',
                     src: subtitleSrc,
                     srclang: lang,
                     label: lang
                 });
+            }
+        }
+        tracks = player.textTracks();
+        for (let i = 0; i < tracks.length; i++) {
+            if (tracks[i].kind === 'subtitles') {
+                if (tracks[i].language === lang) {
+                    tracks[i].mode = 'showing';
+                } else {
+                    tracks[i].mode = 'disabled';
+                }
             }
         }
     }
