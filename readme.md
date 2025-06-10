@@ -15,8 +15,7 @@
 
 ## Planned
 - HLS support for shorter load times and livestream support
-- hot reload of video formats
-- 
+- Player embedding
 
 ## Images
 
