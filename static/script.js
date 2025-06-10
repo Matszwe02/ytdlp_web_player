@@ -308,6 +308,31 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
                 {
                     player.play();
                 }
+
+                const videoEl = player.el().querySelector('video');
+                const posterEl = player.el().querySelector('.vjs-poster');
+
+                if (currentVideoQuality === 'audio')
+                {
+                    if (videoEl) videoEl.style.display = 'none';
+                    if (posterEl)
+                    {
+                        posterEl.style.display = 'block';
+                        posterEl.style.backgroundImage = `url('${player.poster()}')`;
+                        posterEl.style.backgroundSize = 'cover';
+                        posterEl.style.backgroundRepeat = 'no-repeat';
+                        posterEl.style.backgroundPosition = 'center';
+                    }
+                } else
+                {
+                    if (videoEl) videoEl.style.display = 'block';
+                    if (posterEl)
+                    {
+                        posterEl.style.display = '';
+                        posterEl.style.backgroundImage = '';
+                    }
+                }
+
                 this.handleCloseMenu();
             };
             this.menu.appendChild(button);
