@@ -161,6 +161,7 @@ def check_media(url: str, media_type: str):
     try:
         for i in os.listdir(data_dir):
             if i.endswith('.part'): continue
+            if i.endswith('.temp'): continue
             if i.startswith(media_type):
                 path = os.path.join(data_dir, i)
                 print(f'Serving {path}')
@@ -183,17 +184,17 @@ def download_file(url: str, media_type='video'):
     print(f'Downloading {media_type} for {url}')
     
     for _ in range(3600):
-        if not os.path.exists(os.path.join(data_dir, f'{media_type}.part')):
+        if not os.path.exists(os.path.join(data_dir, f'{media_type}.temp')):
             break
         time.sleep(1)
         print(f'Waiting for download of {media_type}')
     
-    with open(os.path.join(data_dir, f'{media_type}.part'), 'w') as f:
+    with open(os.path.join(data_dir, f'{media_type}.temp'), 'w') as f:
         pass
     
     if i := check_media(url=url, media_type=media_type):
         print(f'Cache hit for {media_type}!')
-        try: os.remove(os.path.join(data_dir, f'{media_type}.part'))
+        try: os.remove(os.path.join(data_dir, f'{media_type}.temp'))
         except: pass
         return i
     
@@ -306,7 +307,7 @@ def download_file(url: str, media_type='video'):
                 print(f"Sprite error: {e}")
 
 
-    try: os.remove(os.path.join(data_dir, f'{media_type}.part'))
+    try: os.remove(os.path.join(data_dir, f'{media_type}.temp'))
     except: pass
     return check_media(url=url, media_type=media_type)
 
