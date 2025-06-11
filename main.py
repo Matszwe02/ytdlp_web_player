@@ -183,6 +183,10 @@ def download_file(url: str, media_type='video'):
     output_path = os.path.join(data_dir, f'{media_type}.%(ext)s')
     print(f'Downloading {media_type} for {url}')
     
+    if i := check_media(url=url, media_type=media_type):
+        print(f'Cache hit for {media_type}!')
+        return i
+    
     for _ in range(3600):
         if not os.path.exists(os.path.join(data_dir, f'{media_type}.temp')):
             break
@@ -190,13 +194,7 @@ def download_file(url: str, media_type='video'):
         print(f'Waiting for download of {media_type}')
     
     with open(os.path.join(data_dir, f'{media_type}.temp'), 'w') as f:
-        pass
-    
-    if i := check_media(url=url, media_type=media_type):
-        print(f'Cache hit for {media_type}!')
-        try: os.remove(os.path.join(data_dir, f'{media_type}.temp'))
-        except: pass
-        return i
+        f.wrtie(datetime.now().isoformat())
     
     ydl_opts = {"outtmpl": output_path, "ffmpeg_location": "."}
     
