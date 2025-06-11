@@ -194,7 +194,7 @@ def download_file(url: str, media_type='video'):
         print(f'Waiting for download of {media_type}')
     
     with open(os.path.join(data_dir, f'{media_type}.temp'), 'w') as f:
-        f.wrtie(datetime.now().isoformat())
+        f.write(datetime.now().isoformat())
     
     ydl_opts = {"outtmpl": output_path, "ffmpeg_location": "."}
     
