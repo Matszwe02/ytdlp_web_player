@@ -286,11 +286,12 @@ def download_file(url: str, media_type='video'):
             try:
                 subprocess.run(ffmpeg_command, check=True)
                 # Create sprite image
-                frame_files = sorted([f for f in os.listdir(data_dir) if f.startswith('frame_') and f.endswith('.jpg')])
+                frame_files = sorted([f for f in os.listdir(data_dir) if f.startswith('frame')])
                 num_frames = len(frame_files)
                 num_rows = math.ceil(num_frames / frames_per_row)
                 canvas_width = frames_per_row * frame_width
                 canvas_height = num_rows * frame_height
+                print(f'Sprite: generated {num_frames} frames. Combining into a {canvas_width}x{canvas_height} sprite.')
 
                 sprite_image = Image.new('RGB', (canvas_width, canvas_height))
 
