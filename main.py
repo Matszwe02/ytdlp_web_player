@@ -193,123 +193,127 @@ def download_file(url: str, media_type='video'):
         time.sleep(1)
         print(f'Waiting for download of {media_type}')
     
-    with open(os.path.join(data_dir, f'{media_type}.temp'), 'w') as f:
-        f.write(datetime.now().isoformat())
-    
-    ydl_opts = {"outtmpl": output_path, "ffmpeg_location": "."}
-    
-    timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
-    res = int((re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or '720p').removesuffix('p'))
-    
-    if timestamps:
-        try:
-            start_time = float(timestamps.group(1))
-            end_time = float(timestamps.group(2))
-            ydl_opts.update({'download_ranges': yt_dlp.utils.download_range_func(None, [(start_time, end_time)]), 'force_keyframes_at_cuts': True})
-            print(f"Downloading section {start_time}-{end_time}")
-        except ValueError:
-            print("Error parsing start/end times from media_type")
-    
-    
-    def dwnl(url, ydl_opts):
-        print(f'YTDLP: downloading "{unquote(url)}" with options "{ydl_opts}"')
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download(unquote(url))
-    
-    
-    if media_type == 'thumb':
-        ydl_opts.update({"writethumbnail": True, "skip_download": True})
-        dwnl(url, ydl_opts)
-    
-    
-    elif media_type.startswith('audio'):
-        ydl_opts.update({"format": "bestaudio/best", "extract_audio": True, "outtmpl": os.path.join(data_dir, f'{media_type}.mp3')})
-        dwnl(url, ydl_opts)
-    
-    
-    elif media_type.startswith('video'):
-        download_best = media_type.startswith('video-best')
-        if not download_best:
-            print(f"Downloading quality {res}p")
-            try:
-                ydl_opts.update({"format": f"bestvideo[height<={res}]+bestaudio/best"})
-                dwnl(url, ydl_opts)
-            except Exception:
-                download_best = True
-                formats = get_video_formats(url)
-                print(f'WARNING: Counld not download selected format. Available formats:\n{formats}')
+    try:
+        with open(os.path.join(data_dir, f'{media_type}.temp'), 'w') as f:
+            f.write(datetime.now().isoformat())
         
-        if download_best:
-            print("Downloading best quality")
-            ydl_opts.update({"format": "best"})
-            dwnl(url, ydl_opts)
-    
-    elif media_type.startswith('sub'):
-        lang = media_type.split('-')[1]
-        print(f'downloading sub for {lang=}')
-        ydl_opts.update({
-            'skip_download': True,
-            'writesubtitles': True,
-            'writeautomaticsub': True,
-            'subtitleslangs': [lang],
-            'subtitlesformat': 'srt',
-            'outtmpl': os.path.join(data_dir, f'{media_type}.%(ext)s'),
-        })
-        dwnl(url, ydl_opts)
-        file = check_media(url=url, media_type=media_type)
-        if file:
-            with open(file, 'r') as f:
-                data = f.read()
-            data = re.sub(r'(\d{2}:\d{2}:\d{2}),(\d{3})', r'\1.\2', data)
-            with open(file, 'w') as f:
-                f.write('WEBVTT\n' + data)
-
-
-    elif media_type.startswith('sprite'):
-        video_path = check_media(url=url, media_type='video')
-        if video_path:
-            
-            frame_interval = 10 # seconds
-            frame_width = 160
-            frame_height = 90
-            frames_per_row = 10
-
-            ffmpeg_command = [
-                'ffmpeg',
-                '-i', video_path,
-                '-vf', f'fps={1/frame_interval},scale={frame_width}:{frame_height}',
-                os.path.join(data_dir, 'frame_%04d.jpg')
-            ]
-
+        ydl_opts = {"outtmpl": output_path, "ffmpeg_location": "."}
+        
+        timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
+        res = int((re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or '720p').removesuffix('p'))
+        
+        if timestamps:
             try:
-                subprocess.run(ffmpeg_command, check=True)
-                # Create sprite image
-                frame_files = sorted([f for f in os.listdir(data_dir) if f.startswith('frame')])
-                num_frames = len(frame_files)
-                num_rows = math.ceil(num_frames / frames_per_row)
-                canvas_width = frames_per_row * frame_width
-                canvas_height = num_rows * frame_height
-                print(f'Sprite: generated {num_frames} frames. Combining into a {canvas_width}x{canvas_height} sprite.')
+                start_time = float(timestamps.group(1))
+                end_time = float(timestamps.group(2))
+                ydl_opts.update({'download_ranges': yt_dlp.utils.download_range_func(None, [(start_time, end_time)]), 'force_keyframes_at_cuts': True})
+                print(f"Downloading section {start_time}-{end_time}")
+            except ValueError:
+                print("Error parsing start/end times from media_type")
+        
+        
+        def dwnl(url, ydl_opts):
+            print(f'YTDLP: downloading "{unquote(url)}" with options "{ydl_opts}"')
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download(unquote(url))
+        
+        
+        if media_type == 'thumb':
+            ydl_opts.update({"writethumbnail": True, "skip_download": True})
+            dwnl(url, ydl_opts)
+        
+        
+        elif media_type.startswith('audio'):
+            ydl_opts.update({"format": "bestaudio/best", "extract_audio": True, "outtmpl": os.path.join(data_dir, f'{media_type}.mp3')})
+            dwnl(url, ydl_opts)
+        
+        
+        elif media_type.startswith('video'):
+            download_best = media_type.startswith('video-best')
+            if not download_best:
+                print(f"Downloading quality {res}p")
+                try:
+                    ydl_opts.update({"format": f"bestvideo[height<={res}]+bestaudio/best"})
+                    dwnl(url, ydl_opts)
+                except Exception:
+                    download_best = True
+                    formats = get_video_formats(url)
+                    print(f'WARNING: Counld not download selected format. Available formats:\n{formats}')
+            
+            if download_best:
+                print("Downloading best quality")
+                ydl_opts.update({"format": "best"})
+                dwnl(url, ydl_opts)
+        
+        elif media_type.startswith('sub'):
+            lang = media_type.split('-')[1]
+            print(f'downloading sub for {lang=}')
+            ydl_opts.update({
+                'skip_download': True,
+                'writesubtitles': True,
+                'writeautomaticsub': True,
+                'subtitleslangs': [lang],
+                'subtitlesformat': 'srt',
+                'outtmpl': os.path.join(data_dir, f'{media_type}.%(ext)s'),
+            })
+            dwnl(url, ydl_opts)
+            file = check_media(url=url, media_type=media_type)
+            if file:
+                with open(file, 'r') as f:
+                    data = f.read()
+                data = re.sub(r'(\d{2}:\d{2}:\d{2}),(\d{3})', r'\1.\2', data)
+                with open(file, 'w') as f:
+                    f.write('WEBVTT\n' + data)
 
-                sprite_image = Image.new('RGB', (canvas_width, canvas_height))
 
-                for i, frame_file in enumerate(frame_files):
-                    frame_path = os.path.join(data_dir, frame_file)
-                    with Image.open(frame_path) as img:
-                        row = i // frames_per_row
-                        col = i % frames_per_row
-                        x = col * frame_width
-                        y = row * frame_height
-                        sprite_image.paste(img, (x, y))
-                    os.remove(frame_path) # Clean up individual frames
-                sprite_image.save(os.path.join(data_dir, 'sprite.jpg'))
-            except Exception as e:
-                print(f"Sprite error: {e}")
+        elif media_type.startswith('sprite'):
+            video_path = check_media(url=url, media_type='video')
+            if video_path:
+                
+                frame_interval = 10 # seconds
+                frame_width = 160
+                frame_height = 90
+                frames_per_row = 10
+
+                ffmpeg_command = [
+                    'ffmpeg',
+                    '-i', video_path,
+                    '-vf', f'fps={1/frame_interval},scale={frame_width}:{frame_height}',
+                    os.path.join(data_dir, 'frame_%04d.jpg')
+                ]
+
+                try:
+                    subprocess.run(ffmpeg_command, check=True)
+                    # Create sprite image
+                    frame_files = sorted([f for f in os.listdir(data_dir) if f.startswith('frame')])
+                    num_frames = len(frame_files)
+                    num_rows = math.ceil(num_frames / frames_per_row)
+                    canvas_width = frames_per_row * frame_width
+                    canvas_height = num_rows * frame_height
+                    print(f'Sprite: generated {num_frames} frames. Combining into a {canvas_width}x{canvas_height} sprite.')
+
+                    sprite_image = Image.new('RGB', (canvas_width, canvas_height))
+
+                    for i, frame_file in enumerate(frame_files):
+                        frame_path = os.path.join(data_dir, frame_file)
+                        with Image.open(frame_path) as img:
+                            row = i // frames_per_row
+                            col = i % frames_per_row
+                            x = col * frame_width
+                            y = row * frame_height
+                            sprite_image.paste(img, (x, y))
+                        os.remove(frame_path) # Clean up individual frames
+                    sprite_image.save(os.path.join(data_dir, 'sprite.jpg'))
+                except Exception as e:
+                    print(f"Sprite error: {e}")
 
 
-    try: os.remove(os.path.join(data_dir, f'{media_type}.temp'))
-    except: pass
-    return check_media(url=url, media_type=media_type)
+        try: os.remove(os.path.join(data_dir, f'{media_type}.temp'))
+        except: pass
+        return check_media(url=url, media_type=media_type)
+    except Exception as e:
+        print(f'Exception during download of {media_type}: {e}')
+        os.remove(os.path.join(data_dir, f'{media_type}.temp'))
 
 
 
