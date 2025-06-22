@@ -71,8 +71,9 @@ def formats():
     if not url:
         return jsonify({"error": "URL parameter ('v' or 'url') is required"}), 400
     
-    video_formats = get_video_formats(url)
-    return jsonify(video_formats)
+    filename = download_file(url, 'formats')
+    if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
+    return jsonify({"error": "Cannot gather formats"}), 404
 
 
 
@@ -103,8 +104,9 @@ def subtitles():
     if not url:
         return jsonify({"error": "URL parameter ('v' or 'url') is required"}), 400
     
-    subtitles = get_subtitles(url)
-    return jsonify(subtitles)
+    filename = download_file(url, 'listsub')
+    if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
+    return jsonify({"error": "Cannot gather subtitles"}), 404
 
 
 
@@ -244,7 +246,8 @@ def download_file(url: str, media_type='video'):
                 print("Downloading best quality")
                 ydl_opts.update({"format": "best"})
                 dwnl(url, ydl_opts)
-        
+
+
         elif media_type.startswith('sub'):
             lang = media_type.split('-')[1]
             print(f'downloading sub for {lang=}')
@@ -306,6 +309,27 @@ def download_file(url: str, media_type='video'):
                     sprite_image.save(os.path.join(data_dir, 'sprite.jpg'))
                 except Exception as e:
                     print(f"Sprite error: {e}")
+
+
+        elif media_type.startswith('formats'):
+            print(f'downloading formats for {url}')
+            formats_data = get_video_formats(url)
+            with open(os.path.join(data_dir, f'{media_type}.json'), 'w') as f:
+                f.write(jsonify(formats_data).get_data(as_text=True))
+
+
+        elif media_type.startswith('listsub'):
+            print(f'downloading subtitles for {url}')
+            subtitles_data = get_subtitles(url)
+            with open(os.path.join(data_dir, f'{media_type}.json'), 'w') as f:
+                f.write(jsonify(subtitles_data).get_data(as_text=True))
+
+
+        elif media_type.startswith('sb'):
+            print(f'downloading sb for {url}')
+            sb_data = SponsorBlock(url).get_segments()
+            with open(os.path.join(data_dir, f'{media_type}.json'), 'w') as f:
+                f.write(jsonify(sb_data).get_data(as_text=True))
 
 
         try: os.remove(os.path.join(data_dir, f'{media_type}.temp'))
@@ -396,21 +420,13 @@ def get_sponsor_segments():
     """Return sponsor segments for a given YouTube video"""
     
     print('Started serving sb')
-    # Get video ID from request parameters
     url = get_url(request)
     if not url:
-        return jsonify({"error": "Video ID is required"}), 400
-        
-    try:
-        # Create SponsorBlock instance and get segments
-        sb = SponsorBlock(url)
-        segments = sb.get_segments()
-        
-        print('Stopped serving sb')
-        return jsonify(segments)
-        
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "URL parameter ('v' or 'url') is required"}), 400
+    
+    filename = download_file(url, 'sb')
+    if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
+    return jsonify({"error": "Cannot gather sponsor segments"}), 404
 
 
 
