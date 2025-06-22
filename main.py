@@ -65,18 +65,6 @@ def get_video_formats(url):
 
 
 
-@app.route('/formats')
-def formats():
-    url = get_url(request)
-    if not url:
-        return jsonify({"error": "URL parameter ('v' or 'url') is required"}), 400
-    
-    filename = download_file(url, 'formats')
-    if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
-    return jsonify({"error": "Cannot gather formats"}), 404
-
-
-
 def get_subtitles(url):
     ydl_opts = {'quiet': True, 'skip_download': True}
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -95,18 +83,6 @@ def get_subtitles(url):
                 all_subtitles.append(lang)
         
         return all_subtitles
-
-
-
-@app.route('/subtitles')
-def subtitles():
-    url = get_url(request)
-    if not url:
-        return jsonify({"error": "URL parameter ('v' or 'url') is required"}), 400
-    
-    filename = download_file(url, 'listsub')
-    if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
-    return jsonify({"error": "Cannot gather subtitles"}), 404
 
 
 
@@ -185,9 +161,9 @@ def download_file(url: str, media_type='video'):
     output_path = os.path.join(data_dir, f'{media_type}.%(ext)s')
     print(f'Downloading {media_type} for {url}')
     
-    if i := check_media(url=url, media_type=media_type):
+    if cached_media := check_media(url=url, media_type=media_type):
         print(f'Cache hit for {media_type}!')
-        return i
+        return cached_media
     
     for _ in range(3600):
         if not os.path.exists(os.path.join(data_dir, f'{media_type}.temp')):
@@ -338,6 +314,15 @@ def download_file(url: str, media_type='video'):
     except Exception as e:
         print(f'Exception during download of {media_type}: {e}')
         os.remove(os.path.join(data_dir, f'{media_type}.temp'))
+        return None
+
+
+def host_file(url: str, media_type='video'):
+    if not url: return jsonify({"error": "URL parameter is required"}), 400
+    file = download_file(url, media_type)
+    if file:
+        return send_from_directory(os.path.dirname(file), os.path.basename(file))
+    return jsonify({"error": f"Cannot gather {media_type}"}), 404
 
 
 
@@ -364,16 +349,7 @@ def watch():
 
 @app.route('/search')
 def search():
-    print('Started serving search')
-    url = get_url(request)
-    if not url: return 'url param empty', 404
-    
-    filename = download_file(url, 'video-720p')
-    
-    print('Stopped serving search')
-    if filename: return filename
-    return 'Cannot gather video', 404
-
+    return download_file(get_url(request), 'video-720p')
 
 
 @app.route('/thumb')
@@ -385,15 +361,7 @@ def serve_thumbnail():
 
 @app.route('/thumb/<path:url>')
 def serve_thumbnail_by_path(url):
-    print('Started serving thumb')
-    if not url: return 'url param empty', 404
-    
-    filename = download_file(url, 'thumb')
-    
-    print('Stopped serving thumb')
-    if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
-    return 'Cannot gather thumbnail', 404
-
+    return host_file(url, 'thumb')
 
 
 @app.route('/sprite')
@@ -404,30 +372,13 @@ def serve_sprite():
 
 @app.route('/sprite/<path:url>')
 def serve_sprite_by_path(url):
-    print('Started serving sprite')
-    if not url: return 'url param empty', 404
 
-    filename = download_file(url, 'sprite')
-
-    print('Stopped serving sprite')
-    if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
-    return 'Cannot gather sprite', 404
-
+    return host_file(url, 'sprite')
 
 
 @app.route('/sb')
 def get_sponsor_segments():
-    """Return sponsor segments for a given YouTube video"""
-    
-    print('Started serving sb')
-    url = get_url(request)
-    if not url:
-        return jsonify({"error": "URL parameter ('v' or 'url') is required"}), 400
-    
-    filename = download_file(url, 'sb')
-    if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
-    return jsonify({"error": "Cannot gather sponsor segments"}), 404
-
+    return host_file(get_url(request), 'sb')
 
 
 @app.route('/raw')
@@ -440,11 +391,6 @@ def raw():
 
 @app.route('/download')
 def download_media():
-    
-    print('Started serving download')
-    url = get_url(request)
-    if not url: return 'url param empty', 404
-    
     res = (request.args.get('quality') or '720').removesuffix("p")
     start_time = request.args.get('start', 0, type=float)
     end_time = request.args.get('end', 0, type=float)
@@ -454,11 +400,7 @@ def download_media():
     if start_time > 0 or end_time > 0:
         media_type += f'_{start_time:.1f}-{end_time:.1f}'
 
-    filename = download_file(url, media_type)
-    
-    print('Stopped serving download')
-    if filename: return send_from_directory(directory=os.path.dirname(filename), path=os.path.basename(filename))
-    return 'Cannot gather video', 404
+    return host_file(get_url(request), media_type)
 
 
 
@@ -473,26 +415,26 @@ def download_ytdlp(filename):
     return send_from_directory(os.path.dirname(path), os.path.basename(path))
 
 
+@app.route('/formats')
+def formats():
+    return host_file(get_url(request), 'formats')
+
+
+@app.route('/subtitle')
+def serve_subtitle():
+    return host_file(get_url(request), f'sub-{request.args.get("lang")}')
+
+
+@app.route('/subtitles')
+def subtitles():
+    return host_file(get_url(request), 'listsub')
+
+
 
 thread = Thread(target=delete_old_files)
 downloader_thread = Thread(target=ytdlp_download)
 thread.start()
 downloader_thread.start()
-
-
-
-@app.route('/subtitle')
-def serve_subtitle():
-    print('Started serving subtitle')
-    url = get_url(request)
-    lang = request.args.get('lang')
-    
-    if not url or not lang:
-        return jsonify({"error": "URL parameter ('v' or 'url') and 'lang' parameter are required"}), 400
-    
-    path = download_file(url, f'sub-{lang}')
-    print('Stopped serving subtitle')
-    return send_from_directory(os.path.dirname(path), os.path.basename(path))
 
 
 
