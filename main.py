@@ -153,7 +153,7 @@ def send_file_partial(path):
     size = os.path.getsize(path)    
     byte1, byte2 = 0, None
     
-    m = re.search('(\d+)-(\d*)', range_header)
+    m = re.search(r'(\d+)-(\d*)', range_header)
     g = m.groups()
     
     if g[0]: byte1 = int(g[0])
