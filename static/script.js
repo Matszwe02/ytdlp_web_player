@@ -83,47 +83,114 @@ class ZoomToFillToggle extends videojs.getComponent('Button')
 videojs.registerComponent('ZoomToFillToggle', ZoomToFillToggle);
 
 
+class SettingsButton extends videojs.getComponent('Button')
+{
+    constructor(player, options) {
+        super(player, options);
+        this.addClass('vjs-settings-button');
+        this.controlText('Settings');
+        this.el().innerHTML = '<i class="fa-solid fa-gear"></i>';
+
+        this.menu = this.createSettingsMenu();
+        this.el().appendChild(this.menu);
+
+        this.resolutionSwitcher = new ResolutionSwitcherButton(player, options);
+        this.subtitleSwitcher = new SubtitleSwitcherButton(player, options);
+        this.downloadButton = new DownloadButton(player, options);
+        this.resolutionSwitcher.parent = this;
+        this.subtitleSwitcher.parent = this;
+        this.downloadButton.parent = this;
+
+        this.menu.appendChild(this.resolutionSwitcher.el());
+        this.menu.appendChild(this.subtitleSwitcher.el());
+        this.menu.appendChild(this.downloadButton.el());
+    }
+
+    handleClick(event)
+    {
+        event.stopPropagation();
+        if (this.menu.style.display === 'flex')
+        {
+            this.handleCloseMenu();
+        }
+        else
+        {
+            this.handleOpenMenu();
+        }
+    }
+
+    handleOpenMenu()
+    {
+        this.menu.style.display = 'flex';
+    }
+
+    handleCloseMenu()
+    {
+        this.menu.style.display = 'none';
+    }
+
+    createSettingsMenu()
+    {
+        const menu = document.createElement('div');
+        menu.classList.add('vjs-settings-menu');
+        menu.style.display = 'none';
+        return menu;
+    }
+
+    updateResolutions(resolutions)
+    {
+        this.resolutionSwitcher.updateResolutions(resolutions);
+    }
+
+    updateSubtitles(subtitleList)
+    {
+        this.subtitleSwitcher.updateSubtitles(subtitleList);
+    }
+}
+videojs.registerComponent('SettingsButton', SettingsButton);
+
+
 class DownloadButton extends videojs.getComponent('Button')
 {
     constructor(player, options)
     {
         super(player, options);
-        this.addClass('vjs-download-button');
+        this.addClass('menu-button');
         this.controlText('Download Video');
         this.startTime = null;
         this.endTime = null;
         this.startBtn = null;
         this.endBtn = null;
+        this.parent = null;
         this.menu = this.createDownloadMenu();
         this.trimMenu = this.createTrimMenu();
         this.el().innerHTML = '<span class="fa-solid fa-download"></span>';
         this.el().appendChild(this.menu);
         this.el().appendChild(this.trimMenu);
     }
-    
-    clickEventHandler(event)
+
+    handleCloseMenu(propagate = true)
     {
-        if (event.type === 'touchend') event.preventDefault();
-        event.stopPropagation();
+        this.menu.style.height = '0em';
+        this.trimMenu.style.height = '0em';
+        player.removeClass('download-menu-open');
+        if (this.parent && propagate)
+        {
+            this.parent.handleCloseMenu();
+        }
     }
 
     handleClick(event)
     {
         event.stopPropagation();
         if (this.menu.contains(event.target)) return;
-        if (this.menu.style.height == '3.5em') return this.handleCloseMenu();
+        if (this.menu.style.height == '3.5em') return this.handleCloseMenu(false);
         
         this.menu.style.height = '3.5em';
         this.trimMenu.style.height = '0em';
         player.addClass('download-menu-open');
     }
 
-    handleCloseMenu()
-    {
-        this.menu.style.height = '0em';
-        this.trimMenu.style.height = '0em';
-        player.removeClass('download-menu-open');
-    }
 
     updateTimeLabels()
     {
@@ -155,10 +222,9 @@ class DownloadButton extends videojs.getComponent('Button')
             button.classList.add('vjs-download-option');
             
             const handleEvent = (event) => {
-                this.clickEventHandler(event);
-                
                 if (option.quality == 'trim')
                 {
+                    event.stopPropagation(); // Prevent the click from propagating to the parent DownloadButton
                     this.trimMenu.style.height = (this.trimMenu.style.height == '3.5em')?'0em':'3.5em';
                     this.startTime = null;
                     this.endTime = null;
@@ -212,13 +278,13 @@ class DownloadButton extends videojs.getComponent('Button')
         this.updateTimeLabels();
         
         const startEvent = (event) => {
-            this.clickEventHandler(event);
+            event.stopPropagation();
             this.startTime = player.currentTime();
             this.updateTimeLabels();
         };
         
         const endEvent = (event) => {
-            this.clickEventHandler(event);
+            event.stopPropagation();
             this.endTime = player.currentTime();
             this.updateTimeLabels();
         };
@@ -241,11 +307,12 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
     constructor(player, options)
     {
         super(player, options);
-        this.addClass('vjs-resolution-button');
+        this.addClass('menu-button');
         this.controlText('Select Resolution');
         this.el().innerHTML = '<i class="fa-solid fa-gear"></i>';
         this.el().style.display = 'none';
         
+        this.parent = null;
         this.menu = this.createResolutionMenu();
         this.el().appendChild(this.menu);
     }
@@ -255,7 +322,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
         event.stopPropagation();
         if (this.menu.style.display === 'block')
         {
-            this.handleCloseMenu();
+            this.menu.style.display = 'none';
         }
         else
         {
@@ -271,6 +338,10 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
     handleCloseMenu()
     {
         this.menu.style.display = 'none';
+        if (this.parent)
+        {
+            this.parent.handleCloseMenu();
+        }
     }
 
 
@@ -321,7 +392,8 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
                                 posterEl.style.backgroundRepeat = 'no-repeat';
                                 posterEl.style.backgroundPosition = 'center';
                             }
-                        } else
+                        }
+                        else
                         {
                             if (videoEl) videoEl.style.display = 'block';
                             if (posterEl)
@@ -355,11 +427,12 @@ videojs.registerComponent('ResolutionSwitcherButton', ResolutionSwitcherButton);
 class SubtitleSwitcherButton extends videojs.getComponent('Button') {
     constructor(player, options) {
         super(player, options);
-        this.addClass('vjs-subtitle-button');
+        this.addClass('menu-button');
         this.controlText('Subtitles');
         this.el().innerHTML = '<i class="fa-solid fa-closed-captioning"></i>';
         this.el().style.display = 'none';
 
+        this.parent = null;
         this.menu = this.createSubtitleMenu();
         this.el().appendChild(this.menu);
 
@@ -367,24 +440,35 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button') {
         this.loadSubtitles();
     }
 
-    handleClick(event) {
+    handleClick(event)
+    {
         event.stopPropagation();
-        if (this.menu.style.display === 'block') {
-            this.handleCloseMenu();
-        } else {
+        if (this.menu.style.display === 'block')
+        {
+            this.menu.style.display = 'none';
+        }
+        else
+        {
             this.handleOpenMenu();
         }
     }
 
-    handleOpenMenu() {
+    handleOpenMenu()
+    {
         this.menu.style.display = 'block';
     }
 
-    handleCloseMenu() {
+    handleCloseMenu()
+    {
         this.menu.style.display = 'none';
+        if (this.parent)
+        {
+            this.parent.handleCloseMenu();
+        }
     }
 
-    loadSubtitles() {
+    loadSubtitles()
+    {
         const urlParams = new URLSearchParams(window.location.search);
         retryFetch(`/subtitles?${urlParams.toString()}`)
             .then(response => response.json())
@@ -397,7 +481,8 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button') {
             });
     }
 
-    updateSubtitles(subtitleList) {
+    updateSubtitles(subtitleList)
+    {
         if (!subtitleList || subtitleList.length === 0) return;
         this.el().style.display = '';
 
@@ -422,20 +507,25 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button') {
         });
     }
 
-    handleSubtitleSelection(lang) {
+    handleSubtitleSelection(lang)
+    {
         let tracks = player.textTracks();
-        if (lang !== 'none') {
+        if (lang !== 'none')
+        {
             const urlParams = new URLSearchParams(window.location.search);
             const subtitleSrc = `/subtitle?${urlParams.toString()}&lang=${lang}`;
             
             let trackExists = false;
-            for (let i = 0; i < tracks.length; i++) {
-                if (tracks[i].kind === 'subtitles' && tracks[i].language === lang && tracks[i].src === subtitleSrc) {
+            for (let i = 0; i < tracks.length; i++)
+            {
+                if (tracks[i].kind === 'subtitles' && tracks[i].language === lang && tracks[i].src === subtitleSrc)
+                {
                     trackExists = true;
                     break;
                 }
             }
-            if (!trackExists) {
+            if (!trackExists)
+            {
                 player.addRemoteTextTrack({
                     kind: 'subtitles',
                     src: subtitleSrc,
@@ -445,11 +535,16 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button') {
             }
         }
         tracks = player.textTracks();
-        for (let i = 0; i < tracks.length; i++) {
-            if (tracks[i].kind === 'subtitles') {
-                if (tracks[i].language === lang) {
+        for (let i = 0; i < tracks.length; i++)
+        {
+            if (tracks[i].kind === 'subtitles')
+            {
+                if (tracks[i].language === lang)
+                {
                     tracks[i].mode = 'showing';
-                } else {
+                }
+                else
+                {
                     tracks[i].mode = 'disabled';
                 }
             }
@@ -578,9 +673,7 @@ function loadVideo()
                 'TimeDivider',
                 'DurationDisplay',
                 'progressControl',
-                'ResolutionSwitcherButton',
-                'SubtitleSwitcherButton',
-                'DownloadButton',
+                'SettingsButton',
                 'PictureInPictureToggle',
                 'ZoomToFillToggle',
                 'fullscreenToggle'
@@ -670,18 +763,18 @@ function loadVideo()
             errorDisplay.classList.remove('spinner-parent');
             errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
         });
-    
-            
+
+
     retryFetch(`/formats?${urlParams.toString()}`)
         .then(response => response.json())
         .then(formats => {
             console.log('Available formats:', formats);
-            if (player.controlBar && player.controlBar.ResolutionSwitcherButton)
+            if (player.controlBar && player.controlBar.SettingsButton)
             {
-                player.controlBar.ResolutionSwitcherButton.updateResolutions(formats);
+                player.controlBar.SettingsButton.updateResolutions(formats);
             }
         });
-        
+
         
     retryFetch(`/sb?${urlParams.toString()}`)
         .then(response => response.json())

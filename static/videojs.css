@@ -171,21 +171,7 @@
   font-size: 1.2em;
 }
 
-.video-js.vjs-layout-tiny .vjs-download-button, .video-js.vjs-layout-x-small .vjs-download-button {
-  display: none;
-}
-
-.vjs-theme-custom .vjs-download-button {
-  order: 5;
-  cursor: pointer;
-}
-
-.vjs-resolution-button {
-    order: 6;
-    cursor: pointer;
-}
-
-.vjs-subtitle-button {
+.vjs-settings-button {
     order: 7;
     cursor: pointer;
 }
@@ -238,7 +224,8 @@
     display: block !important;
 }
 
-.vjs-subtitle-menu {
+
+.vjs-settings-menu {
     position: absolute;
     bottom: 110%;
     right: 50%;
@@ -248,27 +235,9 @@
     color: #eee;
     text-align: center;
     display: none;
-    flex-direction: column;
-    width: 100px;
-    max-height: 500px;
-    overflow-y: auto;
+    flex-direction: row;
+    width: fit-content;
+    overflow: visible;
     transition: all .2s cubic-bezier(0.77, 0, 0.175, 1);
-    z-index: 10;
-}
-
-.vjs-subtitle-option {
-    background: none;
-    border: none;
-    color: #eee;
-    padding: 8px 0;
-    cursor: pointer;
-    text-align: center;
-    width: 100%;
-    display: block;
-    font-size: 1.2em !important;
-    font-weight: bold;
-}
-
-.vjs-subtitle-option:hover {
-    background-color: #666 !important;
+    z-index: 11;
 }
