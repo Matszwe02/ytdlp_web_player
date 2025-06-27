@@ -309,7 +309,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
         super(player, options);
         this.addClass('menu-button');
         this.controlText('Select Resolution');
-        this.el().innerHTML = '<i class="fa-solid fa-gear"></i>';
+        this.el().innerHTML = '<i class="fa-solid fa-sliders"></i>';
         this.el().style.display = 'none';
         
         this.parent = null;
