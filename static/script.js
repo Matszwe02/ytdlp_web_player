@@ -5,6 +5,49 @@ let playerContainer;
 let skipSegment;
 let skipTime = 0;
 let currentVideoQuality = '720p';
+let activeFetches = 0; // Counter for active retryFetch calls
+
+
+function addFetch()
+{
+    activeFetches += 1;
+    console.log(activeFetches);
+    try
+    {
+        const settingsIcon = player.controlBar.SettingsButton.el().querySelector('.fa-gear');
+        if (settingsIcon)
+        {
+            settingsIcon.classList.add('vjs-spin');
+        }
+    }
+    catch (error)
+    {
+        console.log(error);
+    }
+}
+
+
+function removeFetch()
+{
+    activeFetches -= 1;
+    console.log(activeFetches);
+    try
+    {
+        const settingsIcon = player.controlBar.SettingsButton.el().querySelector('.fa-gear');
+        if (settingsIcon)
+        {
+            if (activeFetches == 0)
+            {
+                settingsIcon.classList.remove('vjs-spin');
+            }
+        }
+    }
+    catch (error)
+    {
+        console.log(error);
+    }
+}
+
 
 async function retryFetch(url, options = {}, retries = 5, delay = 5000) {
     try {
@@ -247,6 +290,10 @@ class DownloadButton extends videojs.getComponent('Button')
                     
                     menu.style.height = '4.5em';
                     setTimeout(() => { this.handleCloseMenu(); }, 200);
+                    addFetch();
+                    retryFetch(link.href)
+                        .then(response => response.text())
+                        .then(x => {removeFetch();})
                 }
             };
             
@@ -371,9 +418,11 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
                 const posterEl = player.el().querySelector('.vjs-poster');
                 const downloadUrl = `/download?${urlParams.toString()}&quality=${height}`;
                 
+                addFetch();
                 retryFetch(downloadUrl)
                     .then(response => response.text())
                     .then(x => {
+                        removeFetch();
                         const switchTime = player.currentTime();
                         const isPlaying = !player.paused();
                         currentVideoQuality = height;
@@ -514,6 +563,10 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button') {
         {
             const urlParams = new URLSearchParams(window.location.search);
             const subtitleSrc = `/subtitle?${urlParams.toString()}&lang=${lang}`;
+            addFetch();
+            retryFetch(subtitleSrc)
+                .then(response => response.text())
+                .then(x => {removeFetch();})
             
             let trackExists = false;
             for (let i = 0; i < tracks.length; i++)
@@ -764,10 +817,11 @@ function loadVideo()
             errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
         });
 
-
+    addFetch();
     retryFetch(`/formats?${urlParams.toString()}`)
         .then(response => response.json())
         .then(formats => {
+            removeFetch();
             console.log('Available formats:', formats);
             if (player.controlBar && player.controlBar.SettingsButton)
             {

@@ -175,6 +175,9 @@
     order: 7;
     cursor: pointer;
 }
+.vjs-settings-button > i {
+    scale: 1.3;
+}
 
 .vjs-theme-custom .vjs-picture-in-picture-control {
   order: 8;
@@ -240,4 +243,13 @@
     overflow: visible;
     transition: all .2s cubic-bezier(0.77, 0, 0.175, 1);
     z-index: 11;
+}
+
+@keyframes vjs-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.vjs-spin {
+    animation: vjs-spin 1s linear infinite;
 }
