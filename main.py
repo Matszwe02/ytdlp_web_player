@@ -394,7 +394,9 @@ def watch():
 
 @app.route('/search')
 def search():
-    return download_file(get_url(request), 'video-720p')
+    res = (request.args.get('quality') or '720').removesuffix("p")
+    media_type = 'audio' if res == 'audio' else f'video-{res}p'
+    return download_file(get_url(request), media_type)
 
 
 @app.route('/thumb')
