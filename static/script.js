@@ -444,6 +444,10 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
             const button = document.createElement('button');
             button.textContent = height === 'audio' ? 'Audio' : `${height}p`;
             button.classList.add('vjs-resolution-option');
+            if (urlParams.get('quality') == height)
+            {
+                button.classList.add('vjs-resolution-option-current');
+            }
             
             button.onclick = (event) => {
                 event.stopPropagation();
