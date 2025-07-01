@@ -78,6 +78,41 @@ function formatTime(timeInSeconds)
     return String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(milliseconds);
 }
 
+
+function applyVideoQuality()
+{
+    const urlParams = new URLSearchParams(window.location.search);
+    const downloadUrl = `/download?${urlParams.toString()}`;
+    const quality = urlParams.get('quality') || null;
+    console.log(`Applying video quality: ${quality} for URL: ${downloadUrl}`);
+    const videoEl = player.el().querySelector('video');
+    const posterEl = player.el().querySelector('.vjs-poster');
+    player.src({ src: downloadUrl, type: 'video/mp4' });
+
+    if (quality === 'audio')
+    {
+        if (videoEl) videoEl.style.display = 'none';
+        if (posterEl)
+        {
+            posterEl.style.display = 'block';
+            posterEl.style.backgroundImage = `url('${player.poster()}')`;
+            posterEl.style.backgroundSize = 'cover';
+            posterEl.style.backgroundRepeat = 'no-repeat';
+            posterEl.style.backgroundPosition = 'center';
+        }
+    }
+    else
+    {
+        if (videoEl) videoEl.style.display = 'block';
+        if (posterEl)
+        {
+            posterEl.style.display = '';
+            posterEl.style.backgroundImage = '';
+        }
+    }
+}
+
+
 const sbColorMap = {
     'selfpromo': '#ffff00',
     'outro': '#0000ff',
@@ -414,43 +449,20 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
                 event.stopPropagation();
                 
                 const buttons = this.menu.querySelectorAll('.vjs-resolution-option');
-                const videoEl = player.el().querySelector('video');
-                const posterEl = player.el().querySelector('.vjs-poster');
-                const downloadUrl = `/download?${urlParams.toString()}&quality=${height}`;
+                urlParams.set('quality', height); // Update urlParams with the new quality
+                history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
                 
                 addFetch();
-                retryFetch(downloadUrl)
+                retryFetch(`/download?${urlParams.toString()}`)
                     .then(response => response.text())
                     .then(x => {
                         removeFetch();
                         const switchTime = player.currentTime();
                         const isPlaying = !player.paused();
-                        currentVideoQuality = height;
-                        player.src({ src: downloadUrl, type: 'video/mp4' });
+                        applyVideoQuality();
                         player.currentTime(switchTime);
                         if (isPlaying) player.play();
 
-                        if (currentVideoQuality === 'audio')
-                        {
-                            if (videoEl) videoEl.style.display = 'none';
-                            if (posterEl)
-                            {
-                                posterEl.style.display = 'block';
-                                posterEl.style.backgroundImage = `url('${player.poster()}')`;
-                                posterEl.style.backgroundSize = 'cover';
-                                posterEl.style.backgroundRepeat = 'no-repeat';
-                                posterEl.style.backgroundPosition = 'center';
-                            }
-                        }
-                        else
-                        {
-                            if (videoEl) videoEl.style.display = 'block';
-                            if (posterEl)
-                            {
-                                posterEl.style.display = '';
-                                posterEl.style.backgroundImage = '';
-                            }
-                        }
                         buttons.forEach(btn => btn.classList.remove('vjs-resolution-option-current'));
                         button.classList.add('vjs-resolution-option-current');
                     });
@@ -788,16 +800,14 @@ function loadVideo()
     
     document.getElementById('video').style.filter = 'brightness(1)';
     const downloadUrl = `/download?${urlParams.toString()}`;
-
+    
+    retryFetch(`/sprite?${urlParams.toString()}`).then(response => response.text()).then(data => {});
     retryFetch(downloadUrl)
         .then(response => response.text())
         .then(data => {
         
-            fetch(`/sprite?${urlParams.toString()}`).then(response => response.text()).then(data => {});
             playerContainer.querySelector('.vjs-poster').style.filter = '';
-            
-            // Set video source with the stream URL
-            player.src({src: downloadUrl, type: 'video/mp4'});
+            applyVideoQuality();
             
             // When video is loaded
             player.on('loadeddata', () => {
