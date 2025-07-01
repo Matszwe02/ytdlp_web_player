@@ -787,8 +787,9 @@ function loadVideo()
     spinnerParent.classList.add('spinner-parent');
     
     document.getElementById('video').style.filter = 'brightness(1)';
-    
-    retryFetch(`/search?${urlParams.toString()}`)
+    const downloadUrl = `/download?${urlParams.toString()}&quality=240p`;
+
+    retryFetch(downloadUrl)
         .then(response => response.text())
         .then(data => {
         
@@ -796,7 +797,7 @@ function loadVideo()
             playerContainer.querySelector('.vjs-poster').style.filter = '';
             
             // Set video source with the stream URL
-            player.src({src: data, type: 'video/mp4'});
+            player.src({src: downloadUrl, type: 'video/mp4'});
             
             // When video is loaded
             player.on('loadeddata', () => {

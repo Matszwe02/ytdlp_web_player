@@ -392,13 +392,6 @@ def watch():
 
 
 
-@app.route('/search')
-def search():
-    res = (request.args.get('quality') or '720').removesuffix("p")
-    media_type = 'audio' if res == 'audio' else f'video-{res}p'
-    return download_file(get_url(request), media_type)
-
-
 @app.route('/thumb')
 def serve_thumbnail():
     url = get_url(request)
@@ -430,8 +423,7 @@ def get_sponsor_segments():
 
 @app.route('/raw')
 def raw():
-    url = search()
-    html_template = f'<video controls autoplay><source src="{url}" type="video/mp4"></video>'
+    html_template = f'<video controls autoplay><source src="/download?url={get_url(request)}" type="video/mp4"></video>'
     return html_template
 
 
