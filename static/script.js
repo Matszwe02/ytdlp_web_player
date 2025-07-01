@@ -787,7 +787,7 @@ function loadVideo()
     spinnerParent.classList.add('spinner-parent');
     
     document.getElementById('video').style.filter = 'brightness(1)';
-    const downloadUrl = `/download?${urlParams.toString()}&quality=240p`;
+    const downloadUrl = `/download?${urlParams.toString()}`;
 
     retryFetch(downloadUrl)
         .then(response => response.text())
