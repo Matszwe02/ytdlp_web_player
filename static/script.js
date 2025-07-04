@@ -50,9 +50,12 @@ function removeFetch()
 
 
 async function retryFetch(url, options = {}, retries = 5, delay = 5000) {
-    try {
+    try
+    {
+        console.log(`Fetching "${url}"`);
         const response = await fetch(url, options);
-        if (!response.ok) {
+        if (!response.ok)
+        {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response;
@@ -62,7 +65,7 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000) {
             await new Promise(resolve => setTimeout(resolve, delay));
             return retryFetch(url, options, retries - 1, delay);
         } else {
-            console.error('Max retries reached. Fetch failed.');
+            console.error(`Max retries reached for "${url}". Fetch failed.`);
             throw error; // Re-throw the error to be caught by the caller
         }
     }
