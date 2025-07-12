@@ -53,38 +53,32 @@ def get_meta(url: str):
 
 def get_video_formats(url):
     resolutions = []
-    ydl_opts = {'quiet': True, 'skip_download': True}
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info_dict = ydl.extract_info(url, download=False)
-        formats = info_dict.get('formats', [])
-        
-        for f in formats:
-            if f.get('vcodec') != 'none' and f.get('height') and f.get('height') not in resolutions:
-                resolutions.append(f['height'])
-    
+    meta = get_meta(url)
+    formats = meta.get('formats', [])
+    for f in formats:
+        if f.get('vcodec') != 'none' and f.get('height') and f.get('height') not in resolutions:
+            resolutions.append(f['height'])
     return resolutions
 
 
 
 def get_subtitles(url):
-    ydl_opts = {'quiet': True, 'skip_download': True}
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info_dict = ydl.extract_info(url, download=False)
-        subtitles = info_dict.get('subtitles', {})
-        automatic_captions = info_dict.get('automatic_captions', {})
-        
-        all_subtitles = []
-        
-        for lang, subs in subtitles.items():
-            if subs:
-                all_subtitles.append(lang)
-        
-        for lang, subs in automatic_captions.items():
-            if lang not in all_subtitles and subs:
-                all_subtitles.append(lang)
-        
-        return all_subtitles
+    meta = get_meta(url)
+    subs = {**meta.get('subtitles', {}), **meta.get('automatic_captions', {})}
+    all_subtitles = []
+    for lang, subs in subs.items():
+        if subs:
+            all_subtitles.append(lang)
+    return all_subtitles
 
+
+def get_fastest_quality(url):
+    meta = get_meta(url)
+    formats = meta.get('formats', [])
+    for f in formats:
+        if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and f.get('protocol') == 'https':
+            return f.get('url'), f.get('ext')
+    return None, None
 
 
 def ytdlp_download():
@@ -132,6 +126,16 @@ def get_url(req):
         url = 'https://youtube.com/watch?v=' + url
     return url
 
+
+def download_media_file(url, path_without_ext, ext = None):
+    """Download raw file with requests.get with selected filename"""
+    response = requests.get(url, stream=True)
+    response.raise_for_status()
+    if not ext:
+        _, ext = os.path.splitext(url)
+    with open(f'{path_without_ext}.{ext.lstrip(".")}', 'wb') as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
 
 
 @app.after_request
@@ -241,7 +245,9 @@ def download_file(url: str, media_type='video'):
         ydl_opts = {"outtmpl": output_path, "ffmpeg_location": "."}
         
         timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
-        res = int((re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or '720p').removesuffix('p'))
+        default_res = '720p' if get_meta(url).get('duration', 0) < 300 else '300p'
+        print(f'Default res for this file is {default_res}')
+        res = int((re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or default_res).removesuffix('p'))
         
         if timestamps:
             try:
@@ -262,12 +268,7 @@ def download_file(url: str, media_type='video'):
         if media_type == 'thumb':
             meta = get_meta(url)
             thumb_url = meta['thumbnail']
-            response = requests.get(thumb_url, stream=True)
-            response.raise_for_status()
-            _, ext = os.path.splitext(thumb_url)
-            with open(os.path.join(data_dir, f'thumb{ext}'), 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
+            download_media_file(thumb_url, os.path.join(data_dir, 'thumb'))
 
 
         elif media_type.startswith('audio'):
@@ -277,6 +278,10 @@ def download_file(url: str, media_type='video'):
 
         elif media_type.startswith('video'):
             download_best = media_type.startswith('video-best')
+            # if media_type == 'video':
+            #     vid_url, ext = get_fastest_quality(url)
+            #     download_media_file(vid_url, os.path.join(data_dir, f'{media_type}'), ext)
+            #     return
             if not download_best:
                 print(f"Downloading quality {res}p")
                 try:
@@ -317,7 +322,7 @@ def download_file(url: str, media_type='video'):
         elif media_type.startswith('sprite'):
             video_path = check_media(url=url, media_type='video')
             if video_path:
-                
+                time.sleep(60)
                 frame_interval = 10 # seconds
                 frame_width = 160
                 frame_height = 90
