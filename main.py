@@ -15,6 +15,7 @@ import subprocess
 from PIL import Image
 import math
 import mimetypes
+import json
 
 
 app = Flask(__name__)
@@ -346,6 +347,15 @@ def download_file(url: str, media_type='video'):
                 f.write(jsonify(subtitles_data).get_data(as_text=True))
 
 
+        elif media_type.startswith('meta'):
+            print(f'downloading meta for {url}')
+            ydl_opts = {'quiet': True, 'skip_download': True}
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                with open(os.path.join(data_dir, f'{media_type}.json'), 'w') as f:
+                    json.dump(ydl.sanitize_info(info), f)
+
+
         elif media_type.startswith('sb'):
             print(f'downloading sb for {url}')
             sb_data = SponsorBlock(url).get_segments()
@@ -419,6 +429,11 @@ def serve_sprite_by_path(url):
 @app.route('/sb')
 def get_sponsor_segments():
     return host_file(get_url(request), 'sb')
+
+
+@app.route('/meta')
+def get_meta():
+    return host_file(get_url(request), 'meta')
 
 
 @app.route('/raw')
