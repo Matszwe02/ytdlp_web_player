@@ -7,6 +7,21 @@ let skipTime = 0;
 let currentVideoQuality = '720p';
 let activeFetches = 0; // Counter for active retryFetch calls
 
+function chooseGoodQuality(formats) {
+    let targetQuality = 720
+    let closestQuality = Infinity;
+    for (const quality of formats)
+    {
+        if (quality >= targetQuality && closestQuality > targetQuality)
+        {
+            closestQuality = quality;
+        }
+    }
+    if (closestQuality === Infinity) closestQuality = 720;
+    return closestQuality;
+}
+
+
 
 function addFetch()
 {
@@ -434,11 +449,12 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
     {        
         if (!resolutions || resolutions.length < 2) return;
         this.el().style.display = '';
+        this.menu.innerHTML = ''
         
         const urlParams = new URLSearchParams(window.location.search);
         
         resolutions.sort((a, b) => (b.height || b) - (a.height || a)); // Sort descending
-        resolutions.push('audio');
+        if (!resolutions.includes('audio')) resolutions.push('audio');
         
         resolutions.forEach(resItem => {
             const height = resItem === 'audio' ? 'audio' : (resItem.height || resItem);
@@ -809,9 +825,10 @@ function loadVideo()
     
     retryFetch(`/sprite?${urlParams.toString()}`).then(response => response.text());
     retryFetch(`/download?${urlParams.toString()}`).then(response => response.text());
+    addFetch();
     retryFetch(downloadUrl)
         .then(response => {
-        
+            removeFetch();
             playerContainer.querySelector('.vjs-poster').style.filter = '';
             applyVideoQuality();
             
@@ -827,23 +844,38 @@ function loadVideo()
                 playerContainer.querySelector('.vjs-control-bar').classList.add('display-flex');
             });
             player.load();
+            addFetch();
+            retryFetch(`/formats?${urlParams.toString()}`)
+                .then(response => response.json())
+                .then(formats => {
+                    console.log('Fetched formats');
+                    removeFetch();
+                    console.log('Available formats:', formats);
+                    if (player.controlBar && player.controlBar.SettingsButton)
+                    {
+                        player.controlBar.SettingsButton.updateResolutions(formats);
+                        urlParams.set('quality', chooseGoodQuality(formats));
+                        addFetch();
+                        retryFetch(`/download?${urlParams.toString()}`)
+                            .then(response => {
+
+                                console.log('Setting good quality');
+                                history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
+                                removeFetch();
+                                const switchTime = player.currentTime();
+                                const isPlaying = !player.paused();
+                                applyVideoQuality();
+                                player.controlBar.SettingsButton.updateResolutions(formats);
+                                player.currentTime(switchTime);
+                                if (isPlaying) player.play();
+                            });
+                    }
+                });
         })
         .catch(error => {
             console.error('Error fetching video URL:', error);
             errorDisplay.classList.remove('spinner-parent');
             errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
-        });
-
-    addFetch();
-    retryFetch(`/formats?${urlParams.toString()}`)
-        .then(response => response.json())
-        .then(formats => {
-            removeFetch();
-            console.log('Available formats:', formats);
-            if (player.controlBar && player.controlBar.SettingsButton)
-            {
-                player.controlBar.SettingsButton.updateResolutions(formats);
-            }
         });
 
         
