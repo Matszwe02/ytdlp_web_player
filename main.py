@@ -270,8 +270,7 @@ def download_file(url: str, media_type='video'):
         ydl_opts = {"outtmpl": output_path, "ffmpeg_location": "."}
         
         timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
-        default_res = '720p' if get_meta(url).get('duration', 0) < 300 else '300p'
-        print(f'Default res for this file is {default_res}')
+        default_res = '720p' if get_meta(url).get('duration', 0) < 300 else '240p'
         res = int((re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or default_res).removesuffix('p'))
         
         if timestamps:
