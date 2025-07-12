@@ -36,7 +36,9 @@ def gen_pathname(url: str):
 
 def get_meta(url: str):
     with FileCachingLock(url, 'meta') as cache:
-        if cache: return cache
+        print(cache)
+        if cache:
+            with open(cache, 'r') as f: return json.load(f)
         data_dir = os.path.join('./download', gen_pathname(url))
         print(f'downloading meta for {url}')
         ydl_opts = {'quiet': True, 'skip_download': True}
