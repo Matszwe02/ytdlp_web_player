@@ -301,15 +301,18 @@ def download_file(url: str, media_type='video'):
         elif media_type.startswith('sub'):
             lang = media_type.split('-')[1]
             print(f'downloading sub for {lang=}')
-            ydl_opts.update({
-                'skip_download': True,
-                'writesubtitles': True,
-                'writeautomaticsub': True,
-                'subtitleslangs': [lang],
-                'subtitlesformat': 'srt',
-                'outtmpl': os.path.join(data_dir, f'{media_type}.%(ext)s'),
-            })
-            dwnl(url, ydl_opts)
+            meta = get_meta(url)
+
+            sub = {**meta.get('subtitles', {}), **meta.get('automatic_captions', {})}.get(lang, '')
+            for i in sub:
+                if i.get('ext') == 'srt':
+                    sub_url = i.get('url')
+                    if sub_url:
+                        download_media_file(sub_url, os.path.join(data_dir, media_type))
+                        break
+            else:
+                raise FileNotFoundError('Selected subtitles not found')
+            
             file = check_media(url=url, media_type=media_type)
             if file:
                 with open(file, 'r') as f:
