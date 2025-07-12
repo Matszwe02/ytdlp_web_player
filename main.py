@@ -451,7 +451,7 @@ def download_media():
     start_time = request.args.get('start', 0, type=float)
     end_time = request.args.get('end', 0, type=float)
     
-    media_type = 'audio' if res == 'audio' else f'video-{res}p'
+    media_type = 'audio' if res == 'audio' else f'video-{res}p'.removesuffix('-p')
     
     if start_time > 0 or end_time > 0:
         media_type += f'_{start_time:.1f}-{end_time:.1f}'
