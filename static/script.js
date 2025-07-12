@@ -65,7 +65,8 @@ function removeFetch()
 }
 
 
-async function retryFetch(url, options = {}, retries = 5, delay = 5000) {
+async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible = true) {
+    if (visible) addFetch();
     try
     {
         console.log(`Fetching "${url}"`);
@@ -94,6 +95,10 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000) {
             console.error(`Max retries reached for "${url}". Fetch failed.`);
             throw error;
         }
+    }
+    finally
+    {
+        if (visible) removeFetch();
     }
 }
 
@@ -354,10 +359,8 @@ class DownloadButton extends videojs.getComponent('Button')
                     
                     menu.style.height = '4.5em';
                     setTimeout(() => { this.handleCloseMenu(); }, 200);
-                    addFetch();
                     retryFetch(link.href)
                         .then(response => response.text())
-                        .then(x => {removeFetch();})
                 }
             };
             
@@ -490,10 +493,8 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
                 urlParams.set('quality', height);
                 history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
                 
-                addFetch();
                 retryFetch(`/download?${urlParams.toString()}`, { signal })
                     .then(response => {
-                        removeFetch();
                         const switchTime = player.currentTime();
                         const isPlaying = !player.paused();
                         applyVideoQuality();
@@ -505,7 +506,6 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
                     })
                     .catch(error => {
                         console.error('Error fetching new quality:', error);
-                        removeFetch();
                     });
 
                 this.handleCloseMenu();
@@ -616,10 +616,8 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button') {
         {
             const urlParams = new URLSearchParams(window.location.search);
             const subtitleSrc = `/subtitle?${urlParams.toString()}&lang=${lang}`;
-            addFetch();
             retryFetch(subtitleSrc)
                 .then(response => response.text())
-                .then(x => {removeFetch();})
             
             let trackExists = false;
             for (let i = 0; i < tracks.length; i++)
@@ -842,12 +840,10 @@ function loadVideo()
     document.getElementById('video').style.filter = 'brightness(1)';
     const downloadUrl = urlParams.has('quality') ? `/download?${urlParams.toString()}` : `/fastest?${urlParams.toString()}`;
     
-    retryFetch(`/sprite?${urlParams.toString()}`).then(response => response.text());
-    retryFetch(`/download?${urlParams.toString()}`).then(response => response.text());
-    addFetch();
+    retryFetch(`/sprite?${urlParams.toString()}`, visible = false).then(response => response.text());
+    retryFetch(`/download?${urlParams.toString()}`, visible = false).then(response => response.text());
     retryFetch(downloadUrl)
         .then(response => {
-            removeFetch();
             playerContainer.querySelector('.vjs-poster').style.filter = '';
             applyVideoQuality();
             
@@ -863,12 +859,10 @@ function loadVideo()
                 playerContainer.querySelector('.vjs-control-bar').classList.add('display-flex');
             });
             player.load();
-            addFetch();
             retryFetch(`/formats?${urlParams.toString()}`)
                 .then(response => response.json())
                 .then(formats => {
                     console.log('Fetched formats');
-                    removeFetch();
                     console.log('Available formats:', formats);
                     if (player.controlBar && player.controlBar.SettingsButton)
                     {
@@ -879,12 +873,10 @@ function loadVideo()
                         abortController = new AbortController();
                         const signalForGoodQuality = abortController.signal;
 
-                        addFetch();
                         retryFetch(`/download?${urlParams.toString()}`, { signal: signalForGoodQuality })
                             .then(response => {
                                 console.log('Setting good quality');
                                 history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
-                                removeFetch();
                                 const switchTime = player.currentTime();
                                 const isPlaying = !player.paused();
                                 applyVideoQuality();
@@ -896,7 +888,6 @@ function loadVideo()
                                 if (error.name !== 'AbortError')
                                 {
                                     console.error('Error setting good quality:', error);
-                                    removeFetch();
                                 }
                             });
                     }
