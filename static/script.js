@@ -6,6 +6,7 @@ let skipSegment;
 let skipTime = 0;
 let currentVideoQuality = '720p';
 let activeFetches = 0; // Counter for active retryFetch calls
+let abortController = null; // AbortController for cancelling fetches
 
 function chooseGoodQuality(formats) {
     let targetQuality = 720
@@ -74,14 +75,24 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         return response;
-    } catch (error) {
+    }
+    catch (error)
+    {
+        if (error.name === 'AbortError')
+        {
+            console.log(`Fetch for "${url}" aborted.`);
+            throw error;
+        }
         console.error(`Fetch failed, retrying in ${delay / 1000} seconds...`, error);
-        if (retries > 0) {
+        if (retries > 0)
+        {
             await new Promise(resolve => setTimeout(resolve, delay));
             return retryFetch(url, options, retries - 1, delay);
-        } else {
+        }
+        else
+        {
             console.error(`Max retries reached for "${url}". Fetch failed.`);
-            throw error; // Re-throw the error to be caught by the caller
+            throw error;
         }
     }
 }
@@ -471,12 +482,16 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
             button.onclick = (event) => {
                 event.stopPropagation();
                 
+                if (abortController) abortController.abort();
+                abortController = new AbortController();
+                const signal = abortController.signal;
+
                 const buttons = this.menu.querySelectorAll('.vjs-resolution-option');
-                urlParams.set('quality', height); // Update urlParams with the new quality
+                urlParams.set('quality', height);
                 history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
                 
                 addFetch();
-                retryFetch(`/download?${urlParams.toString()}`)
+                retryFetch(`/download?${urlParams.toString()}`, { signal })
                     .then(response => {
                         removeFetch();
                         const switchTime = player.currentTime();
@@ -487,6 +502,10 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
 
                         buttons.forEach(btn => btn.classList.remove('vjs-resolution-option-current'));
                         button.classList.add('vjs-resolution-option-current');
+                    })
+                    .catch(error => {
+                        console.error('Error fetching new quality:', error);
+                        removeFetch();
                     });
 
                 this.handleCloseMenu();
@@ -855,10 +874,14 @@ function loadVideo()
                     {
                         player.controlBar.SettingsButton.updateResolutions(formats);
                         urlParams.set('quality', chooseGoodQuality(formats));
-                        addFetch();
-                        retryFetch(`/download?${urlParams.toString()}`)
-                            .then(response => {
+                        
+                        if (abortController) abortController.abort();
+                        abortController = new AbortController();
+                        const signalForGoodQuality = abortController.signal;
 
+                        addFetch();
+                        retryFetch(`/download?${urlParams.toString()}`, { signal: signalForGoodQuality })
+                            .then(response => {
                                 console.log('Setting good quality');
                                 history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
                                 removeFetch();
@@ -868,14 +891,23 @@ function loadVideo()
                                 player.controlBar.SettingsButton.updateResolutions(formats);
                                 player.currentTime(switchTime);
                                 if (isPlaying) player.play();
+                            })
+                            .catch(error => {
+                                if (error.name !== 'AbortError')
+                                {
+                                    console.error('Error setting good quality:', error);
+                                    removeFetch();
+                                }
                             });
                     }
                 });
         })
         .catch(error => {
-            console.error('Error fetching video URL:', error);
-            errorDisplay.classList.remove('spinner-parent');
-            errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
+            if (error.name !== 'AbortError') {
+                console.error('Error fetching video URL:', error);
+                errorDisplay.classList.remove('spinner-parent');
+                errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
+            }
         });
 
         
