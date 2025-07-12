@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, jsonify, send_file, Response
-from urllib.parse import unquote
+from urllib.parse import unquote, quote_plus
 import os
 import uuid
 from datetime import datetime, timedelta
@@ -136,6 +136,31 @@ def download_media_file(url, path_without_ext, ext = None):
     with open(f'{path_without_ext}.{ext.lstrip(".")}', 'wb') as f:
         for chunk in response.iter_content(chunk_size=8192):
             f.write(chunk)
+
+
+def stream_media_file(url):
+    """Stream raw file with requests.get"""
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        response = requests.get(url, stream=True, headers=headers)
+        response.raise_for_status()
+        file_size = response.headers.get('content-length')
+        mime_type = response.headers.get('content-type', 'application/octet-stream')
+
+        def generate():
+            for chunk in response.iter_content(chunk_size=8192):
+                yield chunk
+
+        resp = Response(generate(), mimetype=mime_type)
+        if file_size:
+            resp.headers['Content-Length'] = file_size
+        resp.headers['Accept-Ranges'] = 'bytes'
+        return resp
+    except requests.exceptions.RequestException as e:
+        print(f"Error streaming media file: {e}")
+        return jsonify({"error": f"Failed to stream media: {e}"}), 500
 
 
 @app.after_request
@@ -278,10 +303,6 @@ def download_file(url: str, media_type='video'):
 
         elif media_type.startswith('video'):
             download_best = media_type.startswith('video-best')
-            # if media_type == 'video':
-            #     vid_url, ext = get_fastest_quality(url)
-            #     download_media_file(vid_url, os.path.join(data_dir, f'{media_type}'), ext)
-            #     return
             if not download_best:
                 print(f"Downloading quality {res}p")
                 try:
@@ -477,6 +498,15 @@ def download_ytdlp(filename):
     os.utime(path)
     print('Stopped serving download/path')
     return send_from_directory(os.path.dirname(path), os.path.basename(path))
+
+
+@app.route('/fastest')
+def resp_fastest_stream():
+    url = get_url(request)
+    fastest_url, _ = get_fastest_quality(url)
+    if fastest_url:
+        return stream_media_file(fastest_url)
+    return download_media()
 
 
 @app.route('/formats')

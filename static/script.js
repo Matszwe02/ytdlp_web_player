@@ -85,7 +85,7 @@ function formatTime(timeInSeconds)
 function applyVideoQuality()
 {
     const urlParams = new URLSearchParams(window.location.search);
-    const downloadUrl = `/download?${urlParams.toString()}`;
+    const downloadUrl = urlParams.has('quality') ? `/download?${urlParams.toString()}` : `/fastest?${urlParams.toString()}`;
     const quality = urlParams.get('quality') || null;
     console.log(`Applying video quality: ${quality} for URL: ${downloadUrl}`);
     const videoEl = player.el().querySelector('video');
@@ -805,9 +805,10 @@ function loadVideo()
     spinnerParent.classList.add('spinner-parent');
     
     document.getElementById('video').style.filter = 'brightness(1)';
-    const downloadUrl = `/download?${urlParams.toString()}`;
+    const downloadUrl = urlParams.has('quality') ? `/download?${urlParams.toString()}` : `/fastest?${urlParams.toString()}`;
     
-    retryFetch(`/sprite?${urlParams.toString()}`).then(response => response.text()).then(data => {});
+    retryFetch(`/sprite?${urlParams.toString()}`).then(response => response.text());
+    retryFetch(`/download?${urlParams.toString()}`).then(response => response.text());
     retryFetch(downloadUrl)
         .then(response => {
         
