@@ -34,21 +34,18 @@ def gen_pathname(url: str):
     return sha1(url.encode()).hexdigest()
 
 
-
-def get_video_duration(file_path):
-    command = [
-        'ffprobe',
-        '-v', 'error',
-        '-show_entries', 'format=duration',
-        '-of', 'default=noprint_wrappers=1:nokey=1',
-        file_path
-    ]
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-        return float(result.stdout.strip())
-    except (subprocess.CalledProcessError, ValueError) as e:
-        print(f"Error getting video duration for {file_path}: {e}")
-        return None
+def get_meta(url: str):
+    with FileCachingLock(url, 'meta') as cache:
+        if cache: return cache
+        data_dir = os.path.join('./download', gen_pathname(url))
+        print(f'downloading meta for {url}')
+        ydl_opts = {'quiet': True, 'skip_download': True}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.sanitize_info(ydl.extract_info(url, download=False))
+            with open(os.path.join(data_dir, 'meta.json'), 'w') as f:
+                json.dump(info, f)
+                return info
+    return None
 
 
 
@@ -196,6 +193,35 @@ def check_media(url: str, media_type: str):
     return None
 
 
+class FileCachingLock:
+    def __init__(self, url, media_type):
+        self.url = url
+        self.media_type = media_type
+        self.data_dir = os.path.join('./download', gen_pathname(self.url))
+
+    def __enter__(self):
+        for _ in range(600):
+            if not os.path.exists(os.path.join(self.data_dir, f'{self.media_type}.temp')):
+                break
+            time.sleep(1)
+            print(f'Waiting for download of {self.media_type}')
+        
+        if cached_media := check_media(url=self.url, media_type=self.media_type):
+            print(f'Cache hit for {self.media_type}!')
+            self.url = None
+            return cached_media
+        
+        with open(os.path.join(self.data_dir, f'{self.media_type}.temp'), 'w') as f:
+            f.write(datetime.now().isoformat())
+        
+        return None
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self.url:
+            try: os.remove(os.path.join(self.data_dir, f'{self.media_type}.temp'))
+            except: print(f'FATAL ERROR trying to unlock {self.media_type} of {self.data_dir}. Media type cannot be downloaded')
+
+
 
 def download_file(url: str, media_type='video'):
     """
@@ -207,19 +233,8 @@ def download_file(url: str, media_type='video'):
     output_path = os.path.join(data_dir, f'{media_type}.%(ext)s')
     print(f'Downloading {media_type} for {url}')
     
-    if cached_media := check_media(url=url, media_type=media_type):
-        print(f'Cache hit for {media_type}!')
-        return cached_media
-    
-    for _ in range(3600):
-        if not os.path.exists(os.path.join(data_dir, f'{media_type}.temp')):
-            break
-        time.sleep(1)
-        print(f'Waiting for download of {media_type}')
-    
-    try:
-        with open(os.path.join(data_dir, f'{media_type}.temp'), 'w') as f:
-            f.write(datetime.now().isoformat())
+    with FileCachingLock(url, media_type) as cache:
+        if cache: return cache
         
         ydl_opts = {"outtmpl": output_path, "ffmpeg_location": "."}
         
@@ -235,23 +250,29 @@ def download_file(url: str, media_type='video'):
             except ValueError:
                 print("Error parsing start/end times from media_type")
         
-        
+
         def dwnl(url, ydl_opts):
             print(f'YTDLP: downloading "{unquote(url)}" with options "{ydl_opts}"')
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download(unquote(url))
-        
-        
+
+
         if media_type == 'thumb':
-            ydl_opts.update({"writethumbnail": True, "skip_download": True})
-            dwnl(url, ydl_opts)
-        
-        
+            meta = get_meta(url)
+            thumb_url = meta['thumbnail']
+            response = requests.get(thumb_url, stream=True)
+            response.raise_for_status()
+            _, ext = os.path.splitext(thumb_url)
+            with open(os.path.join(data_dir, f'thumb{ext}'), 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+
         elif media_type.startswith('audio'):
             ydl_opts.update({"format": "bestaudio/best", "extract_audio": True, "outtmpl": os.path.join(data_dir, f'{media_type}.mp3')})
             dwnl(url, ydl_opts)
-        
-        
+
+
         elif media_type.startswith('video'):
             download_best = media_type.startswith('video-best')
             if not download_best:
@@ -347,29 +368,13 @@ def download_file(url: str, media_type='video'):
                 f.write(jsonify(subtitles_data).get_data(as_text=True))
 
 
-        elif media_type.startswith('meta'):
-            print(f'downloading meta for {url}')
-            ydl_opts = {'quiet': True, 'skip_download': True}
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                with open(os.path.join(data_dir, f'{media_type}.json'), 'w') as f:
-                    json.dump(ydl.sanitize_info(info), f)
-
-
         elif media_type.startswith('sb'):
             print(f'downloading sb for {url}')
             sb_data = SponsorBlock(url).get_segments()
             with open(os.path.join(data_dir, f'{media_type}.json'), 'w') as f:
                 f.write(jsonify(sb_data).get_data(as_text=True))
 
-
-        try: os.remove(os.path.join(data_dir, f'{media_type}.temp'))
-        except: pass
         return check_media(url=url, media_type=media_type)
-    except Exception as e:
-        print(f'Exception during download of {media_type}: {e}')
-        os.remove(os.path.join(data_dir, f'{media_type}.temp'))
-        return None
 
 
 def host_file(url: str, media_type='video'):
@@ -429,11 +434,6 @@ def serve_sprite_by_path(url):
 @app.route('/sb')
 def get_sponsor_segments():
     return host_file(get_url(request), 'sb')
-
-
-@app.route('/meta')
-def get_meta():
-    return host_file(get_url(request), 'meta')
 
 
 @app.route('/raw')
