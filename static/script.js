@@ -461,8 +461,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
                 
                 addFetch();
                 retryFetch(`/download?${urlParams.toString()}`)
-                    .then(response => response.text())
-                    .then(x => {
+                    .then(response => {
                         removeFetch();
                         const switchTime = player.currentTime();
                         const isPlaying = !player.paused();
@@ -810,8 +809,7 @@ function loadVideo()
     
     retryFetch(`/sprite?${urlParams.toString()}`).then(response => response.text()).then(data => {});
     retryFetch(downloadUrl)
-        .then(response => response.text())
-        .then(data => {
+        .then(response => {
         
             playerContainer.querySelector('.vjs-poster').style.filter = '';
             applyVideoQuality();
