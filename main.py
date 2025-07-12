@@ -447,7 +447,7 @@ def raw():
 
 @app.route('/download')
 def download_media():
-    res = (request.args.get('quality') or '720').removesuffix("p")
+    res = (request.args.get('quality') or '').removesuffix("p")
     start_time = request.args.get('start', 0, type=float)
     end_time = request.args.get('end', 0, type=float)
     
