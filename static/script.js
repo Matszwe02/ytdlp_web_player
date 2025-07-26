@@ -262,10 +262,8 @@ class SettingsButton extends videojs.getComponent('Button')
 videojs.registerComponent('SettingsButton', SettingsButton);
 
 
-class DownloadButton extends videojs.getComponent('Button')
-{
-    constructor(player, options)
-    {
+class DownloadButton extends videojs.getComponent('Button') {
+    constructor(player, options) {
         super(player, options);
         this.addClass('menu-button');
         this.controlText('Download Video');
@@ -275,142 +273,114 @@ class DownloadButton extends videojs.getComponent('Button')
         this.endBtn = null;
         this.parent = null;
         this.menu = this.createDownloadMenu();
-        this.trimMenu = this.createTrimMenu();
         this.el().innerHTML = '<span class="fa-solid fa-download"></span>';
         this.el().appendChild(this.menu);
-        this.el().appendChild(this.trimMenu);
     }
 
-    handleCloseMenu(propagate = true)
-    {
-        this.menu.style.height = '0em';
-        this.trimMenu.style.height = '0em';
-        player.removeClass('download-menu-open');
-        if (this.parent && propagate)
-        {
+    handleClick(event) {
+        event.stopPropagation();
+        if (this.menu.style.display === 'block') {
+            this.handleCloseMenu();
+        } else {
+            this.handleOpenMenu();
+        }
+    }
+
+    handleOpenMenu() {
+        this.menu.style.display = 'block';
+    }
+
+    handleCloseMenu(propagate = false) {
+        this.menu.style.display = 'none';
+        if (this.parent && propagate) {
             this.parent.handleCloseMenu();
         }
     }
 
-    handleClick(event)
-    {
-        event.stopPropagation();
-        if (this.menu.contains(event.target)) return;
-        if (this.menu.style.height == '3.5em') return this.handleCloseMenu(false);
-        
-        this.menu.style.height = '3.5em';
-        this.trimMenu.style.height = '0em';
-        player.addClass('download-menu-open');
-    }
-
-
-    updateTimeLabels()
-    {
+    updateTimeLabels() {
         if (this.startBtn != null)
             this.startBtn.innerHTML = "Start<br><div class=time_disp>" + formatTime(this.startTime) + "</div>";
         if (this.endBtn != null)
             this.endBtn.innerHTML = "End<br><div class=time_disp>" + formatTime(this.endTime) + "</div>";
     }
 
-    createDownloadMenu()
-    {
+    createDownloadMenu() {
         const urlParams = new URLSearchParams(window.location.search);
         const baseDownloadUrl = `/download?${urlParams.toString()}`;
-        
+
         const menu = document.createElement('div');
-        menu.classList.add('vjs-download-menu');
-        
+        menu.classList.add('vjs-resolution-menu');
+        menu.style.display = 'none'; // Initially hidden
+
         const options = [
-            { html: '<i class="fa-solid fa-circle-up"></i>', quality: 'best', title: 'Highest Quality' },
-            { html: '<i class="fa-solid fa-film"></i>', quality: 'current', title: 'Current Quality' },
-            { html: '<i class="fa-solid fa-music"></i>', quality: 'audio', title: 'Audio Only' },
-            { html: '<i class="fa-solid fa-scissors"></i>', quality: 'trim', title: 'Trim Video' }
+            { quality: 'best', title: 'Highest Quality' },
+            { quality: 'current', title: 'Current Quality' },
+            { quality: 'audio', title: 'Audio Only' },
+            { quality: 'trim', title: 'Trim Video' }
         ];
-        
+
         options.forEach(option => {
             const button = document.createElement('button');
-            button.innerHTML = option.html;
-            button.title = option.title;
-            button.classList.add('vjs-download-option');
-            
+            button.textContent = option.title;
+            button.classList.add('vjs-resolution-option');
+
             const handleEvent = (event) => {
-                if (option.quality == 'trim')
-                {
-                    event.stopPropagation(); // Prevent the click from propagating to the parent DownloadButton
-                    this.trimMenu.style.height = (this.trimMenu.style.height == '3.5em')?'0em':'3.5em';
-                    this.startTime = null;
-                    this.endTime = null;
-                    this.updateTimeLabels();
-                }
-                else
-                {
+                event.stopPropagation();
+                if (option.quality == 'trim') {
+                    if (this.startBtn.style.display === 'block') {
+                        this.startBtn.style.display = 'none';
+                        this.endBtn.style.display = 'none';
+                    } else {
+                        this.startBtn.style.display = 'block';
+                        this.endBtn.style.display = 'block';
+                        this.startTime = null;
+                        this.endTime = null;
+                        this.updateTimeLabels();
+                    }
+                } else {
                     if (option.quality == 'current') option.quality = currentVideoQuality;
-                                        
+
                     const link = document.createElement('a');
                     link.href = `${baseDownloadUrl}&quality=${option.quality}`;
-                    
+
                     if (this.startTime != null && this.endTime != null)
                         link.href += `&start=${this.startTime.toFixed(1)}&end=${this.endTime.toFixed(1)}`;
-                    
+
                     link.download = 'file';
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
-                    
-                    menu.style.height = '4.5em';
-                    setTimeout(() => { this.handleCloseMenu(); }, 200);
+
+                    this.handleCloseMenu(true);
                     retryFetch(link.href)
                         .then(response => response.text())
                 }
             };
-            
+
             button.addEventListener('touchend', handleEvent);
             button.addEventListener('click', handleEvent);
-            
+
             menu.appendChild(button);
         });
-        
-        return menu;
-    }
 
-    createTrimMenu()
-    {
-        
-        const menu = document.createElement('div');
-        menu.classList.add('vjs-download-menu');
-        menu.style.bottom='200%';
-        
-        
         this.startBtn = document.createElement('button');
-        this.startBtn.classList.add('vjs-download-option');
+        this.startBtn.classList.add('vjs-resolution-option');
         this.startBtn.title = 'Click To Adjust Start Time';
-        
-        this.endBtn = document.createElement('button');
-        this.endBtn.classList.add('vjs-download-option');
-        this.endBtn.title = 'Click To Adjust End Time';
-        
-        this.updateTimeLabels();
-        
-        const startEvent = (event) => {
-            event.stopPropagation();
-            this.startTime = player.currentTime();
-            this.updateTimeLabels();
-        };
-        
-        const endEvent = (event) => {
-            event.stopPropagation();
-            this.endTime = player.currentTime();
-            this.updateTimeLabels();
-        };
-        
-        this.startBtn.addEventListener('touchend', (e) => startEvent(e));
-        this.startBtn.addEventListener('click', (e) => startEvent(e));
-        this.endBtn.addEventListener('touchend', (e) => endEvent(e));
-        this.endBtn.addEventListener('click', (e) => endEvent(e));
-        
+        this.startBtn.style.display = 'none'; // Initially hidden
+        this.startBtn.addEventListener('touchend', (e) => { e.stopPropagation(); this.startTime = player.currentTime(); this.updateTimeLabels(); });
+        this.startBtn.addEventListener('click', (e) => { e.stopPropagation(); this.startTime = player.currentTime(); this.updateTimeLabels(); });
         menu.appendChild(this.startBtn);
+
+        this.endBtn = document.createElement('button');
+        this.endBtn.classList.add('vjs-resolution-option');
+        this.endBtn.title = 'Click To Adjust End Time';
+        this.endBtn.style.display = 'none'; // Initially hidden
+        this.endBtn.addEventListener('touchend', (e) => { e.stopPropagation(); this.endTime = player.currentTime(); this.updateTimeLabels(); });
+        this.endBtn.addEventListener('click', (e) => { e.stopPropagation(); this.endTime = player.currentTime(); this.updateTimeLabels(); });
         menu.appendChild(this.endBtn);
-        
+
+        this.updateTimeLabels();
+
         return menu;
     }
 }
