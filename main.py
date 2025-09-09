@@ -522,6 +522,10 @@ def serve_subtitle():
 def subtitles():
     return host_file(get_url(request), 'listsub')
 
+@app.route('/manifest.json')
+def serve_manifest():
+    return render_template('manifest.json', app_title=app_title)
+
 
 
 thread = Thread(target=delete_old_files)
