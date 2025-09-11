@@ -7,6 +7,9 @@ let skipTime = 0;
 let currentVideoQuality = '720p';
 let activeFetches = 0; // Counter for active retryFetch calls
 let abortController = null; // AbortController for cancelling fetches
+let repeatMode = false;
+let repeatStartTime = 0;
+let repeatEndTime = 0;
 
 function chooseGoodQuality(formats) {
     let targetQuality = 720
@@ -209,13 +212,16 @@ class SettingsButton extends videojs.getComponent('Button')
         this.resolutionSwitcher = new ResolutionSwitcherButton(player, options);
         this.subtitleSwitcher = new SubtitleSwitcherButton(player, options);
         this.downloadButton = new DownloadButton(player, options);
+        this.repeatButton = new RepeatButton(player, options);
         this.resolutionSwitcher.parent = this;
         this.subtitleSwitcher.parent = this;
         this.downloadButton.parent = this;
+        this.repeatButton.parent = this;
 
         this.menu.appendChild(this.resolutionSwitcher.el());
         this.menu.appendChild(this.subtitleSwitcher.el());
         this.menu.appendChild(this.downloadButton.el());
+        this.menu.appendChild(this.repeatButton.el());
     }
 
     handleClick(event)
@@ -385,6 +391,96 @@ class DownloadButton extends videojs.getComponent('Button') {
     }
 }
 videojs.registerComponent('DownloadButton', DownloadButton);
+
+
+class RepeatButton extends videojs.getComponent('Button') {
+    constructor(player, options) {
+        super(player, options);
+        this.addClass('menu-button');
+        this.controlText('Toggle Repeat');
+        this.el().innerHTML = '<i class="fa-solid fa-repeat"></i>';
+        this.repeatActive = false;
+        this.repeatStartTime = null;
+        this.repeatEndTime = null;
+        this.startBtn = null;
+        this.endBtn = null;
+        this.parent = null;
+        this.menu = this.createRepeatMenu();
+        this.el().appendChild(this.menu);
+    }
+
+    handleClick(event) {
+        event.stopPropagation();
+        if (this.menu.style.display === 'block') {
+            this.handleCloseMenu();
+        } else {
+            this.handleOpenMenu();
+        }
+    }
+
+    handleOpenMenu() {
+        this.menu.style.display = 'block';
+    }
+
+    handleCloseMenu(propagate = false) {
+        this.menu.style.display = 'none';
+        if (this.parent && propagate) {
+            this.parent.handleCloseMenu();
+        }
+    }
+
+    updateTimeLabels() {
+        if (this.startBtn != null)
+            this.startBtn.innerHTML = "Start<br><div class=time_disp>" + formatTime(this.repeatStartTime) + "</div>";
+        if (this.endBtn != null)
+            this.endBtn.innerHTML = "End<br><div class=time_disp>" + formatTime(this.repeatEndTime) + "</div>";
+    }
+
+    createRepeatMenu() {
+        const menu = document.createElement('div');
+        menu.classList.add('vjs-repeat-menu');
+        menu.style.display = 'none';
+
+        const toggleButton = document.createElement('button');
+        toggleButton.textContent = 'Toggle Repeat';
+        toggleButton.classList.add('vjs-resolution-option');
+        toggleButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.repeatActive = !this.repeatActive;
+            if (this.repeatActive) {
+                this.addClass('vjs-repeat-active');
+                this.controlText('Repeat Active');
+                this.repeatStartTime = 0;
+                this.repeatEndTime = player.duration();
+                this.updateTimeLabels();
+            } else {
+                this.removeClass('vjs-repeat-active');
+                this.controlText('Toggle Repeat');
+            }
+            repeatMode = this.repeatActive;
+            repeatStartTime = this.repeatStartTime;
+            repeatEndTime = this.repeatEndTime;
+        });
+        menu.appendChild(toggleButton);
+
+        this.startBtn = document.createElement('button');
+        this.startBtn.classList.add('vjs-resolution-option');
+        this.startBtn.title = 'Click To Adjust Start Time';
+        this.startBtn.addEventListener('click', (e) => { e.stopPropagation(); this.repeatStartTime = player.currentTime(); this.updateTimeLabels(); repeatStartTime = this.repeatStartTime; });
+        menu.appendChild(this.startBtn);
+
+        this.endBtn = document.createElement('button');
+        this.endBtn.classList.add('vjs-resolution-option');
+        this.endBtn.title = 'Click To Adjust End Time';
+        this.endBtn.addEventListener('click', (e) => { e.stopPropagation(); this.repeatEndTime = player.currentTime(); this.updateTimeLabels(); repeatEndTime = this.repeatEndTime; });
+        menu.appendChild(this.endBtn);
+
+        this.updateTimeLabels();
+
+        return menu;
+    }
+}
+videojs.registerComponent('RepeatButton', RepeatButton);
 
 
 class ResolutionSwitcherButton extends videojs.getComponent('Button') {
@@ -796,7 +892,13 @@ function loadVideo()
     playerContainer.appendChild(skipSegment);
     skipSegment.id = "skipsegment";
     skipSegment.onclick = function() {skipclick();};
-    
+
+    player.on('timeupdate', () => {
+        if (repeatMode && player.currentTime() >= repeatEndTime) {
+            player.currentTime(repeatStartTime);
+        }
+    });
+
     const errorDisplay = playerContainer.querySelector('.vjs-error-display');
     errorDisplay.classList.add('spinner-parent');
     errorDisplay.querySelector('.vjs-modal-dialog-content').classList.add('spinner-body');

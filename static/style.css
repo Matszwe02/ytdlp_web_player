@@ -458,3 +458,29 @@ input
 .vjs-resolution-option-current {
     background-color: #555 !important;
 }
+
+.vjs-repeat-button {
+    cursor: pointer;
+    padding: 10px !important;
+}
+
+.vjs-button.vjs-repeat-active {
+    color: #ff7300 !important;
+}
+
+.vjs-repeat-menu {
+    position: absolute;
+    bottom: 110%;
+    right: 50%;
+    transform: translateX(50%);
+    background-color: #333;
+    border-radius: 7px;
+    color: #eee;
+    text-align: center;
+    display: none;
+    flex-direction: column;
+    width: 100px;
+    overflow: hidden;
+    transition: all .2s cubic-bezier(0.77, 0, 0.175, 1);
+    z-index: 10;
+}
