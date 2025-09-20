@@ -62,6 +62,23 @@ def get_video_formats(url):
 
 
 
+def get_video_sources(url):
+    sources = {}
+    meta = get_meta(url)
+    formats = meta.get('formats', [])
+    for f in formats:
+        video_name = f"{(f.get('height', ''))}" if f.get('vcodec', 'none').lower() != 'none' else ''
+        audio_name = ''
+        if f.get('acodec', 'none') != 'none':
+            audio_name = 'audio_drc' if 'drc' in f"{f.get('format_id')} {f.get('format_note')}".lower() else 'audio'
+        name = video_name + audio_name
+
+        if (video_name or audio_name) and name not in sources:
+            sources[name] = f['url']
+    return sources
+
+
+
 def get_subtitles(url):
     meta = get_meta(url)
     subs = {**meta.get('subtitles', {}), **meta.get('automatic_captions', {})}
@@ -391,6 +408,13 @@ def download_file(url: str, media_type='video'):
                 f.write(jsonify(formats_data).get_data(as_text=True))
 
 
+        elif media_type.startswith('sources'):
+            print(f'downloading sources for {url}')
+            sources_data = get_video_sources(url)
+            with open(os.path.join(data_dir, f'{media_type}.json'), 'w') as f:
+                f.write(jsonify(sources_data).get_data(as_text=True))
+
+
         elif media_type.startswith('listsub'):
             print(f'downloading subtitles for {url}')
             subtitles_data = get_subtitles(url)
@@ -508,9 +532,79 @@ def resp_fastest_stream():
     return download_media()
 
 
+@app.route('/stream')
+def stream_media():
+    url = get_url(request)
+    quality = request.args.get('quality')
+
+    if not url or not quality:
+        return jsonify({"error": "URL and quality parameters are required"}), 400
+
+    sources = get_video_sources(url)
+    video_url = None
+    audio_url = None
+
+    if quality in sources:
+        if quality.endswith('audio') and not quality.startswith('audio'): # e.g., "1080audio"
+            video_url = sources[quality]
+            # Audio is combined, no separate audio needed
+        elif quality == 'audio' or quality == 'audio_drc':
+            audio_url = sources[quality]
+            # Only audio, no video needed
+        else: # Numeric video quality, e.g., "1080"
+            video_url = sources[quality]
+            audio_url = sources.get('audio_drc') or sources.get('audio') # Prefer audio_drc
+
+    if not video_url and not audio_url:
+        return jsonify({"error": f"No suitable format found for quality: {quality}"}), 404
+
+    if video_url and audio_url:
+        # Mux video and audio with FFmpeg
+        command = [
+            'ffmpeg',
+            '-i', video_url,
+            '-i', audio_url,
+            '-c:v', 'copy',
+            '-c:a', 'aac',
+            '-f', 'mp4',
+            '-movflags', 'frag_keyframe+empty_moov',
+            'pipe:1'
+        ]
+        print(f"FFmpeg command: {' '.join(command)}")
+        try:
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            def generate():
+                while True:
+                    chunk = process.stdout.read(8192)
+                    if not chunk:
+                        break
+                    yield chunk
+                process.stdout.close()
+                process.wait()
+                if process.returncode != 0:
+                    print(f"FFmpeg error: {process.stderr.read().decode()}")
+
+            return Response(generate(), mimetype='video/mp4')
+        except Exception as e:
+            print(f"Error muxing streams with FFmpeg: {e}")
+            return jsonify({"error": f"Failed to mux streams: {e}"}), 500
+    elif video_url:
+        return stream_media_file(video_url)
+    elif audio_url:
+        return stream_media_file(audio_url)
+    
+    return jsonify({"error": "Unexpected error in stream_media"}), 500
+
+
 @app.route('/formats')
 def formats():
     return host_file(get_url(request), 'formats')
+
+
+@app.route('/sources')
+def sources():
+    return host_file(get_url(request), 'sources')
 
 
 @app.route('/subtitle')
