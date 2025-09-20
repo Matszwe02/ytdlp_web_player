@@ -64,6 +64,7 @@ def get_video_formats(url):
 
 def get_video_sources(url):
     sources = {}
+    best_audio = 0
     meta = get_meta(url)
     formats = meta.get('formats', [])
     for f in formats:
@@ -72,8 +73,13 @@ def get_video_sources(url):
         if f.get('acodec', 'none') != 'none':
             audio_name = 'audio_drc' if 'drc' in f"{f.get('format_id')} {f.get('format_note')}".lower() else 'audio'
         name = video_name + audio_name
+        quality = float(f.get('quality', 0))
+        if not name: continue
 
-        if (video_name or audio_name) and name not in sources:
+        if name.startswith('audio') and quality < best_audio:
+            best_audio = quality
+            sources[name] = f['url']
+        elif name not in sources:
             sources[name] = f['url']
     return sources
 
