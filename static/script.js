@@ -72,12 +72,22 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible 
     if (visible) addFetch();
     try
     {
-        console.log(`Fetching "${url}"`);
-        const response = await fetch(url, options);
-        if (!response.ok)
+        const error = new Error();
+        const stack = error.stack.split('\n');
+        let callerInfo = 'unknown';
+        if (stack.length > 2)
         {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const callerLine = stack[2];
+            const match = callerLine.match(/at (.*?) \((.*?):(\d+):(\d+)\)/) || callerLine.match(/at (.*?):(\d+):(\d+)/);
+            if (match)
+            {
+                if (match.length === 5) callerInfo = `${match[1]} (${match[2]}:${match[3]})`;
+                else if (match.length === 4) callerInfo = `(${match[1]}:${match[2]})`;
+            }
         }
+        console.log(`Fetching "${url}" called from ${callerInfo}`);
+        const response = await fetch(url, options);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return response;
     }
     catch (error)
@@ -910,66 +920,37 @@ function loadVideo()
     spinnerParent.classList.add('spinner-parent');
     
     document.getElementById('video').style.filter = 'brightness(1)';
-    const downloadUrl = urlParams.has('quality') ? `/download?${urlParams.toString()}` : `/fastest?${urlParams.toString()}`;
     
     retryFetch(`/sprite?${urlParams.toString()}`, visible = false).then(response => response.text());
-    retryFetch(`/download?${urlParams.toString()}`, visible = false).then(response => response.text());
-    retryFetch(downloadUrl)
-        .then(response => {
-            playerContainer.querySelector('.vjs-poster').style.filter = '';
-            applyVideoQuality();
-            
-            // When video is loaded
-            player.on('loadeddata', () => {
-                playerContainer.querySelector('img').classList.add('loaded-img');
-                adjustVideoSize();
-                window.addEventListener('resize', adjustVideoSize);
-                setTimeout(() => {playerContainer.style.transitionDuration = '0s';}, 1000);
-                player.controls(true);
-                errorDisplay.classList.remove('spinner-parent');
-                errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
-                playerContainer.querySelector('.vjs-control-bar').classList.add('display-flex');
-            });
-            player.load();
-            retryFetch(`/formats?${urlParams.toString()}`)
-                .then(response => response.json())
-                .then(formats => {
-                    console.log('Fetched formats');
-                    console.log('Available formats:', formats);
-                    if (player.controlBar && player.controlBar.SettingsButton)
-                    {
-                        player.controlBar.SettingsButton.updateResolutions(formats);
-                        urlParams.set('quality', chooseGoodQuality(formats));
-                        
-                        if (abortController) abortController.abort();
-                        abortController = new AbortController();
-                        const signalForGoodQuality = abortController.signal;
+    playerContainer.querySelector('.vjs-poster').style.filter = '';
+    applyVideoQuality();
+    
+    // When video is loaded
+    player.on('loadeddata', () => {
+        playerContainer.querySelector('img').classList.add('loaded-img');
+        adjustVideoSize();
+        window.addEventListener('resize', adjustVideoSize);
+        setTimeout(() => {playerContainer.style.transitionDuration = '0s';}, 1000);
+        player.controls(true);
+        errorDisplay.classList.remove('spinner-parent');
+        errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
+        playerContainer.querySelector('.vjs-control-bar').classList.add('display-flex');
+    });
+    player.load();
+    retryFetch(`/formats?${urlParams.toString()}`)
+        .then(response => response.json())
+        .then(formats => {
+            console.log('Fetched formats');
+            console.log('Available formats:', formats);
+            if (player.controlBar && player.controlBar.SettingsButton)
+            {
+                player.controlBar.SettingsButton.updateResolutions(formats);
+                urlParams.set('quality', chooseGoodQuality(formats));
+                
+                if (abortController) abortController.abort();
+                abortController = new AbortController();
+                const signalForGoodQuality = abortController.signal;
 
-                        retryFetch(`/download?${urlParams.toString()}`, { signal: signalForGoodQuality })
-                            .then(response => {
-                                console.log('Setting good quality');
-                                history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
-                                const switchTime = player.currentTime();
-                                const isPlaying = !player.paused();
-                                applyVideoQuality();
-                                player.controlBar.SettingsButton.updateResolutions(formats);
-                                player.currentTime(switchTime);
-                                if (isPlaying) player.play();
-                            })
-                            .catch(error => {
-                                if (error.name !== 'AbortError')
-                                {
-                                    console.error('Error setting good quality:', error);
-                                }
-                            });
-                    }
-                });
-        })
-        .catch(error => {
-            if (error.name !== 'AbortError') {
-                console.error('Error fetching video URL:', error);
-                errorDisplay.classList.remove('spinner-parent');
-                errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
             }
         });
 
