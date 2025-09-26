@@ -463,6 +463,7 @@ def watch():
     ffmpeg_version = Downloader.get_ffmpeg_version()
     original_url = get_url(request)
     print('Stopped serving watch')
+    Thread(target=host_file(get_url(request), 'formats')).start()
     return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title)
 
 
