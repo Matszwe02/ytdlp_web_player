@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, jsonify, send_file, Response
-from urllib.parse import unquote, quote_plus
+from urllib.parse import unquote, quote_plus, urlparse, parse_qs, urlencode, urlunparse
 import os
 import uuid
 from datetime import datetime, timedelta
@@ -145,6 +145,16 @@ def delete_old_files():
 def get_url(req):
     url = req.args.get('v') or req.args.get('url') or None
     if url is None: return None
+
+    parsed_url = urlparse(url)
+    query_params = parse_qs(parsed_url.query)
+
+    if 'list' in query_params:
+        del query_params['list']
+
+    new_query = urlencode(query_params, doseq=True)
+    url = urlunparse(parsed_url._replace(query=new_query))
+
     if '.' not in url:
         url = 'https://youtube.com/watch?v=' + url
     return url
