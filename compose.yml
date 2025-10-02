@@ -4,6 +4,7 @@ services:
         # image: matszwe02/ytdlp_web_player
         restart: unless-stopped
         environment:
-            - APP_TITLE=YT-DLP Player
+            - APP_TITLE=Player
+            - THEME_COLOR=#ff7300
         ports:
             - 5000:5000

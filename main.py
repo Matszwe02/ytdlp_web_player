@@ -22,6 +22,7 @@ app = Flask(__name__)
 DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
+theme_color = os.environ.get('THEME_COLOR', '#ff7300')
 
 
 
@@ -462,7 +463,7 @@ def index():
     ydl_version = Downloader.get_ytdlp_version()
     ffmpeg_version = Downloader.get_ffmpeg_version()
     print('Stopped serving root')
-    return render_template('index.html', ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title)
+    return render_template('index.html', ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color)
 
 
 
@@ -474,7 +475,7 @@ def watch():
     original_url = get_url(request)
     print('Stopped serving watch')
     Thread(target=get_meta, args=[original_url]).start()
-    return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title)
+    return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color)
 
 
 
@@ -635,7 +636,7 @@ def subtitles():
 
 @app.route('/manifest.json')
 def serve_manifest():
-    return render_template('manifest.json', app_title=app_title)
+    return render_template('manifest.json', app_title=app_title, theme_color=theme_color)
 
 
 

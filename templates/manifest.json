@@ -4,7 +4,7 @@
   "description": "Arbitraty internet video player powered by yt-dlp",
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#222222",
+  "theme_color": "{{ theme_color }}",
   "background_color": "#222222",
   "icons": [
     {
