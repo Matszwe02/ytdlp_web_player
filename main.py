@@ -23,6 +23,7 @@ DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
 theme_color = os.environ.get('THEME_COLOR', '#ff7300')
+ydl_global_opts = {'ffmpeg-location': shutil.which("ffmpeg")}
 
 
 
@@ -43,6 +44,7 @@ def get_meta(url: str):
         data_dir = os.path.join('./download', gen_pathname(url))
         print(f'downloading meta for {url}')
         ydl_opts = {'quiet': True, 'skip_download': True}
+        ydl_opts.update(ydl_global_opts)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.sanitize_info(ydl.extract_info(url, download=False))
             with open(os.path.join(data_dir, 'meta.json'), 'w') as f:
@@ -301,7 +303,8 @@ def download_file(url: str, media_type='video'):
     with FileCachingLock(url, media_type) as cache:
         if cache: return cache
         
-        ydl_opts = {"outtmpl": output_path, "ffmpeg_location": "."}
+        ydl_opts = {"outtmpl": output_path}
+        ydl_opts.update(ydl_global_opts)
         
         timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
         default_res = '720p' if get_meta(url).get('duration', 0) < 300 else '240p'
