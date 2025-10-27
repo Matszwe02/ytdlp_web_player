@@ -4,7 +4,7 @@ services:
         # image: matszwe02/ytdlp_web_player
         restart: unless-stopped
         environment:
-            - APP_TITLE=Player
+            - APP_TITLE=YT-DLP Player
             - THEME_COLOR=#ff7300
             - ENABLE_SPRITE=false
         ports:
