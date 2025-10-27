@@ -6,5 +6,6 @@ services:
         environment:
             - APP_TITLE=Player
             - THEME_COLOR=#ff7300
+            - ENABLE_SPRITE=false
         ports:
             - 5000:5000

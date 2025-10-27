@@ -888,7 +888,10 @@ function loadVideo()
         },
     });
     player.doubleTapFF();
-    player.spriteThumbnails({ url: `/sprite?${urlParams.toString()}`, width: 160, height: 90, columns: 10, interval: 10 });
+    if (document.getElementById('enable-sprite'))
+    {
+        player.spriteThumbnails({ url: `/sprite?${urlParams.toString()}`, width: 160, height: 90, columns: 10, interval: 10 });
+    }
     playerContainer = player.el();
     
     const zoomToFillCookie = document.cookie.split('; ').find(row => row.startsWith('zoomToFill='));

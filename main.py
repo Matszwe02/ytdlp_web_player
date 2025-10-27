@@ -23,6 +23,7 @@ DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
 theme_color = os.environ.get('THEME_COLOR', '#ff7300')
+enable_sprite = os.environ.get('ENABLE_SPRITE', 'False').lower() == 'true'
 ydl_global_opts = {'ffmpeg-location': shutil.which("ffmpeg")}
 
 
@@ -278,6 +279,7 @@ class FileCachingLock:
             self.url = None
             return cached_media
         
+        os.makedirs(self.data_dir, exist_ok=True)
         with open(os.path.join(self.data_dir, f'{self.media_type}.temp'), 'w') as f:
             f.write(datetime.now().isoformat())
         
@@ -379,7 +381,7 @@ def download_file(url: str, media_type='video'):
                     f.write('WEBVTT\n' + data)
 
 
-        elif media_type.startswith('sprite'):
+        elif media_type.startswith('sprite') and enable_sprite:
             video_path = check_media(url=url, media_type='video')
             if video_path:
                 time.sleep(60)
@@ -478,7 +480,7 @@ def watch():
     original_url = get_url(request)
     print('Stopped serving watch')
     Thread(target=get_meta, args=[original_url]).start()
-    return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color)
+    return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, enable_sprite=enable_sprite)
 
 
 
