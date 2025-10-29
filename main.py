@@ -203,6 +203,7 @@ def stream_media_file(url):
 @app.after_request
 def after_request(response):
     response.headers.add('Accept-Ranges', 'bytes')
+    response.headers.add('Content-Security-Policy', "frame-src *")
     return response
 
 
