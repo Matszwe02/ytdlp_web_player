@@ -360,7 +360,7 @@ def download_file(url: str, media_type='video'):
         elif media_type.startswith('hls'):
             meta = get_meta(url)
             hls_url_dir = os.path.join(gen_pathname(url), f"playlist-{res}")
-            hls_output_dir = os.path.join(DOWNLOAD_PATH, hls_output_dir)
+            hls_output_dir = os.path.join(DOWNLOAD_PATH, hls_url_dir)
             os.makedirs(hls_output_dir, exist_ok=True)
 
             hls_path = os.path.join(data_dir, f'{media_type}.m3u8')
@@ -371,8 +371,8 @@ def download_file(url: str, media_type='video'):
                 'ffmpeg',
                 '-i', video_file_path,
                 '-c:v', 'copy',
-                # '-c:v', 'libx264',
-                # '-crf', '22',
+                '-c:v', 'libx264',
+                '-crf', '22',
                 '-c:a', 'aac',
                 '-f', 'hls',
                 '-hls_time', f'{hls_duration}',
@@ -689,6 +689,13 @@ def subtitles():
 @app.route('/manifest.json')
 def serve_manifest():
     return render_template('manifest.json', app_title=app_title, theme_color=theme_color)
+
+
+@app.route('/hls')
+def download_hls():
+    res = (request.args.get('quality') or '').removesuffix("p")    
+    media_type = 'hls' if res == 'audio' else f'hls-{res}p'.removesuffix('-p')
+    return host_file(get_url(request), media_type)
 
 
 @app.route('/hls_stream/<path:filename>')
