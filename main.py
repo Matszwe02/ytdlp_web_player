@@ -357,6 +357,52 @@ def download_file(url: str, media_type='video'):
                 ydl_opts.update({"format": "best"})
                 dwnl(url, ydl_opts)
 
+        elif media_type.startswith('hls'):
+            meta = get_meta(url)
+            hls_url_dir = os.path.join(gen_pathname(url), f"playlist-{res}")
+            hls_output_dir = os.path.join(DOWNLOAD_PATH, hls_output_dir)
+            os.makedirs(hls_output_dir, exist_ok=True)
+
+            hls_path = os.path.join(data_dir, f'{media_type}.m3u8')
+            video_file_path = download_file(url, f'video-{res}p')
+            hls_duration = 10
+
+            ffmpeg_command = [
+                'ffmpeg',
+                '-i', video_file_path,
+                '-c:v', 'copy',
+                # '-c:v', 'libx264',
+                # '-crf', '22',
+                '-c:a', 'aac',
+                '-f', 'hls',
+                '-hls_time', f'{hls_duration}',
+                '-hls_playlist_type', 'vod',
+                '-hls_segment_filename', os.path.join(hls_output_dir, 'segment%04d.ts'),
+                hls_path
+            ]
+
+            seg_time = 0
+            seg_num = 0
+            duration = meta["duration"]
+            seg_path = f"/hls_stream/{hls_url_dir.rstrip('/')}/"
+
+            with open(hls_path, "w") as f:
+                f.write(f"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:{hls_duration}\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n")
+                while seg_time < duration:
+                    time_to_add = min(hls_duration, meta["duration"] - seg_time)
+                    f.write(f"#EXTINF:{time_to_add:.6f},\n{seg_path}segment{seg_num:0>4}.ts\n")
+                    seg_time += time_to_add
+                    seg_num += 1
+                f.write("#EXT-X-ENDLIST\n")
+            
+            def download_hls_files():
+                try:
+                    subprocess.run(ffmpeg_command, check=True, capture_output=True)
+                except Exception as e:
+                    print(f"An unexpected error occurred during HLS conversion: {e}")
+
+            Thread(target=download_hls_files).start()
+
 
         elif media_type.startswith('sub'):
             lang = media_type.split('-')[1]
@@ -643,6 +689,24 @@ def subtitles():
 @app.route('/manifest.json')
 def serve_manifest():
     return render_template('manifest.json', app_title=app_title, theme_color=theme_color)
+
+
+@app.route('/hls_stream/<path:filename>')
+def hls_stream(filename):
+    base_dir = os.path.abspath(DOWNLOAD_PATH)
+    full_path = os.path.abspath(os.path.join(base_dir, filename))
+
+    if not full_path.startswith(base_dir):
+        return jsonify({"error": "Invalid file path"}), 400
+
+    if not os.path.exists(full_path):
+        return jsonify({"error": "File not found"}), 404
+
+    mime_type, _ = mimetypes.guess_type(full_path)
+    if not mime_type:
+        mime_type = 'application/octet-stream'
+
+    return send_file_partial(full_path)
 
 
 
