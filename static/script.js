@@ -924,7 +924,10 @@ function loadVideo()
     
     document.getElementById('video').style.filter = 'brightness(1)';
     
+    if (document.getElementById('enable-sprite'))
+    {
     retryFetch(`/sprite?${urlParams.toString()}`, visible = false).then(response => response.text());
+    }
     playerContainer.querySelector('.vjs-poster').style.filter = '';
     applyVideoQuality();
     
