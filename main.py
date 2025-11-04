@@ -42,7 +42,7 @@ def get_meta(url: str):
         print(cache)
         if cache:
             with open(cache, 'r') as f: return json.load(f)
-        data_dir = os.path.join('./download', gen_pathname(url))
+        data_dir = os.path.join(DOWNLOAD_PATH, gen_pathname(url))
         print(f'downloading meta for {url}')
         ydl_opts = {'quiet': True, 'skip_download': True}
         ydl_opts.update(ydl_global_opts)
@@ -247,7 +247,7 @@ def send_file_partial(path):
 
 def check_media(url: str, media_type: str):
     unique_path = gen_pathname(url)
-    data_dir = os.path.join('./download', unique_path)
+    data_dir = os.path.join(DOWNLOAD_PATH, unique_path)
     try:
         for i in os.listdir(data_dir):
             if i.endswith('.part'): continue
@@ -266,7 +266,7 @@ class FileCachingLock:
     def __init__(self, url, media_type):
         self.url = url
         self.media_type = media_type
-        self.data_dir = os.path.join('./download', gen_pathname(self.url))
+        self.data_dir = os.path.join(DOWNLOAD_PATH, gen_pathname(self.url))
 
     def __enter__(self):
         for _ in range(600):
@@ -298,7 +298,7 @@ def download_file(url: str, media_type='video'):
     media_type = video | thumb | audio | video-720p | video-720p_4.20-21.37 | video-best
     """
     url = re.sub(r'(https?):/{1,}', r'\1://', url)
-    data_dir = os.path.join('./download', gen_pathname(url))
+    data_dir = os.path.join(DOWNLOAD_PATH, gen_pathname(url))
     os.makedirs(data_dir, exist_ok=True)
     output_path = os.path.join(data_dir, f'{media_type}.%(ext)s')
     print(f'Downloading {media_type} for {url}')
