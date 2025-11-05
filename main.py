@@ -363,7 +363,8 @@ def download_file(url: str, media_type='video'):
             hls_output_dir = os.path.join(DOWNLOAD_PATH, hls_url_dir)
             os.makedirs(hls_output_dir, exist_ok=True)
 
-            hls_path = os.path.join(data_dir, f'{media_type}.m3u8')
+            temp_m3u8_path = os.path.join(data_dir, f'{media_type}.m3u8.temp')
+            m3u8_path = os.path.join(data_dir, f'{media_type}.m3u8')
             video_file_path = download_file(url, f'video-{res}p')
             hls_duration = 10
 
@@ -378,7 +379,7 @@ def download_file(url: str, media_type='video'):
                 '-hls_time', f'{hls_duration}',
                 '-hls_playlist_type', 'vod',
                 '-hls_segment_filename', os.path.join(hls_output_dir, 'segment%04d.ts'),
-                hls_path
+                temp_m3u8_path
             ]
 
             seg_time = 0
@@ -386,7 +387,7 @@ def download_file(url: str, media_type='video'):
             duration = meta["duration"]
             seg_path = f"/hls_stream/{hls_url_dir.rstrip('/')}/"
 
-            with open(hls_path, "w") as f:
+            with open(m3u8_path, "w") as f:
                 f.write(f"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:{hls_duration}\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n")
                 while seg_time < duration:
                     time_to_add = min(hls_duration, meta["duration"] - seg_time)
@@ -397,7 +398,9 @@ def download_file(url: str, media_type='video'):
             
             def download_hls_files():
                 try:
-                    subprocess.run(ffmpeg_command, check=True, capture_output=True)
+                    proc = subprocess.run(ffmpeg_command, check=True, capture_output=True)
+                    proc.check_returncode()
+                    shutil.move(temp_m3u8_path, m3u8_path)
                 except Exception as e:
                     print(f"An unexpected error occurred during HLS conversion: {e}")
 
