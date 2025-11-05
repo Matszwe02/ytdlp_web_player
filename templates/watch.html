@@ -28,15 +28,22 @@
         <meta property="og:description" content="{{app_title}}">
         <meta property="al:web:url" content="/watch?{{(request.query_string.decode())}}">
         <meta property="og:type" content="video.other">
-        <meta property="og:video:url" content="/raw?{{(request.query_string.decode())}}">
-        <meta property="og:video:secure_url" content="/raw?{{(request.query_string.decode())}}">
-        <meta property="og:video:type" content="text/html">
+        <meta property="og:video:url" content="/download?{{(request.query_string.decode())}}">
+        <meta property="og:video:secure_url" content="/download?{{(request.query_string.decode())}}">
+        <meta property="og:video" content="/download?{{(request.query_string.decode())}}">
+        <meta property="og:video:type" content="video/mp4">
+        <meta property="og:video:width" content="{{ video_width }}">
+        <meta property="og:video:height" content="{{ video_height }}">
         <meta name="twitter:card" content="player">
         <meta name="twitter:url" content="/watch?{{(request.query_string.decode())}}">
         <meta name="twitter:title" content="{{app_title}}">
         <meta name="twitter:description" content="{{app_title}}">
         <meta name="twitter:image" content="/thumb/{{original_url|urlencode}}">
-        <meta name="twitter:player" content="/raw?{{(request.query_string.decode())}}">
+        <meta name="twitter:player" content="/download?{{(request.query_string.decode())}}">
+        <meta name="twitter:player:stream" content="/download?{{(request.query_string.decode())}}">
+        <meta name="twitter:player:stream:content_type" content="video/mp4">
+        <meta name="twitter:player:width" content="{{ video_width }}">
+        <meta name="twitter:player:height" content="{{ video_height }}">
     </head>
     <body>
     

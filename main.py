@@ -1,3 +1,4 @@
+import threading
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, jsonify, send_file, Response
 from urllib.parse import unquote, quote_plus, urlparse, parse_qs, urlencode, urlunparse
 import os
@@ -528,9 +529,31 @@ def watch():
     ydl_version = Downloader.get_ytdlp_version()
     ffmpeg_version = Downloader.get_ffmpeg_version()
     original_url = get_url(request)
+    
+    video_width = 1280
+    video_height = 720
+
+    meta_result = []
+    meta_event = threading.Event()
+
+    def get_meta_threaded():
+        meta = get_meta(original_url)
+        if meta:
+            meta_result.append(meta)
+        meta_event.set()
+
+    meta_thread = Thread(target=get_meta_threaded)
+    meta_thread.start()
+
+    meta_event.wait(timeout=0.1)
+
+    if meta_result:
+        meta = meta_result[0]
+        video_width = meta.get('width', video_width)
+        video_height = meta.get('height', video_height)
+
     print('Stopped serving watch')
-    Thread(target=get_meta, args=[original_url]).start()
-    return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, enable_sprite=enable_sprite)
+    return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, enable_sprite=enable_sprite,video_width=video_width,video_height=video_height)
 
 
 
