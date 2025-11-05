@@ -129,12 +129,30 @@ function formatTime(timeInSeconds)
 function applyVideoQuality()
 {
     const urlParams = new URLSearchParams(window.location.search);
-    const downloadUrl = urlParams.has('quality') ? `/download?${urlParams.toString()}` : `/fastest?${urlParams.toString()}`;
-    const quality = urlParams.get('quality') || null;
-    console.log(`Applying video quality: ${quality} for URL: ${downloadUrl}`);
+    const originalUrl = urlParams.get('v') || urlParams.get('url');
+    const quality = urlParams.get('quality') || currentVideoQuality; // Use currentVideoQuality if not in URL
+    const isHls = urlParams.get('hls') === 'true';
+
+    let downloadUrl;
+    let videoType;
+
+    if (isHls)
+    {
+        urlParams.set('hls', 'true');
+        downloadUrl = `/hls?url=${encodeURIComponent(originalUrl)}&quality=${quality}`;
+        videoType = 'application/x-mpegURL';
+        console.log(`Applying HLS quality: ${quality} for URL: ${downloadUrl}`);
+    }
+    else
+    {
+        urlParams.delete('hls');
+        downloadUrl = urlParams.has('quality') ? `/download?${urlParams.toString()}` : `/fastest?${urlParams.toString()}`;
+        videoType = 'video/mp4';
+        console.log(`Applying MP4 quality: ${quality} for URL: ${downloadUrl}`);
+    }
     const videoEl = player.el().querySelector('video');
     const posterEl = player.el().querySelector('.vjs-poster');
-    player.src({ src: downloadUrl, type: 'video/mp4' });
+    player.src({ src: downloadUrl, type: videoType });
 
     if (quality === 'audio')
     {
@@ -573,7 +591,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
                     .then(response => {
                         const switchTime = player.currentTime();
                         const isPlaying = !player.paused();
-                        applyVideoQuality();
+                applyVideoQuality();
                         player.currentTime(switchTime);
                         if (isPlaying) player.play();
 
@@ -843,6 +861,13 @@ function loadVideo()
         responsive: true,
         fluid: true,
         poster: `/thumb?${urlParams.toString()}`,
+        html5:
+        {
+            hls:
+            {
+                withCredentials: true
+            }
+        },
         controlBar:
         {
             children:
@@ -926,7 +951,7 @@ function loadVideo()
     
     if (document.getElementById('enable-sprite'))
     {
-    retryFetch(`/sprite?${urlParams.toString()}`, visible = false).then(response => response.text());
+        retryFetch(`/sprite?${urlParams.toString()}`, visible = false).then(response => response.text());
     }
     playerContainer.querySelector('.vjs-poster').style.filter = '';
     applyVideoQuality();
@@ -951,12 +976,10 @@ function loadVideo()
             if (player.controlBar && player.controlBar.SettingsButton)
             {
                 player.controlBar.SettingsButton.updateResolutions(formats);
-                urlParams.set('quality', chooseGoodQuality(formats));
-                
-                if (abortController) abortController.abort();
-                abortController = new AbortController();
-                const signalForGoodQuality = abortController.signal;
-
+                const newQuality = chooseGoodQuality(formats);
+                urlParams.set('quality', newQuality);
+                currentVideoQuality = newQuality; // Update currentVideoQuality
+                applyVideoQuality();
             }
         });
 
