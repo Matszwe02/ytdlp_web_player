@@ -334,6 +334,27 @@ def download_file(url: str, media_type='video'):
             meta = get_meta(url)
             thumb_url = meta['thumbnail']
             download_media_file(thumb_url, os.path.join(data_dir, 'thumb'))
+            try:
+                video_width = meta.get('width')
+                video_height = meta.get('height')
+
+                if video_width and video_height:
+                    thumb_file = check_media(url=url, media_type=media_type)
+
+                    ffmpeg_command = [
+                        'ffmpeg',
+                        '-y',
+                        '-i', thumb_file,
+                        '-vf', f'crop=w=min(iw\\,ih*({video_width}/{video_height})):h=min(ih\\,iw*({video_height}/{video_width})):x=(iw-ow)/2:y=(ih-oh)/2',
+                        thumb_file
+                    ]
+
+                    subprocess.run(ffmpeg_command, check=True)
+                    print(f"Thumbnail cropped to video aspect ratio {video_width}:{video_height} using ffmpeg")
+                else:
+                    print("Video dimensions not found in meta, skipping thumbnail cropping.")
+            except Exception as e:
+                print(f"Error cropping thumbnail: {e}")
 
 
         elif media_type.startswith('audio'):
