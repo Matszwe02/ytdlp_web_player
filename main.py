@@ -165,12 +165,15 @@ def get_url(req):
     return url
 
 
-def download_media_file(url, path_without_ext, ext = None):
+def download_media_file(url: str, path_without_ext: str, ext: str|None = None):
     """Download raw file with requests.get with selected filename"""
     response = requests.get(url, stream=True)
     response.raise_for_status()
     if not ext:
-        _, ext = os.path.splitext(url)
+        urlpath = url
+        if '?' in url:
+            urlpath = url[:url.find('?')]
+        _, ext = os.path.splitext(urlpath)
     with open(f'{path_without_ext}.{ext.lstrip(".")}', 'wb') as f:
         for chunk in response.iter_content(chunk_size=8192):
             f.write(chunk)
