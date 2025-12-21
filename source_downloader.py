@@ -12,8 +12,10 @@ import re
 import random
 import time
 import yt_dlp
-import yt_dlp.version
-
+try:
+    import yt_dlp.version
+except:
+    print('Warning: ytdlp does not support version')
 
 
 ffmpeg_version = '-'
@@ -26,10 +28,16 @@ class Downloader:
         pip.main(shlex.split('install --upgrade yt-dlp'))
         try:
             importlib.reload(yt_dlp)
-            importlib.reload(yt_dlp.version)
+            try:
+                importlib.reload(yt_dlp.version)
+            except:
+                print('Warning: ytdlp does not support version')
         except:
             import yt_dlp
-            import yt_dlp.version
+            try:
+                import yt_dlp.version
+            except:
+                print('Warning: ytdlp does not support version')
 
 
     @staticmethod
