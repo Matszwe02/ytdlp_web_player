@@ -17,8 +17,8 @@
     
         <div style="display: inline-block; text-align: center; width: 50%" class="non-video">
             <h1><i class="fa-solid fa-link"></i> Video URL:</h1>
-            <input type="text" id="standard_url" name="url" />
-            <button onclick="window.location.href='/watch?url=' + encodeURIComponent(document.getElementById('standard_url').value)" class="play-button">
+            <input type="text" id="standard_url" name="url" placeholder="type URL or enter to auto-paste"/>
+            <button onclick="handlePlayButtonClick()" class="play-button">
                 <i class="fa-solid fa-play"></i>
             </button>
         </div>
@@ -53,6 +53,22 @@
                     expandButton.classList.remove('expanded');
                 }
             });
+
+            function handlePlayButtonClick()
+            {
+                const urlInput = document.getElementById('standard_url');
+                let url = urlInput.value.trim();
+                if (url)
+                {
+                    window.location.href = '/watch?url=' + encodeURIComponent(url);
+                    return;
+                }
+                navigator.clipboard.readText()
+                    .then(clipboardText => {
+                        url = clipboardText.trim();
+                        window.location.href = '/watch?url=' + encodeURIComponent(url);
+                    })
+            }
         </script>
     </body>
 </html>
