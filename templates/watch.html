@@ -100,7 +100,8 @@
             const expandButton = document.getElementById('expand-button');
             const expandableContent = document.getElementById('expandable-content');
             let isExpanded = false;
-            expandButton.addEventListener('click', function() {
+            expandButton.addEventListener('click', function(event) {
+                event.stopPropagation();
                 isExpanded = !isExpanded;
                 if (isExpanded)
                 {
@@ -111,6 +112,13 @@
                 {
                     expandableContent.style.maxHeight = "0";
                     expandButton.classList.remove('expanded');
+                }
+            });
+            document.addEventListener('click', function(event) {
+                const expandableMenuContainer = document.getElementById('expandable-menu-container');
+                if (isExpanded && !expandableMenuContainer.contains(event.target))
+                {
+                    expandButton.click();
                 }
             });
         </script>
