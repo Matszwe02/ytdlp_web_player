@@ -17,7 +17,7 @@
     
         <div style="display: inline-block; text-align: center; width: 50%" class="non-video">
             <h1><i class="fa-solid fa-link"></i> Video URL:</h1>
-            <input type="text" id="standard_url" name="url" placeholder="type URL or enter to auto-paste"/>
+            <input type="text" id="standard_url" name="url" placeholder="type URL or enter to auto-paste" autofocus/>
             <button onclick="handlePlayButtonClick()" class="play-button">
                 <i class="fa-solid fa-play"></i>
             </button>
@@ -54,9 +54,16 @@
                 }
             });
 
+            const urlInput = document.getElementById('standard_url');
+            urlInput.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    handlePlayButtonClick();
+                }
+            });
+
             function handlePlayButtonClick()
             {
-                const urlInput = document.getElementById('standard_url');
                 let url = urlInput.value.trim();
                 if (url)
                 {
