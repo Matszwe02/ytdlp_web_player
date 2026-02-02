@@ -998,4 +998,20 @@ function loadVideo()
 }
 
 
+function copyCurrentUrl(event)
+{
+    if (event.button === 0)
+    {
+        event.preventDefault();
+        navigator.clipboard.writeText(window.location.href).then(() => {
+            var b = document.getElementById('url-copy');
+            b.innerHTML = '<i class="fa-solid fa-copy"></i> URL Copied!';
+            setTimeout(() => {
+                b.innerHTML = '<i class="fa-solid fa-copy"></i> Copy URL';
+            }, 2000);
+        });
+    }
+}
+
+
 loadVideo();
