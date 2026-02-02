@@ -22,6 +22,7 @@
 ![image](.github/images/image.png)
 ![loading screen](.github/images/image2.png)
 ![main page](.github/images/image3.png)
+![vertical](.github/images/image4.png)
 
 
 # Installation
@@ -34,6 +35,8 @@ services:
         restart: unless-stopped
         environment:
             - APP_TITLE=YT-DLP Player
+            - THEME_COLOR=#ff7300
+            - ENABLE_SPRITE=false
         ports:
             - 5000:5000
 
