@@ -390,13 +390,28 @@ def download_file(url: str, media_type='video'):
 
             temp_m3u8_path = os.path.join(data_dir, f'{media_type}.m3u8.temp')
             m3u8_path = os.path.join(data_dir, f'{media_type}.m3u8')
-            video_file_path = download_file(url, f'video-{res}p')
             hls_duration = 10
 
+            sources = get_video_sources(url)
+            video_url = None
+            audio_url = None
+            video_file_path = None
+
+            res_str = str(res)
+
+            if res_str in sources:
+                if res_str == 'audio' or res_str == 'audio_drc':
+                    audio_url = sources[res_str]
+                else:
+                    video_url = sources[res_str]
+                    audio_url = sources.get('audio_drc') or sources.get('audio') # Prefer audio_drc
+
+            print(f'sources: {video_url}, {audio_url}')
+            if not video_url and not audio_url:
+                print('Could not find any suitable streamable video format: Downloading the whole video')
+                video_file_path = download_file(url, f'video-{res}p')
+
             ffmpeg_command = [
-                'ffmpeg',
-                '-i', video_file_path,
-                '-c:v', 'copy',
                 '-c:v', 'libx264',
                 '-crf', '22',
                 '-c:a', 'aac',
@@ -406,6 +421,15 @@ def download_file(url: str, media_type='video'):
                 '-hls_segment_filename', os.path.join(hls_output_dir, 'segment%04d.ts'),
                 temp_m3u8_path
             ]
+
+            if video_url:
+                ffmpeg_command = ['-i', video_url] + ffmpeg_command
+            if audio_url:
+                ffmpeg_command = ['-i', audio_url] + ffmpeg_command
+            if video_file_path:
+                ffmpeg_command = ['-i', video_file_path] + ffmpeg_command
+
+            ffmpeg_command = ['ffmpeg'] + ffmpeg_command
 
             seg_time = 0
             seg_num = 0
@@ -652,71 +676,6 @@ def resp_fastest_stream():
     if fastest_url:
         return stream_media_file(fastest_url)
     return download_media()
-
-
-@app.route('/stream')
-def stream_media():
-    url = get_url(request)
-    quality = request.args.get('quality')
-
-    if not url or not quality:
-        return jsonify({"error": "URL and quality parameters are required"}), 400
-
-    sources = get_video_sources(url)
-    video_url = None
-    audio_url = None
-
-    if quality in sources:
-        if quality.endswith('audio') and not quality.startswith('audio'): # e.g., "1080audio"
-            video_url = sources[quality]
-            # Audio is combined, no separate audio needed
-        elif quality == 'audio' or quality == 'audio_drc':
-            audio_url = sources[quality]
-            # Only audio, no video needed
-        else: # Numeric video quality, e.g., "1080"
-            video_url = sources[quality]
-            audio_url = sources.get('audio_drc') or sources.get('audio') # Prefer audio_drc
-
-    if not video_url and not audio_url:
-        return jsonify({"error": f"No suitable format found for quality: {quality}"}), 404
-
-    if video_url and audio_url:
-        # Mux video and audio with FFmpeg
-        command = [
-            'ffmpeg',
-            '-i', video_url,
-            '-i', audio_url,
-            '-c:v', 'copy',
-            '-c:a', 'aac',
-            '-f', 'mp4',
-            '-movflags', 'frag_keyframe+empty_moov',
-            'pipe:1'
-        ]
-        print(f"FFmpeg command: {' '.join(command)}")
-        try:
-            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-            def generate():
-                while True:
-                    chunk = process.stdout.read(8192)
-                    if not chunk:
-                        break
-                    yield chunk
-                process.stdout.close()
-                process.wait()
-                if process.returncode != 0:
-                    print(f"FFmpeg error: {process.stderr.read().decode()}")
-
-            return Response(generate(), mimetype='video/mp4')
-        except Exception as e:
-            print(f"Error muxing streams with FFmpeg: {e}")
-            return jsonify({"error": f"Failed to mux streams: {e}"}), 500
-    elif video_url:
-        return stream_media_file(video_url)
-    elif audio_url:
-        return stream_media_file(audio_url)
-    
-    return jsonify({"error": "Unexpected error in stream_media"}), 500
 
 
 @app.route('/formats')
