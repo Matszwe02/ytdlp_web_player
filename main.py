@@ -391,25 +391,25 @@ def download_file(url: str, media_type='video'):
             temp_m3u8_path = os.path.join(data_dir, f'{media_type}.m3u8.temp')
             m3u8_path = os.path.join(data_dir, f'{media_type}.m3u8')
             hls_duration = 10
+            res_str = str(res)
 
             sources = get_video_sources(url)
             video_url = None
             audio_url = None
-            video_file_path = None
+            video_file_path = check_media(url=url, media_type=res_str)
 
-            res_str = str(res)
+            if not video_file_path:
+                if res_str in sources:
+                    if res_str == 'audio' or res_str == 'audio_drc':
+                        audio_url = sources[res_str]
+                    else:
+                        video_url = sources[res_str]
+                        audio_url = sources.get('audio_drc') or sources.get('audio') # Prefer audio_drc
 
-            if res_str in sources:
-                if res_str == 'audio' or res_str == 'audio_drc':
-                    audio_url = sources[res_str]
-                else:
-                    video_url = sources[res_str]
-                    audio_url = sources.get('audio_drc') or sources.get('audio') # Prefer audio_drc
-
-            print(f'sources: {video_url}, {audio_url}')
-            if not video_url and not audio_url:
-                print('Could not find any suitable streamable video format: Downloading the whole video')
-                video_file_path = download_file(url, f'video-{res}p')
+                print(f'sources: {video_url}, {audio_url}')
+                if not video_url and not audio_url:
+                    print('Could not find any suitable streamable video format: Downloading the whole video')
+                    video_file_path = download_file(url, f'video-{res}p')
 
             ffmpeg_command = [
                 '-c:v', 'libx264',
