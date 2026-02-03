@@ -464,8 +464,8 @@ input
     padding: 10px !important;
 }
 
-.vjs-button.vjs-repeat-active {
-    color: #ff7300 !important;
+.vjs-button.vjs-active {
+    color: #ff2e2e !important;
 }
 
 .vjs-repeat-menu {

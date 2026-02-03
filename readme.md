@@ -15,6 +15,7 @@
 
 ## Planned
 - HLS support for shorter load times and livestream support
+  - Since version `2026-02-03` experimental HLS support can be enabled from the video menu
 - Player embedding
 
 ## Images

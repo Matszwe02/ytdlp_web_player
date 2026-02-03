@@ -131,21 +131,19 @@ function applyVideoQuality()
     const urlParams = new URLSearchParams(window.location.search);
     const originalUrl = urlParams.get('v') || urlParams.get('url');
     const quality = urlParams.get('quality') || currentVideoQuality; // Use currentVideoQuality if not in URL
-    const isHls = urlParams.get('hls') === 'true';
+    const hlsEnabled = urlParams.get('hls') === 'true';
 
     let downloadUrl;
     let videoType;
 
-    if (isHls)
+    if (hlsEnabled)
     {
-        urlParams.set('hls', 'true');
         downloadUrl = `/hls?url=${encodeURIComponent(originalUrl)}&quality=${quality}`;
         videoType = 'application/x-mpegURL';
         console.log(`Applying HLS quality: ${quality} for URL: ${downloadUrl}`);
     }
     else
     {
-        urlParams.delete('hls');
         downloadUrl = urlParams.has('quality') ? `/download?${urlParams.toString()}` : `/fastest?${urlParams.toString()}`;
         videoType = 'video/mp4';
         console.log(`Applying MP4 quality: ${quality} for URL: ${downloadUrl}`);
@@ -226,6 +224,40 @@ class ZoomToFillToggle extends videojs.getComponent('Button')
 videojs.registerComponent('ZoomToFillToggle', ZoomToFillToggle);
 
 
+class HLSToggleButton extends videojs.getComponent('Button') {
+    constructor(player, options) {
+        super(player, options);
+        const urlParams = new URLSearchParams(window.location.search);
+        this.addClass('menu-button');
+        this.el().innerHTML = '<i class="fa-solid fa-video"></i>';
+        this.hlsEnabled = urlParams.get('hls') === 'true';
+        this.updateHlsState();
+    }
+
+    handleClick(state = null) {
+        this.hlsEnabled = !this.hlsEnabled;
+        this.updateHlsState();
+        applyVideoQuality();
+    }
+
+    updateHlsState()
+    {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (this.hlsEnabled) {
+            this.el().classList.add('vjs-active');
+            this.controlText('HLS Streaming: On');
+            urlParams.set('hls', 'true');
+        } else {
+            this.el().classList.remove('vjs-active');
+            this.controlText('HLS Streaming: Off');
+            urlParams.delete('hls');
+        }
+        history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
+    }
+}
+videojs.registerComponent('HLSToggleButton', HLSToggleButton);
+
+
 class SettingsButton extends videojs.getComponent('Button')
 {
     constructor(player, options) {
@@ -241,15 +273,18 @@ class SettingsButton extends videojs.getComponent('Button')
         this.subtitleSwitcher = new SubtitleSwitcherButton(player, options);
         this.downloadButton = new DownloadButton(player, options);
         this.repeatButton = new RepeatButton(player, options);
+        this.hlsToggleButton = new HLSToggleButton(player, options);
         this.resolutionSwitcher.parent = this;
         this.subtitleSwitcher.parent = this;
         this.downloadButton.parent = this;
         this.repeatButton.parent = this;
+        this.hlsToggleButton.parent = this;
 
         this.menu.appendChild(this.resolutionSwitcher.el());
         this.menu.appendChild(this.subtitleSwitcher.el());
         this.menu.appendChild(this.downloadButton.el());
         this.menu.appendChild(this.repeatButton.el());
+        this.menu.appendChild(this.hlsToggleButton.el());
     }
 
     handleClick(event)
@@ -476,13 +511,13 @@ class RepeatButton extends videojs.getComponent('Button') {
             e.stopPropagation();
             this.repeatActive = !this.repeatActive;
             if (this.repeatActive) {
-                this.addClass('vjs-repeat-active');
+                this.addClass('vjs-active');
                 this.controlText('Repeat Active');
                 this.repeatStartTime = 0;
                 this.repeatEndTime = player.duration();
                 this.updateTimeLabels();
             } else {
-                this.removeClass('vjs-repeat-active');
+                this.removeClass('vjs-active');
                 this.controlText('Toggle Repeat');
             }
             repeatMode = this.repeatActive;
@@ -559,8 +594,6 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
         this.el().style.display = '';
         this.menu.innerHTML = ''
         
-        const urlParams = new URLSearchParams(window.location.search);
-        
         resolutions.sort((a, b) => (b.height || b) - (a.height || a)); // Sort descending
         if (!resolutions.includes('audio')) resolutions.push('audio');
         
@@ -571,6 +604,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
             const button = document.createElement('button');
             button.textContent = height === 'audio' ? 'Audio' : `${height}p`;
             button.classList.add('vjs-resolution-option');
+            const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('quality') == height)
             {
                 button.classList.add('vjs-resolution-option-current');
@@ -582,7 +616,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
                 if (abortController) abortController.abort();
                 abortController = new AbortController();
                 const signal = abortController.signal;
-
+                const urlParams = new URLSearchParams(window.location.search);
                 const buttons = this.menu.querySelectorAll('.vjs-resolution-option');
                 urlParams.set('quality', height);
                 history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
