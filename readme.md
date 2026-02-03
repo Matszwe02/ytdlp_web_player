@@ -36,7 +36,7 @@ services:
         environment:
             - APP_TITLE=YT-DLP Player
             - THEME_COLOR=#ff7300
-            - ENABLE_SPRITE=false
+            - ENABLE_SPRITE=true
         ports:
             - 5000:5000
 

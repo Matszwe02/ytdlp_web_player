@@ -24,7 +24,7 @@ DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
 theme_color = os.environ.get('THEME_COLOR', '#ff7300')
-enable_sprite = os.environ.get('ENABLE_SPRITE', 'False').lower() == 'true'
+enable_sprite = os.environ.get('ENABLE_SPRITE', 'True').lower() == 'true'
 ydl_global_opts = {'ffmpeg-location': shutil.which("ffmpeg")}
 
 
@@ -458,8 +458,10 @@ def download_file(url: str, media_type='video'):
 
         elif media_type.startswith('sprite') and enable_sprite:
             video_path = check_media(url=url, media_type='video')
+            if not video_path:
+                download_file(url, 'video')
+                video_path = check_media(url=url, media_type='video')
             if video_path:
-                time.sleep(60)
                 frame_interval = 10 # seconds
                 frame_width = 160
                 frame_height = 90
