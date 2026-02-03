@@ -126,11 +126,11 @@ function formatTime(timeInSeconds)
 }
 
 
-function applyVideoQuality()
+function getVideoSource()
 {
     const urlParams = new URLSearchParams(window.location.search);
     const originalUrl = urlParams.get('v') || urlParams.get('url');
-    const quality = urlParams.get('quality') || currentVideoQuality; // Use currentVideoQuality if not in URL
+    const quality = urlParams.get('quality') || currentVideoQuality;
     const hlsEnabled = urlParams.get('hls') === 'true';
 
     let downloadUrl;
@@ -140,17 +140,25 @@ function applyVideoQuality()
     {
         downloadUrl = `/hls?url=${encodeURIComponent(originalUrl)}&quality=${quality}`;
         videoType = 'application/x-mpegURL';
-        console.log(`Applying HLS quality: ${quality} for URL: ${downloadUrl}`);
     }
     else
     {
         downloadUrl = urlParams.has('quality') ? `/download?${urlParams.toString()}` : `/fastest?${urlParams.toString()}`;
         videoType = 'video/mp4';
-        console.log(`Applying MP4 quality: ${quality} for URL: ${downloadUrl}`);
     }
+    return [downloadUrl, videoType];
+}
+
+
+function applyVideoQuality()
+{
+    const urlParams = new URLSearchParams(window.location.search);
+    const quality = urlParams.get('quality') || currentVideoQuality;
+    const videoSource = getVideoSource();
+
     const videoEl = player.el().querySelector('video');
     const posterEl = player.el().querySelector('.vjs-poster');
-    player.src({ src: downloadUrl, type: videoType });
+    player.src({ src: videoSource[0], type: videoSource[1] });
 
     if (quality === 'audio')
     {
@@ -620,12 +628,12 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
                 const buttons = this.menu.querySelectorAll('.vjs-resolution-option');
                 urlParams.set('quality', height);
                 history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
-                
-                retryFetch(`/download?${urlParams.toString()}`, { signal })
+
+                retryFetch(getVideoSource()[0], { signal })
                     .then(response => {
                         const switchTime = player.currentTime();
                         const isPlaying = !player.paused();
-                applyVideoQuality();
+                        applyVideoQuality();
                         player.currentTime(switchTime);
                         if (isPlaying) player.play();
 
