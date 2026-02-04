@@ -524,25 +524,11 @@ def download_file(url: str, media_type='video'):
                     print(f"Sprite error: {e}")
 
 
-        elif media_type.startswith('formats'):
-            print(f'downloading formats for {url}')
-            formats_data = get_video_formats(url)
-            with open(os.path.join(data_dir, f'{media_type}.json'), 'w') as f:
-                f.write(jsonify(formats_data).get_data(as_text=True))
-
-
         elif media_type.startswith('sources'):
             print(f'downloading sources for {url}')
             sources_data = get_video_sources(url)
             with open(os.path.join(data_dir, f'{media_type}.json'), 'w') as f:
                 f.write(jsonify(sources_data).get_data(as_text=True))
-
-
-        elif media_type.startswith('listsub'):
-            print(f'downloading subtitles for {url}')
-            subtitles_data = get_subtitles(url)
-            with open(os.path.join(data_dir, f'{media_type}.json'), 'w') as f:
-                f.write(jsonify(subtitles_data).get_data(as_text=True))
 
 
         elif media_type.startswith('sb'):
@@ -680,7 +666,7 @@ def resp_fastest_stream():
 
 @app.route('/formats')
 def formats():
-    return host_file(get_url(request), 'formats')
+    return get_video_formats(get_url(request))
 
 
 @app.route('/sources')
@@ -695,7 +681,8 @@ def serve_subtitle():
 
 @app.route('/subtitles')
 def subtitles():
-    return host_file(get_url(request), 'listsub')
+    return get_subtitles(get_url(request))
+
 
 @app.route('/manifest.json')
 def serve_manifest():
