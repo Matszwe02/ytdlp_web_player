@@ -279,17 +279,20 @@ class SettingsButton extends videojs.getComponent('Button')
 
         this.resolutionSwitcher = new ResolutionSwitcherButton(player, options);
         this.subtitleSwitcher = new SubtitleSwitcherButton(player, options);
+        this.playbackSpeedButton = new PlaybackSpeedButton(player, options);
         this.downloadButton = new DownloadButton(player, options);
         this.repeatButton = new RepeatButton(player, options);
         this.hlsToggleButton = new HLSToggleButton(player, options);
         this.resolutionSwitcher.parent = this;
         this.subtitleSwitcher.parent = this;
+        this.playbackSpeedButton.parent = this;
         this.downloadButton.parent = this;
         this.repeatButton.parent = this;
         this.hlsToggleButton.parent = this;
 
         this.menu.appendChild(this.resolutionSwitcher.el());
         this.menu.appendChild(this.subtitleSwitcher.el());
+        this.menu.appendChild(this.playbackSpeedButton.el());
         this.menu.appendChild(this.downloadButton.el());
         this.menu.appendChild(this.repeatButton.el());
         this.menu.appendChild(this.hlsToggleButton.el());
@@ -799,6 +802,78 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button') {
     }
 }
 videojs.registerComponent('SubtitleSwitcherButton', SubtitleSwitcherButton);
+
+
+class PlaybackSpeedButton extends videojs.getComponent('Button')
+{
+    constructor(player, options)
+    {
+        super(player, options);
+        this.player = player;
+        this.addClass('menu-button');
+        this.controlText('Playback Speed');
+        this.el().innerHTML = '<i class="fa-solid fa-forward"></i>';
+
+        this.parent = null;
+        this.menu = this.createPlaybackSpeedMenu();
+        this.el().appendChild(this.menu);
+    }
+
+    handleClick(event) {
+        event.stopPropagation();
+        if (this.menu.style.display === 'flex')
+            this.menu.style.display = 'none';
+        else
+            this.handleOpenMenu();
+    }
+
+    handleOpenMenu() {
+        this.menu.style.display = 'flex';
+    }
+
+    handleCloseMenu() {
+        this.menu.style.display = 'none';
+        if (this.parent) {
+            this.parent.handleCloseMenu();
+        }
+    }
+
+    createPlaybackSpeedMenu() {
+        const menu = document.createElement('div');
+        menu.classList.add('vjs-playback-speed-menu');
+        menu.style.display = 'none';
+
+        const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+        speeds.forEach(speed => {
+            const button = document.createElement('button');
+            button.textContent = `${speed}x`;
+            button.classList.add('vjs-playback-speed-option');
+            if (this.player && this.player.playbackRate() === speed)
+            {
+                button.classList.add('vjs-playback-speed-option-current');
+            }
+
+            button.onclick = (event) => {
+                event.stopPropagation();
+                this.player.playbackRate(speed);
+                if (speed == 1.0)
+                    this.el().classList.remove('vjs-active');
+                else
+                    this.el().classList.add('vjs-active');
+
+                menu.querySelectorAll('.vjs-playback-speed-option').forEach(btn => {
+                    btn.classList.remove('vjs-playback-speed-option-current');
+                });
+                button.classList.add('vjs-playback-speed-option-current');
+
+                this.handleCloseMenu();
+            };
+            menu.appendChild(button);
+        });
+        return menu;
+    }
+}
+videojs.registerComponent('PlaybackSpeedButton', PlaybackSpeedButton);
 
 
 function skipclick()

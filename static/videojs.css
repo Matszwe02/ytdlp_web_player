@@ -230,7 +230,7 @@
 .vjs-settings-menu {
     position: absolute;
     bottom: 110%;
-    right: 50%;
+    right: 100%;
     transform: translateX(50%);
     background-color: #333;
     border-radius: 7px;
