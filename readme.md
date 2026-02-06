@@ -38,6 +38,7 @@ services:
             - APP_TITLE=YT-DLP Player
             - THEME_COLOR=#ff7300
             - ENABLE_SPRITE=true
+            - AMOLED_BG=false
         ports:
             - 5000:5000
 

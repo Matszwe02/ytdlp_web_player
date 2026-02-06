@@ -25,6 +25,7 @@ os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
 theme_color = os.environ.get('THEME_COLOR', '#ff7300')
 enable_sprite = os.environ.get('ENABLE_SPRITE', 'True').lower() == 'true'
+amoled_bg = os.environ.get('ENABLE_SPRITE', 'False').lower() == 'true'
 ydl_global_opts = {'ffmpeg-location': shutil.which("ffmpeg")}
 
 
@@ -555,7 +556,7 @@ def index():
     ydl_version = Downloader.get_ytdlp_version()
     ffmpeg_version = Downloader.get_ffmpeg_version()
     print('Stopped serving root')
-    return render_template('index.html', ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color)
+    return render_template('index.html', ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg)
 
 
 
@@ -589,7 +590,7 @@ def watch():
         video_height = meta.get('height', video_height)
 
     print('Stopped serving watch')
-    return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, enable_sprite=enable_sprite,video_width=video_width,video_height=video_height)
+    return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, enable_sprite=enable_sprite, amoled_bg=amoled_bg, video_width=video_width,video_height=video_height)
 
 
 

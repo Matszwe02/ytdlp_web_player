@@ -12,6 +12,13 @@
         <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
         <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
         <link rel="manifest" href="/manifest.json">
+        <meta name="theme-color" content="{{ theme_color }}">
+        <style>
+            html {
+                --theme-bg: {{ "#000" if amoled_bg else "#222" }};
+                --theme-bg-light: {{ "#000" if amoled_bg else "#333" }};
+            }
+        </style>
     </head>
     <body>
     

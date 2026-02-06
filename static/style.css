@@ -5,7 +5,7 @@ body
     align-items: center;
     height: 100vh;
     margin: 0;
-    background-color: #222;
+    background-color: var(--theme-bg);
     color: white;
     font-family: Verdana, Geneva, Tahoma, sans-serif;
 }
@@ -52,7 +52,7 @@ input
 .video-button
 {
     padding: 10px 20px;
-    background-color: #222;
+    background-color: var(--theme-bg);
     color: #555;
     border: none;
     border-radius: 5px;
@@ -218,7 +218,7 @@ input
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background-color: #333;
+    background-color: var(--theme-bg-light);
     color: #555;
     border: none;
     cursor: pointer;
