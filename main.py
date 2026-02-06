@@ -251,6 +251,7 @@ def send_file_partial(path):
 
 
 def check_media(url: str, media_type: str):
+    print(f'Checking media for {url=} and {media_type=}')
     unique_path = gen_pathname(url)
     data_dir = os.path.join(DOWNLOAD_PATH, unique_path)
     try:
@@ -261,6 +262,7 @@ def check_media(url: str, media_type: str):
                 path = os.path.join(data_dir, i)
                 print(f'Serving {path}')
                 os.utime(path)
+                print(f'Media for {url=} and {media_type=} found')
                 return path
     except:
         return None
