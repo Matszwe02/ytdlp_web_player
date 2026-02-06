@@ -397,7 +397,7 @@ def download_file(url: str, media_type='video'):
             sources = get_video_sources(url)
             video_url = None
             audio_url = None
-            video_file_path = check_media(url=url, media_type=res_str)
+            video_file_path = check_media(url=url, media_type='video-' + res_str)
 
             if not video_file_path:
                 if res_str in sources:
@@ -450,7 +450,11 @@ def download_file(url: str, media_type='video'):
                 try:
                     proc = subprocess.run(ffmpeg_command, check=True, capture_output=True)
                     proc.check_returncode()
-                    shutil.move(temp_m3u8_path, m3u8_path)
+                    with open(temp_m3u8_path, 'r') as f:
+                        contents = f.read()
+                    with open(m3u8_path, 'w') as f:
+                        f.write(contents.replace('segment', seg_path + 'segment'))
+                    os.remove(temp_m3u8_path)
                 except Exception as e:
                     print(f"An unexpected error occurred during HLS conversion: {e}")
 
