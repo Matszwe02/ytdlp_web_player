@@ -680,6 +680,11 @@ def serve_subtitle():
     return host_file(get_url(request), f'sub-{request.args.get("lang")}')
 
 
+@app.route('/title')
+def serve_title():
+    return get_meta(get_url(request)).get('title', '')
+
+
 @app.route('/subtitles')
 def subtitles():
     return get_subtitles(get_url(request))

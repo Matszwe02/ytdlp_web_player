@@ -525,3 +525,26 @@ input
 .vjs-playback-speed-option-current {
     background-color: #555 !important;
 }
+
+.vjs-title-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 15px;
+    z-index: 2;
+    background: none;
+    transition: opacity 0.3s ease-in-out;
+    pointer-events: none;
+}
+
+.vjs-has-started.vjs-user-inactive.vjs-playing .vjs-title-bar {
+    opacity: 0;
+}
+
+.vjs-title-bar-text {
+    color: white;
+    font-size: 1.5em;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+}

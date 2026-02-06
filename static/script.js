@@ -876,6 +876,34 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
 videojs.registerComponent('PlaybackSpeedButton', PlaybackSpeedButton);
 
 
+const Component = videojs.getComponent('Component');
+
+class TitleBar extends Component {
+    constructor(player, options = {}) {
+        super(player, options);
+
+        if (options.text) {
+            this.updateTextContent(options.text);
+        }
+    }
+
+    createEl() {
+        return videojs.dom.createEl('div', {
+            className: 'vjs-title-bar'
+        }, {
+            'aria-label': 'Video Title'
+        });
+    }
+
+    updateTextContent(text) {
+        videojs.emptyEl(this.el());
+        videojs.appendContent(this.el(), videojs.dom.createEl('div', { className: 'vjs-title-bar-text' }, {}, text));
+    }
+}
+
+videojs.registerComponent('TitleBar', TitleBar);
+
+
 function skipclick()
 {
     if (player && player.currentTime() < skipTime) player.currentTime(skipTime);
@@ -1110,6 +1138,17 @@ function loadVideo()
                     addSponsorblock(data);
                 });
                 player.on('timeupdate', checkSponsorTime);
+            }
+        });
+
+    retryFetch(`/title?${urlParams.toString()}`)
+        .then(response => response.text())
+        .then(data => {
+            (typeof data == 'string' && data != '')
+            {
+                player.addChild('TitleBar', { text: data });
+                const appTitle = document.querySelector('meta[property="og:site_name"]').getAttribute('content');
+                document.title = data + ' | ' + appTitle;
             }
         });
 }
