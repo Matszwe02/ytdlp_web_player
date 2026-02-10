@@ -678,7 +678,12 @@ def resp_fastest_stream():
 
 @app.route('/formats')
 def formats():
-    return get_video_formats(get_url(request))
+    try:
+        meta = get_meta(get_url(request))
+        if not meta: raise RuntimeError
+        return get_video_formats(get_url(request))
+    except BaseException as e:
+        return jsonify({'error': (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))}), 403
 
 
 @app.route('/sources')

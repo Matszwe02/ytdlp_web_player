@@ -85,10 +85,12 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible 
                 else if (match.length === 4) callerInfo = `(${match[1]}:${match[2]})`;
             }
         }
-        console.log(`Fetching "${url}" called from ${callerInfo}`);
-        const response = await fetch(url, options);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        return response;
+        if (player != null) {
+            console.log(`Fetching "${url}" called from ${callerInfo}`);
+            const response = await fetch(url, options);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return response;
+        }
     }
     catch (error)
     {
@@ -1132,6 +1134,17 @@ function loadVideo()
         .then(response => response.json())
         .then(formats => {
             console.log('Fetched formats');
+            if (formats["error"] !== undefined)
+            {
+                const errorDisplay = playerContainer.querySelector('.vjs-error-display');
+                errorDisplay.innerHTML = formats['error'];
+                errorDisplay.classList.remove('spinner-parent');
+                errorDisplay.classList.remove('vjs-hidden');
+                console.error(formats['error']);
+                player.src({ src: 'null', type: 'null' });
+                player = null;
+                return;
+            }
             console.log('Available formats:', formats);
             if (player.controlBar && player.controlBar.SettingsButton)
             {

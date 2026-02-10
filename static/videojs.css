@@ -26,20 +26,19 @@
     pointer-events: none;
 }
 
-.vjs-theme-custom .vjs-error-display {
-  pointer-events: none;
-}
-
 .vjs-controls-disabled .vjs-control-bar, .vjs-error .vjs-control-bar {
   display: flex !important;
 }
 
 .vjs-theme-custom .vjs-error-display {
+  pointer-events: none;
     background: transparent;
     font-size: 10pt;
     overflow: visible;
     width: 100%;
     height: 100%;
+    padding: 20px;
+    text-align: center;
 }
 
 .vjs-theme-custom .vjs-loading-spinner {
