@@ -24,7 +24,7 @@ DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
 theme_color = os.environ.get('THEME_COLOR', '#ff7300')
-enable_sprite = os.environ.get('ENABLE_SPRITE', 'True').lower() == 'true'
+generate_sprite_below = os.environ.get('GENERATE_SPRITE_BELOW', 1800)
 amoled_bg = os.environ.get('ENABLE_SPRITE', 'False').lower() == 'true'
 ydl_global_opts = {'ffmpeg-location': shutil.which("ffmpeg")}
 
@@ -487,7 +487,8 @@ def download_file(url: str, media_type='video'):
                     f.write('WEBVTT\n' + data)
 
 
-        elif media_type.startswith('sprite') and enable_sprite:
+        elif media_type.startswith('sprite'):
+            if get_meta(url)["duration"] > generate_sprite_below: raise ValueError(f"Video too long to generate sprite! ({get_meta(url)["duration"]}s)")
             video_path = check_media(url=url, media_type='video')
             if not video_path:
                 download_file(url, 'video')
@@ -596,7 +597,7 @@ def watch():
         video_height = meta.get('height', video_height)
 
     print('Stopped serving watch')
-    return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, enable_sprite=enable_sprite, amoled_bg=amoled_bg, video_width=video_width,video_height=video_height)
+    return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, generate_sprite_below=generate_sprite_below, amoled_bg=amoled_bg, video_width=video_width, video_height=video_height)
 
 
 
@@ -634,6 +635,10 @@ def raw():
     html_template = f'<video controls autoplay><source src="/download?url={get_url(request)}" type="video/mp4"></video>'
     return html_template
 
+
+@app.route('/duration')
+def duration():
+    return f'{get_meta(get_url(request))["duration"]}'
 
 
 @app.route('/download')

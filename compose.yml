@@ -6,7 +6,7 @@ services:
         environment:
             - APP_TITLE=YT-DLP Player
             - THEME_COLOR=#ff7300
-            - ENABLE_SPRITE=true
+            - GENERATE_SPRITE_BELOW=1800 # video length in seconds
             - AMOLED_BG=false
         ports:
             - 5000:5000

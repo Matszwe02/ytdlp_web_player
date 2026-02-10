@@ -1058,10 +1058,6 @@ function loadVideo()
         },
     });
     player.doubleTapFF();
-    if (document.getElementById('enable-sprite'))
-    {
-        player.spriteThumbnails({ url: `/sprite?${urlParams.toString()}`, width: 160, height: 90, columns: 10, interval: 10 });
-    }
     playerContainer = player.el();
     
     const zoomToFillCookie = document.cookie.split('; ').find(row => row.startsWith('zoomToFill='));
@@ -1112,8 +1108,27 @@ function loadVideo()
         errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
         playerContainer.querySelector('.vjs-control-bar').classList.add('display-flex');
     });
-    player.load();
-    retryFetch(`/formats?${urlParams.toString()}`)
+    retryFetch(`/duration?${urlParams.toString()}`)
+        .then(response => response.json())
+        .then(duration => {
+
+            try
+            {
+                const spriteElement = document.getElementById('enable-sprite');
+                const spriteDuration = parseFloat(spriteElement ? spriteElement.dataset.spriteDuration : null);
+                const videoLength = parseInt(duration);
+    
+                if (spriteElement && !isNaN(spriteDuration) && videoLength < spriteDuration)
+                {
+                    player.spriteThumbnails({ url: `/sprite?${urlParams.toString()}`, width: 160, height: 90, columns: 10, interval: 10 });
+                    retryFetch(`/sprite?${urlParams.toString()}`, { visible: false }).then(response => response.text());
+                }
+            }
+            catch {}
+
+            player.load();
+        })
+    fetch(`/formats?${urlParams.toString()}`)
         .then(response => response.json())
         .then(formats => {
             console.log('Fetched formats');
