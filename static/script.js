@@ -10,6 +10,7 @@ let abortController = null; // AbortController for cancelling fetches
 let repeatMode = false;
 let repeatStartTime = 0;
 let repeatEndTime = 0;
+let videoTitle = '';
 
 function chooseGoodQuality(formats) {
     let targetQuality = 720
@@ -1174,10 +1175,13 @@ function loadVideo()
         .then(data => {
             (typeof data == 'string' && data != '')
             {
-                player.addChild('TitleBar', { text: data });
+                var length = 100;
+                videoTitle = data.length > length ? data.substring(0, length - 3) + "..." : data;
+                player.addChild('TitleBar', { text: videoTitle });
                 const appTitle = document.querySelector('meta[property="og:site_name"]').getAttribute('content');
                 document.title = data + ' | ' + appTitle;
             }
+            loadMediaPlayer();
         });
 }
 
@@ -1195,6 +1199,35 @@ function copyCurrentUrl(event)
             }, 2000);
         });
     }
+}
+
+
+function loadMediaPlayer()
+{
+    if (! "mediaSession" in navigator) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const appTitle = document.querySelector('meta[property="og:site_name"]').getAttribute('content');
+    navigator.mediaSession.metadata = new MediaMetadata({
+        title: videoTitle,
+        artist: appTitle,
+        album: "",
+        artwork: [
+            {
+                src: `/thumb?${urlParams.toString()}`,
+                sizes: "512x512",
+                type: "image/png",
+            },
+        ],
+    });
+
+    navigator.mediaSession.setActionHandler("nexttrack", () => {
+        skipclick();
+    });
+    navigator.mediaSession.setActionHandler("skipad", () => {
+        skipclick();
+    });
+    console.log("Loaded Media Player API");
 }
 
 
