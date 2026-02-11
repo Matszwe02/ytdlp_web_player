@@ -5,7 +5,7 @@
   "start_url": "/",
   "display": "standalone",
   "theme_color": "{{ theme_color }}",
-  "background_color": "#222222",
+  "background_color": "{{ '#000' if amoled_bg else '#222' }}",
   "icons": [
     {
       "src": "{{ url_for('static', filename='favicon.png') }}",
