@@ -8,12 +8,12 @@
   "background_color": "#222222",
   "icons": [
     {
-      "src": "favicon.png",
+      "src": "{{ url_for('static', filename='favicon.png') }}",
       "sizes": "128x128",
       "type": "image/png"
     },
     {
-      "src": "favicon_large.png",
+      "src": "{{ url_for('static', filename='favicon_large.png') }}",
       "sizes": "512x512",
       "type": "image/png"
     }
