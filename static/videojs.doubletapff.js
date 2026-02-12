@@ -39,7 +39,11 @@ function doubleTapFF(options)
 
 	function tapHandler(e)
     {
-    
+        if (e.target?.tagName?.toLowerCase() != 'video')
+        {
+            return false;
+        }
+
         var br = document.getElementById(videoElementId).getBoundingClientRect();
         var x = e.touches[0].clientX - br.left;
         var y = e.touches[0].clientY - br.top;
@@ -70,9 +74,9 @@ function doubleTapFF(options)
                     videoElement.currentTime(videoElement.currentTime() + 10);
                 }
                 tappedTwice = true;
+                e.preventDefault();
             }
             setTapTimer((videoElement.hasClass('vjs-user-active') || videoElement.paused()));
-			e.preventDefault();
 
         }
 	}
