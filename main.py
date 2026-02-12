@@ -706,6 +706,11 @@ def subtitles():
     return get_subtitles(get_url(request))
 
 
+@app.route('/meta')
+def meta():
+    return get_meta(get_url(request))
+
+
 @app.route('/manifest.json')
 def serve_manifest():
     return render_template('manifest.json', app_title=app_title, theme_color=theme_color)
