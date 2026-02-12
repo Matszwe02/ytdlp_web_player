@@ -1187,9 +1187,9 @@ function loadVideo()
             {
                 var length = 100;
                 let title = data.split('\n')[0];
-                let uploader = data.split('\n')[1];
                 videoTitle = title.length > length ? title.substring(0, length - 3) + "..." : title;
-                player.addChild('TitleBar', { text: videoTitle, uploader: uploader });
+                videoUploader = data.split('\n')[1];
+                player.addChild('TitleBar', { text: videoTitle, videoUploader: videoUploader });
                 const appTitle = document.querySelector('meta[property="og:site_name"]').getAttribute('content');
                 document.title = data + ' | ' + appTitle;
             }
