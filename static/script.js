@@ -4,7 +4,8 @@ let player;
 let playerContainer;
 let skipSegment;
 let skipTime = 0;
-let currentVideoQuality = '720p';
+let currentVideoQuality = null;
+let formats = null;
 let activeFetches = 0; // Counter for active retryFetch calls
 let abortController = null; // AbortController for cancelling fetches
 let repeatMode = false;
@@ -24,6 +25,7 @@ function chooseGoodQuality(formats) {
         }
     }
     if (closestQuality === Infinity) closestQuality = 720;
+    console.log(`Choosing quality ${closestQuality} for current video`);
     return closestQuality;
 }
 
@@ -135,6 +137,7 @@ function getVideoSource()
     const urlParams = new URLSearchParams(window.location.search);
     const originalUrl = urlParams.get('v') || urlParams.get('url');
     const quality = urlParams.get('quality') || currentVideoQuality;
+    console.log(`Video quality: ${quality}`);
     const hlsEnabled = urlParams.get('hls') === 'true';
 
     let downloadUrl;
@@ -147,7 +150,7 @@ function getVideoSource()
     }
     else
     {
-        downloadUrl = urlParams.has('quality') ? `/download?${urlParams.toString()}` : `/fastest?${urlParams.toString()}`;
+        downloadUrl = quality ? `/download?url=${encodeURIComponent(originalUrl)}&quality=${quality}` : `/fastest?${urlParams.toString()}`;
         videoType = 'video/mp4';
     }
     return [downloadUrl, videoType];
@@ -1152,6 +1155,24 @@ function loadVideo()
             catch {}
 
             player.load();
+            player.on('error', () => {
+                const error = player.error();
+                if (error && error.code === 4)
+                {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (!urlParams.has('quality'))
+                    {
+                        fetch(`/formats?${urlParams.toString()}`)
+                            .then(response => response.json())
+                            .then(formats => {
+                                console.warn("Changing video quality due to unsupported format...");
+                                player.controlBar.SettingsButton.updateResolutions(formats);
+                                currentVideoQuality = chooseGoodQuality(formats);
+                                applyVideoQuality();
+                            });
+                    }
+                }
+            });
         })
     fetch(`/formats?${urlParams.toString()}`)
         .then(response => response.json())
@@ -1172,10 +1193,6 @@ function loadVideo()
             if (player.controlBar && player.controlBar.SettingsButton)
             {
                 player.controlBar.SettingsButton.updateResolutions(formats);
-                const newQuality = chooseGoodQuality(formats);
-                urlParams.set('quality', newQuality);
-                currentVideoQuality = newQuality; // Update currentVideoQuality
-                applyVideoQuality();
             }
         });
 
