@@ -959,6 +959,12 @@ function checkSponsorTime()
     {
         skipSegment.style.opacity = 0;
         skipSegment.style.transform = 'translate(120%, 0)';
+
+        if ( "mediaSession" in navigator)
+        {
+            navigator.mediaSession.setActionHandler("nexttrack", null);
+            navigator.mediaSession.setActionHandler("skipad", null);
+        }
     }
     else
     {
@@ -967,6 +973,16 @@ function checkSponsorTime()
         skipSegment.title = "skip " + segmentShown.category.replaceAll('_', ' ') + ' [Enter]';
         skipSegment.innerHTML = "skip <b>" + segmentShown.category.replaceAll('_', ' ') + '</b> <i class="fa-solid fa-angles-right"></i>';
         skipTime = segmentShown.end;
+
+        if ( "mediaSession" in navigator)
+        {
+            navigator.mediaSession.setActionHandler("nexttrack", () => {
+                skipclick();
+            });
+            navigator.mediaSession.setActionHandler("skipad", () => {
+                skipclick();
+            });
+        }
     }
 }
 
@@ -1232,13 +1248,14 @@ function loadMediaPlayer()
             },
         ],
     });
-
-    navigator.mediaSession.setActionHandler("nexttrack", () => {
-        skipclick();
+    
+    navigator.mediaSession.setActionHandler("seekbackward", () => {
+        videoElement.currentTime(videoElement.currentTime() - 10);
     });
-    navigator.mediaSession.setActionHandler("skipad", () => {
-        skipclick();
+    navigator.mediaSession.setActionHandler("seekforward", () => {
+        videoElement.currentTime(videoElement.currentTime() + 10);
     });
+    navigator.mediaSession.setActionHandler("previoustrack", null);
     console.log("Loaded Media Player API");
 }
 
