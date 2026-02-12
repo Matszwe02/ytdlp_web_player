@@ -11,6 +11,7 @@ let repeatMode = false;
 let repeatStartTime = 0;
 let repeatEndTime = 0;
 let videoTitle = '';
+let videoUploader = '';
 
 function chooseGoodQuality(formats) {
     let targetQuality = 720
@@ -881,16 +882,20 @@ videojs.registerComponent('PlaybackSpeedButton', PlaybackSpeedButton);
 
 const Component = videojs.getComponent('Component');
 
-class TitleBar extends Component {
-    constructor(player, options = {}) {
+class TitleBar extends Component
+{
+    constructor(player, options = {})
+    {
         super(player, options);
 
-        if (options.text) {
-            this.updateTextContent(options.text);
+        if (options.text)
+        {
+            this.updateTextContent(options.text, options.uploader);
         }
     }
 
-    createEl() {
+    createEl()
+    {
         return videojs.dom.createEl('div', {
             className: 'vjs-title-bar'
         }, {
@@ -898,9 +903,14 @@ class TitleBar extends Component {
         });
     }
 
-    updateTextContent(text) {
+    updateTextContent(text, uploader)
+    {
         videojs.emptyEl(this.el());
         videojs.appendContent(this.el(), videojs.dom.createEl('div', { className: 'vjs-title-bar-text' }, {}, text));
+        if (uploader)
+        {
+            videojs.appendContent(this.el(), videojs.dom.createEl('div', { className: 'vjs-uploader-text' }, {}, uploader));
+        }
     }
 }
 
@@ -1176,8 +1186,10 @@ function loadVideo()
             (typeof data == 'string' && data != '')
             {
                 var length = 100;
-                videoTitle = data.length > length ? data.substring(0, length - 3) + "..." : data;
-                player.addChild('TitleBar', { text: videoTitle });
+                let title = data.split('\n')[0];
+                let uploader = data.split('\n')[1];
+                videoTitle = title.length > length ? title.substring(0, length - 3) + "..." : title;
+                player.addChild('TitleBar', { text: videoTitle, uploader: uploader });
                 const appTitle = document.querySelector('meta[property="og:site_name"]').getAttribute('content');
                 document.title = data + ' | ' + appTitle;
             }
@@ -1207,10 +1219,10 @@ function loadMediaPlayer()
     if (! "mediaSession" in navigator) return;
 
     const urlParams = new URLSearchParams(window.location.search);
-    const appTitle = document.querySelector('meta[property="og:site_name"]').getAttribute('content');
+    const artist = videoUploader? videoUploader : document.querySelector('meta[property="og:site_name"]').getAttribute('content');
     navigator.mediaSession.metadata = new MediaMetadata({
         title: videoTitle,
-        artist: appTitle,
+        artist: artist,
         album: "",
         artwork: [
             {

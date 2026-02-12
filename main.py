@@ -698,7 +698,7 @@ def serve_subtitle():
 
 @app.route('/title')
 def serve_title():
-    return get_meta(get_url(request)).get('title', '')
+    return get_meta(get_url(request)).get('title', '') + '\n' + get_meta(get_url(request)).get('uploader', '')
 
 
 @app.route('/subtitles')
