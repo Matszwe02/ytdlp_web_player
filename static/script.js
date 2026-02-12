@@ -35,7 +35,7 @@ function addFetch()
     console.log(activeFetches);
     try
     {
-        const settingsIcon = player.controlBar.SettingsButton.el().querySelector('.fa-gear');
+        const settingsIcon = player?.controlBar?.SettingsButton?.el().querySelector('.fa-gear');
         if (settingsIcon)
         {
             settingsIcon.classList.add('vjs-spin');
@@ -54,7 +54,7 @@ function removeFetch()
     console.log(activeFetches);
     try
     {
-        const settingsIcon = player.controlBar.SettingsButton.el().querySelector('.fa-gear');
+        const settingsIcon = player?.controlBar?.SettingsButton?.el().querySelector('.fa-gear');
         if (settingsIcon)
         {
             if (activeFetches == 0)
@@ -722,7 +722,7 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button') {
                 this.updateSubtitles(subtitleList);
             })
             .catch(error => {
-                console.error('Error fetching subtitles:', error);
+                console.warn('Could not fetch subtitles:', error);
             });
     }
 
@@ -1118,11 +1118,7 @@ function loadVideo()
     spinnerParent.classList.add('spinner-parent');
     
     document.getElementById('video').style.filter = 'brightness(1)';
-    
-    if (document.getElementById('enable-sprite'))
-    {
-        retryFetch(`/sprite?${urlParams.toString()}`, visible = false).then(response => response.text());
-    }
+
     playerContainer.querySelector('.vjs-poster').style.filter = '';
     applyVideoQuality();
     
