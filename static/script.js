@@ -5,7 +5,6 @@ let playerContainer;
 let skipSegment;
 let skipTime = 0;
 let currentVideoQuality = null;
-let formats = null;
 let activeFetches = 0; // Counter for active retryFetch calls
 let abortController = null; // AbortController for cancelling fetches
 let repeatMode = false;
@@ -14,7 +13,8 @@ let repeatEndTime = 0;
 let videoTitle = '';
 let videoUploader = '';
 
-function chooseGoodQuality(formats) {
+function chooseGoodQuality(formats)
+{
     let targetQuality = 720
     let closestQuality = Infinity;
     for (const quality of formats)
@@ -72,7 +72,8 @@ function removeFetch()
 }
 
 
-async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible = true) {
+async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible = true)
+{
     if (visible) addFetch();
     try
     {
@@ -239,8 +240,10 @@ class ZoomToFillToggle extends videojs.getComponent('Button')
 videojs.registerComponent('ZoomToFillToggle', ZoomToFillToggle);
 
 
-class HLSToggleButton extends videojs.getComponent('Button') {
-    constructor(player, options) {
+class HLSToggleButton extends videojs.getComponent('Button')
+{
+    constructor(player, options)
+    {
         super(player, options);
         const urlParams = new URLSearchParams(window.location.search);
         this.addClass('menu-button');
@@ -249,7 +252,8 @@ class HLSToggleButton extends videojs.getComponent('Button') {
         this.updateHlsState();
     }
 
-    handleClick(state = null) {
+    handleClick(state = null)
+    {
         this.hlsEnabled = !this.hlsEnabled;
         this.updateHlsState();
         applyVideoQuality();
@@ -258,11 +262,14 @@ class HLSToggleButton extends videojs.getComponent('Button') {
     updateHlsState()
     {
         const urlParams = new URLSearchParams(window.location.search);
-        if (this.hlsEnabled) {
+        if (this.hlsEnabled)
+        {
             this.el().classList.add('vjs-active');
             this.controlText('HLS Streaming: On');
             urlParams.set('hls', 'true');
-        } else {
+        }
+        else
+        {
             this.el().classList.remove('vjs-active');
             this.controlText('HLS Streaming: Off');
             urlParams.delete('hls');
@@ -275,7 +282,8 @@ videojs.registerComponent('HLSToggleButton', HLSToggleButton);
 
 class SettingsButton extends videojs.getComponent('Button')
 {
-    constructor(player, options) {
+    constructor(player, options)
+    {
         super(player, options);
         this.addClass('vjs-settings-button');
         this.controlText('Settings');
@@ -349,8 +357,10 @@ class SettingsButton extends videojs.getComponent('Button')
 videojs.registerComponent('SettingsButton', SettingsButton);
 
 
-class DownloadButton extends videojs.getComponent('Button') {
-    constructor(player, options) {
+class DownloadButton extends videojs.getComponent('Button')
+{
+    constructor(player, options)
+    {
         super(player, options);
         this.addClass('menu-button');
         this.controlText('Download Video');
@@ -364,34 +374,43 @@ class DownloadButton extends videojs.getComponent('Button') {
         this.el().appendChild(this.menu);
     }
 
-    handleClick(event) {
+    handleClick(event)
+    {
         event.stopPropagation();
-        if (this.menu.style.display === 'block') {
+        if (this.menu.style.display === 'block')
+        {
             this.handleCloseMenu();
-        } else {
+        }
+        else
+        {
             this.handleOpenMenu();
         }
     }
 
-    handleOpenMenu() {
+    handleOpenMenu()
+    {
         this.menu.style.display = 'block';
     }
 
-    handleCloseMenu(propagate = false) {
+    handleCloseMenu(propagate = false)
+    {
         this.menu.style.display = 'none';
-        if (this.parent && propagate) {
+        if (this.parent && propagate)
+        {
             this.parent.handleCloseMenu();
         }
     }
 
-    updateTimeLabels() {
+    updateTimeLabels()
+    {
         if (this.startBtn != null)
             this.startBtn.innerHTML = "Start<br><div class=time_disp>" + formatTime(this.startTime) + "</div>";
         if (this.endBtn != null)
             this.endBtn.innerHTML = "End<br><div class=time_disp>" + formatTime(this.endTime) + "</div>";
     }
 
-    createDownloadMenu() {
+    createDownloadMenu()
+    {
         const urlParams = new URLSearchParams(window.location.search);
         const baseDownloadUrl = `/download?${urlParams.toString()}`;
 
@@ -414,17 +433,22 @@ class DownloadButton extends videojs.getComponent('Button') {
             const handleEvent = (event) => {
                 event.stopPropagation();
                 if (option.quality == 'trim') {
-                    if (this.startBtn.style.display === 'block') {
+                    if (this.startBtn.style.display === 'block')
+                    {
                         this.startBtn.style.display = 'none';
                         this.endBtn.style.display = 'none';
-                    } else {
+                    }
+                    else
+                    {
                         this.startBtn.style.display = 'block';
                         this.endBtn.style.display = 'block';
                         this.startTime = null;
                         this.endTime = null;
                         this.updateTimeLabels();
                     }
-                } else {
+                }
+                else
+                {
                     if (option.quality == 'current') option.quality = currentVideoQuality;
 
                     const link = document.createElement('a');
@@ -474,8 +498,10 @@ class DownloadButton extends videojs.getComponent('Button') {
 videojs.registerComponent('DownloadButton', DownloadButton);
 
 
-class RepeatButton extends videojs.getComponent('Button') {
-    constructor(player, options) {
+class RepeatButton extends videojs.getComponent('Button')
+{
+    constructor(player, options)
+    {
         super(player, options);
         this.addClass('menu-button');
         this.controlText('Toggle Repeat');
@@ -492,32 +518,40 @@ class RepeatButton extends videojs.getComponent('Button') {
 
     handleClick(event) {
         event.stopPropagation();
-        if (this.menu.style.display === 'block') {
+        if (this.menu.style.display === 'block')
+        {
             this.handleCloseMenu();
-        } else {
+        }
+        else
+        {
             this.handleOpenMenu();
         }
     }
 
-    handleOpenMenu() {
+    handleOpenMenu()
+    {
         this.menu.style.display = 'block';
     }
 
-    handleCloseMenu(propagate = false) {
+    handleCloseMenu(propagate = false)
+    {
         this.menu.style.display = 'none';
-        if (this.parent && propagate) {
+        if (this.parent && propagate)
+        {
             this.parent.handleCloseMenu();
         }
     }
 
-    updateTimeLabels() {
+    updateTimeLabels()
+    {
         if (this.startBtn != null)
             this.startBtn.innerHTML = "Start<br><div class=time_disp>" + formatTime(this.repeatStartTime) + "</div>";
         if (this.endBtn != null)
             this.endBtn.innerHTML = "End<br><div class=time_disp>" + formatTime(this.repeatEndTime) + "</div>";
     }
 
-    createRepeatMenu() {
+    createRepeatMenu()
+    {
         const menu = document.createElement('div');
         menu.classList.add('vjs-repeat-menu');
         menu.style.display = 'none';
@@ -528,13 +562,16 @@ class RepeatButton extends videojs.getComponent('Button') {
         toggleButton.addEventListener('click', (e) => {
             e.stopPropagation();
             this.repeatActive = !this.repeatActive;
-            if (this.repeatActive) {
+            if (this.repeatActive)
+            {
                 this.addClass('vjs-active');
                 this.controlText('Repeat Active');
                 this.repeatStartTime = 0;
                 this.repeatEndTime = player.duration();
                 this.updateTimeLabels();
-            } else {
+            }
+            else
+            {
                 this.removeClass('vjs-active');
                 this.controlText('Toggle Repeat');
             }
@@ -564,7 +601,8 @@ class RepeatButton extends videojs.getComponent('Button') {
 videojs.registerComponent('RepeatButton', RepeatButton);
 
 
-class ResolutionSwitcherButton extends videojs.getComponent('Button') {
+class ResolutionSwitcherButton extends videojs.getComponent('Button')
+{
     constructor(player, options)
     {
         super(player, options);
@@ -672,8 +710,10 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button') {
 videojs.registerComponent('ResolutionSwitcherButton', ResolutionSwitcherButton);
 
 
-class SubtitleSwitcherButton extends videojs.getComponent('Button') {
-    constructor(player, options) {
+class SubtitleSwitcherButton extends videojs.getComponent('Button')
+{
+    constructor(player, options)
+    {
         super(player, options);
         this.addClass('menu-button');
         this.controlText('Subtitles');
@@ -826,7 +866,8 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
         this.el().appendChild(this.menu);
     }
 
-    handleClick(event) {
+    handleClick(event)
+    {
         event.stopPropagation();
         if (this.menu.style.display === 'flex')
             this.menu.style.display = 'none';
@@ -834,18 +875,22 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
             this.handleOpenMenu();
     }
 
-    handleOpenMenu() {
+    handleOpenMenu()
+    {
         this.menu.style.display = 'flex';
     }
 
-    handleCloseMenu() {
+    handleCloseMenu()
+    {
         this.menu.style.display = 'none';
-        if (this.parent) {
+        if (this.parent)
+        {
             this.parent.handleCloseMenu();
         }
     }
 
-    createPlaybackSpeedMenu() {
+    createPlaybackSpeedMenu()
+    {
         const menu = document.createElement('div');
         menu.classList.add('vjs-playback-speed-menu');
         menu.style.display = 'none';
@@ -1105,7 +1150,8 @@ function loadVideo()
     skipSegment.onclick = function() {skipclick();};
 
     player.on('timeupdate', () => {
-        if (repeatMode && player.currentTime() >= repeatEndTime) {
+        if (repeatMode && player.currentTime() >= repeatEndTime)
+        {
             player.currentTime(repeatStartTime);
         }
     });
@@ -1269,6 +1315,7 @@ function loadMediaPlayer()
         videoElement.currentTime(videoElement.currentTime() + 10);
     });
     navigator.mediaSession.setActionHandler("previoustrack", null);
+    navigator.mediaSession.setActionHandler("nexttrack", null);
     console.log("Loaded Media Player API");
 }
 
