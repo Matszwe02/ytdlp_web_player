@@ -654,16 +654,17 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
         
         resolutions.sort((a, b) => (b.height || b) - (a.height || a)); // Sort descending
         if (!resolutions.includes('audio')) resolutions.push('audio');
+        if (!resolutions.includes('default')) resolutions.push('default');
         
         resolutions.forEach(resItem => {
-            const height = resItem === 'audio' ? 'audio' : (resItem.height || resItem);
-            if (typeof height !== 'number' && height !== 'audio') return;
+            const height = resItem === 'audio' ? 'audio' : resItem === 'default' ? '' : (resItem.height || resItem);
+            if (typeof height !== 'number' && height !== 'audio' && height !== '') return;
             
             const button = document.createElement('button');
-            button.textContent = height === 'audio' ? 'Audio' : `${height}p`;
+            button.textContent = height === 'audio' ? 'Audio' : height === '' ? 'Default' : `${height}p`;
             button.classList.add('vjs-resolution-option');
             const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('quality') == height)
+            if (urlParams.get('quality') == height || (urlParams.get('quality') == null && height == ''))
             {
                 button.classList.add('vjs-resolution-option-current');
             }
@@ -938,9 +939,9 @@ class TitleBar extends Component
     {
         super(player, options);
 
-        if (options.text)
+        if (options.title)
         {
-            this.updateTextContent(options.text, options.uploader);
+            this.updateTextContent(options.title, options.uploader);
         }
     }
 
@@ -953,10 +954,10 @@ class TitleBar extends Component
         });
     }
 
-    updateTextContent(text, uploader)
+    updateTextContent(title, uploader)
     {
         videojs.emptyEl(this.el());
-        videojs.appendContent(this.el(), videojs.dom.createEl('div', { className: 'vjs-title-bar-text' }, {}, text));
+        videojs.appendContent(this.el(), videojs.dom.createEl('div', { className: 'vjs-title-bar-text' }, {}, title));
         if (uploader)
         {
             videojs.appendContent(this.el(), videojs.dom.createEl('div', { className: 'vjs-uploader-text' }, {}, uploader));
@@ -1171,8 +1172,15 @@ function loadVideo()
     document.getElementById('video').style.filter = 'brightness(1)';
 
     playerContainer.querySelector('.vjs-poster').style.filter = '';
-    applyVideoQuality();
-    
+    try
+    {
+        applyVideoQuality();
+    }
+    catch
+    {
+        console.warn('Video quality list needed, delaying playback');
+    }
+
     // When video is loaded
     player.on('loadeddata', () => {
         playerContainer.querySelector('img').classList.add('loaded-img');
@@ -1242,6 +1250,7 @@ function loadVideo()
                 return;
             }
             console.log('Available formats:', formats);
+            applyVideoQuality();
             if (player.controlBar && player.controlBar.SettingsButton)
             {
                 player.controlBar.SettingsButton.updateResolutions();
@@ -1270,7 +1279,7 @@ function loadVideo()
                 let title = data.split('\n')[0];
                 videoTitle = title.length > length ? title.substring(0, length - 3) + "..." : title;
                 videoUploader = data.split('\n')[1];
-                player.addChild('TitleBar', { text: videoTitle, videoUploader: videoUploader });
+                player.addChild('TitleBar', { title: videoTitle, uploader: videoUploader });
                 const appTitle = document.querySelector('meta[property="og:site_name"]').getAttribute('content');
                 document.title = data + ' | ' + appTitle;
             }
