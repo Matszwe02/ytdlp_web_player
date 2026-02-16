@@ -39,18 +39,22 @@ def gen_pathname(url: str):
     return sha1(url.encode()).hexdigest()
 
 
+def get_data_dir(url):
+    data_dir = os.path.join(DOWNLOAD_PATH, gen_pathname(url))
+    return data_dir
+
+
 def get_meta(url: str):
     with FileCachingLock(url, 'meta') as cache:
         print(cache)
         if cache:
             with open(cache, 'r') as f: return json.load(f)
-        data_dir = os.path.join(DOWNLOAD_PATH, gen_pathname(url))
         print(f'downloading meta for {url}')
         ydl_opts = {'quiet': True, 'skip_download': True}
         ydl_opts.update(ydl_global_opts)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.sanitize_info(ydl.extract_info(url, download=False))
-            with open(os.path.join(data_dir, 'meta.json'), 'w') as f:
+            with open(os.path.join(get_data_dir(url), 'meta.json'), 'w') as f:
                 json.dump(info, f)
                 return info
     return None
@@ -252,8 +256,7 @@ def send_file_partial(path):
 
 def check_media(url: str, media_type: str):
     print(f'Checking media for {url=} and {media_type=}')
-    unique_path = gen_pathname(url)
-    data_dir = os.path.join(DOWNLOAD_PATH, unique_path)
+    data_dir = get_data_dir(url)
     try:
         for i in os.listdir(data_dir):
             if i.endswith('.part'): continue
@@ -273,7 +276,7 @@ class FileCachingLock:
     def __init__(self, url, media_type):
         self.url = url
         self.media_type = media_type
-        self.data_dir = os.path.join(DOWNLOAD_PATH, gen_pathname(self.url))
+        self.data_dir = get_data_dir(url)
 
     def __enter__(self):
         for _ in range(600):
@@ -305,7 +308,7 @@ def download_file(url: str, media_type='video'):
     media_type = video | thumb | audio | video-720p | video-720p_4.20-21.37 | video-best
     """
     url = re.sub(r'(https?):/{1,}', r'\1://', url)
-    data_dir = os.path.join(DOWNLOAD_PATH, gen_pathname(url))
+    data_dir = get_data_dir(url)
     os.makedirs(data_dir, exist_ok=True)
     output_path = os.path.join(data_dir, f'{media_type}.%(ext)s')
     print(f'Downloading {media_type} for {url}')
@@ -653,6 +656,32 @@ def download_media():
         media_type += f'_{start_time:.1f}-{end_time:.1f}'
 
     return host_file(get_url(request), media_type)
+
+
+@app.route('/low')
+def download_low_quality():
+    formats = get_video_formats(get_url(request))
+    filename = check_media(get_url(request), 'video')
+    media_type = 'video'
+    if not filename:
+        media_type = f'video-{formats[0]}'
+        filename = download_file(get_url(request), media_type)
+
+    ffmpeg_command = [
+        'ffmpeg',
+        '-i', filename,
+        '-c:v', 'libx264',
+        '-crf', '40',
+        '-c:a', 'aac',
+        '-preset', 'veryfast',
+        os.path.join(get_data_dir(get_url(request)), 'video-low.mp4')
+    ]
+    try:
+        proc = subprocess.run(ffmpeg_command, check=True, capture_output=True)
+        proc.check_returncode()
+    except Exception as e:
+        print(f"An unexpected error occurred during conversion: {e}")
+    return host_file(get_url(request), 'video-low')
 
 
 
