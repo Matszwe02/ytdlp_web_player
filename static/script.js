@@ -1275,13 +1275,13 @@ function loadVideo()
         .then(data => {
             (typeof data == 'string' && data != '')
             {
-                var length = 100;
+                var length = 70;
                 let title = data.split('\n')[0];
                 videoTitle = title.length > length ? title.substring(0, length - 3) + "..." : title;
                 videoUploader = data.split('\n')[1];
-                player.addChild('TitleBar', { title: videoTitle, uploader: videoUploader });
+                player.addChild('TitleBar', { title: title, uploader: videoUploader });
                 const appTitle = document.querySelector('meta[property="og:site_name"]').getAttribute('content');
-                document.title = data + ' | ' + appTitle;
+                document.title = videoTitle + ' | ' + appTitle;
             }
             loadMediaPlayer();
         });

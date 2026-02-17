@@ -549,6 +549,12 @@ input
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.9);
     pointer-events: all !important;
     width: fit-content;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .vjs-uploader-text {
