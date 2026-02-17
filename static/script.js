@@ -1013,6 +1013,7 @@ function checkSponsorTime()
 
         if ( "mediaSession" in navigator)
         {
+            navigator.mediaSession.metadata.album = "";
             navigator.mediaSession.setActionHandler("nexttrack", null);
             navigator.mediaSession.setActionHandler("skipad", null);
         }
@@ -1027,6 +1028,7 @@ function checkSponsorTime()
 
         if ( "mediaSession" in navigator)
         {
+            navigator.mediaSession.metadata.album = `[${segmentShown.category.replaceAll('_', ' ')}]`;
             navigator.mediaSession.setActionHandler("nexttrack", () => {
                 skipclick();
             });
