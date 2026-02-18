@@ -152,7 +152,7 @@ function getVideoSource()
     }
     else
     {
-        downloadUrl = quality ? `/download?url=${encodeURIComponent(originalUrl)}&quality=${quality}` : `/fastest?${urlParams.toString()}`;
+        downloadUrl = quality ? `/download?url=${encodeURIComponent(originalUrl)}&quality=${quality}` : `/fastest?url=${encodeURIComponent(originalUrl)}`;
         videoType = 'video/mp4';
     }
     return [downloadUrl, videoType];
