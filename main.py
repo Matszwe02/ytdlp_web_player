@@ -478,7 +478,7 @@ def download_file(url: str, media_type='video'):
                 if i.get('ext') == 'srt':
                     sub_url = i.get('url')
                     if sub_url:
-                        download_media_file(sub_url, os.path.join(data_dir, media_type))
+                        download_media_file(sub_url, os.path.join(data_dir, media_type), 'srt')
                         break
             else:
                 raise FileNotFoundError('Selected subtitles not found')
