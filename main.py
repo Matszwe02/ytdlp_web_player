@@ -60,10 +60,27 @@ def get_meta(url: str):
     return None
 
 
+def get_sb(url: str):
+    with FileCachingLock(url, 'sb') as cache:
+        try:
+            print(cache)
+            if cache:
+                with open(cache, 'r') as f: return json.load(f)
+            print(f'downloading sb for {url}')
+            sb_data = SponsorBlock(url).get_segments()
+            with open(os.path.join(get_data_dir(url), 'sb.json'), 'w') as f:
+                json.dump(sb_data, f)
+                return sb_data
+        except:
+            return None
+    return None
 
-def get_video_formats(url):
+
+
+def get_video_formats(url = None, meta = None):
     resolutions = []
-    meta = get_meta(url)
+    if not meta:
+        meta = get_meta(url)
     formats = meta.get('formats', [])
     for f in formats:
         if f.get('vcodec') != 'none' and f.get('height') and f.get('height') not in resolutions:
@@ -95,8 +112,7 @@ def get_video_sources(url):
 
 
 
-def get_subtitles(url):
-    meta = get_meta(url)
+def get_subtitles(meta: dict):
     subs = {**meta.get('subtitles', {}), **meta.get('automatic_captions', {})}
     all_subtitles = []
     for lang, subs in subs.items():
@@ -543,13 +559,6 @@ def download_file(url: str, media_type='video'):
             with open(os.path.join(data_dir, f'{media_type}.json'), 'w') as f:
                 f.write(jsonify(sources_data).get_data(as_text=True))
 
-
-        elif media_type.startswith('sb'):
-            print(f'downloading sb for {url}')
-            sb_data = SponsorBlock(url).get_segments()
-            with open(os.path.join(data_dir, f'{media_type}.json'), 'w') as f:
-                f.write(jsonify(sb_data).get_data(as_text=True))
-
         return check_media(url=url, media_type=media_type)
 
 
@@ -637,18 +646,13 @@ def serve_sprite_by_path(url):
 
 @app.route('/sb')
 def get_sponsor_segments():
-    return host_file(get_url(request), 'sb')
+    return get_sb(get_url(request))
 
 
 @app.route('/raw')
 def raw():
     html_template = f'<video controls autoplay><source src="/download?url={get_url(request)}" type="video/mp4"></video>'
     return html_template
-
-
-@app.route('/duration')
-def duration():
-    return f'{get_meta(get_url(request))["duration"]}'
 
 
 @app.route('/download')
@@ -712,15 +716,6 @@ def resp_fastest_stream():
     return download_media()
 
 
-@app.route('/formats')
-def formats():
-    try:
-        meta = get_meta(get_url(request))
-        if not meta: raise RuntimeError
-        return get_video_formats(get_url(request))
-    except BaseException as e:
-        return jsonify({'error': (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))}), 403
-
 
 @app.route('/sources')
 def sources():
@@ -732,19 +727,25 @@ def serve_subtitle():
     return host_file(get_url(request), f'sub-{request.args.get("lang")}')
 
 
-@app.route('/title')
-def serve_title():
-    return get_meta(get_url(request)).get('title', '') + '\n' + get_meta(get_url(request)).get('uploader', '')
-
-
-@app.route('/subtitles')
-def subtitles():
-    return get_subtitles(get_url(request))
-
-
 @app.route('/meta')
-def meta():
-    return get_meta(get_url(request))
+def serve_meta():
+    meta = {}
+    url = get_url(request)
+    if not url: return jsonify({"error": "URL parameter is required"}), 400
+
+    raw_meta = get_meta(url)
+    meta['title'] = raw_meta.get('title', '')
+    meta['uploader'] = raw_meta.get('uploader', '')
+    try:
+        meta['formats'] = get_video_formats(meta=raw_meta)
+    except BaseException as e:
+        meta['formats'] = jsonify({'error': (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))}), 403
+    meta['duration'] = f'{raw_meta["duration"]}'
+    meta['subtitles'] = get_subtitles(raw_meta)
+    
+    dwnl = lambda: download_file(url, 'thumb')
+    Thread(target=dwnl).start()
+    return meta
 
 
 @app.route('/manifest.json')

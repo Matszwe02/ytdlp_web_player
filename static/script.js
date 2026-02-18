@@ -5,20 +5,18 @@ let playerContainer;
 let skipSegment;
 let skipTime = 0;
 let currentVideoQuality = null;
-let formats = null;
+let meta = null;
 let activeFetches = 0; // Counter for active retryFetch calls
 let abortController = null; // AbortController for cancelling fetches
 let repeatMode = false;
 let repeatStartTime = 0;
 let repeatEndTime = 0;
-let videoTitle = '';
-let videoUploader = '';
 
 function chooseGoodQuality()
 {
     let targetQuality = 720
     let closestQuality = Infinity;
-    for (const quality of formats)
+    for (const quality of meta.formats)
     {
         if (quality >= targetQuality && closestQuality > targetQuality)
         {
@@ -647,7 +645,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
 
     updateResolutions()
     {
-        let resolutions = formats;
+        let resolutions = meta.formats;
         if (!resolutions || resolutions.length < 2) return;
         this.el().style.display = '';
         this.menu.innerHTML = ''
@@ -728,7 +726,6 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button')
         this.el().appendChild(this.menu);
 
         this.subtitles = {};
-        this.loadSubtitles();
     }
 
     handleClick(event)
@@ -756,20 +753,6 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button')
         {
             this.parent.handleCloseMenu();
         }
-    }
-
-    loadSubtitles()
-    {
-        const urlParams = new URLSearchParams(window.location.search);
-        retryFetch(`/subtitles?${urlParams.toString()}`)
-            .then(response => response.json())
-            .then(subtitleList => {
-                this.subtitles = subtitleList;
-                this.updateSubtitles(subtitleList);
-            })
-            .catch(error => {
-                console.warn('Could not fetch subtitles:', error);
-            });
     }
 
     updateSubtitles(subtitleList)
@@ -1194,15 +1177,42 @@ function loadVideo()
         errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
         playerContainer.querySelector('.vjs-control-bar').classList.add('display-flex');
     });
-    retryFetch(`/duration?${urlParams.toString()}`)
+    retryFetch(`/meta?${urlParams.toString()}`)
         .then(response => response.json())
-        .then(duration => {
+        .then(metaData => {
+            meta = metaData;
+            if (meta["error"] !== undefined)
+            {
+                const errorDisplay = playerContainer.querySelector('.vjs-error-display');
+                errorDisplay.innerHTML = meta['error'];
+                errorDisplay.classList.remove('spinner-parent');
+                errorDisplay.classList.remove('vjs-hidden');
+                console.error(meta['error']);
+                player.src({ src: 'null', type: 'null' });
+                player = null;
+                return;
+            }
+            applyVideoQuality();
+            if (player.controlBar && player.controlBar.SettingsButton)
+            {
+                player.controlBar.SettingsButton.updateResolutions();
+                player.controlBar.SettingsButton.updateSubtitles(meta.subtitles);
+            }
+
+            if (typeof meta.title == 'string' && meta.title != '')
+            {
+                const length = 70;
+                const videoTitle = meta.title.length > length ? meta.title.substring(0, length - 3) + "..." : meta.title;
+                player.addChild('TitleBar', { title: meta.title, uploader: meta.uploader });
+                const appTitle = document.querySelector('meta[property="og:site_name"]').getAttribute('content');
+                document.title = videoTitle + ' | ' + appTitle;
+            }
 
             try
             {
                 const spriteElement = document.getElementById('enable-sprite');
                 const spriteDuration = parseFloat(spriteElement ? spriteElement.dataset.spriteDuration : null);
-                const videoLength = parseInt(duration);
+                const videoLength = parseInt(meta.duration);
     
                 if (spriteElement && !isNaN(spriteDuration) && videoLength < spriteDuration)
                 {
@@ -1217,46 +1227,26 @@ function loadVideo()
                 const error = player.error();
                 if (error && error.code === 4)
                 {
-                    const urlParams = new URLSearchParams(window.location.search);
                     if (player.src().includes('/fastest'))
                     {
                         setTimeout(() => {
-                            fetch(`/formats?${urlParams.toString()}`)
-                                .then(response => response.json())
-                                .then(f => {
-                                    console.warn("Changing video quality due to unsupported format...");
-                                    formats = f;
-                                    player.controlBar.SettingsButton.updateResolutions();
-                                    currentVideoQuality = chooseGoodQuality();
-                                    applyVideoQuality();
-                                });
+                            console.warn("Changing video quality due to unsupported format...");
+                            currentVideoQuality = chooseGoodQuality();
+                            applyVideoQuality();
                         }, 1000);
                     }
                 }
             });
+            loadMediaPlayer();
         })
-    fetch(`/formats?${urlParams.toString()}`)
-        .then(response => response.json())
-        .then(f => {
-            formats = f;
-            console.log('Fetched formats');
-            if (formats["error"] !== undefined)
-            {
-                const errorDisplay = playerContainer.querySelector('.vjs-error-display');
-                errorDisplay.innerHTML = formats['error'];
-                errorDisplay.classList.remove('spinner-parent');
-                errorDisplay.classList.remove('vjs-hidden');
-                console.error(formats['error']);
-                player.src({ src: 'null', type: 'null' });
-                player = null;
-                return;
-            }
-            console.log('Available formats:', formats);
-            applyVideoQuality();
-            if (player.controlBar && player.controlBar.SettingsButton)
-            {
-                player.controlBar.SettingsButton.updateResolutions();
-            }
+        .catch(error => {
+            console.error('Error fetching video:', error);
+            const errorDisplay = playerContainer.querySelector('.vjs-error-display');
+            errorDisplay.innerHTML = `${error.message}`;
+            errorDisplay.classList.remove('spinner-parent');
+            errorDisplay.classList.remove('vjs-hidden');
+            player.src({ src: 'null', type: 'null' });
+            player = null;
         });
 
         
@@ -1272,21 +1262,6 @@ function loadVideo()
             }
         });
 
-    retryFetch(`/title?${urlParams.toString()}`)
-        .then(response => response.text())
-        .then(data => {
-            (typeof data == 'string' && data != '')
-            {
-                var length = 70;
-                let title = data.split('\n')[0];
-                videoTitle = title.length > length ? title.substring(0, length - 3) + "..." : title;
-                videoUploader = data.split('\n')[1];
-                player.addChild('TitleBar', { title: title, uploader: videoUploader });
-                const appTitle = document.querySelector('meta[property="og:site_name"]').getAttribute('content');
-                document.title = videoTitle + ' | ' + appTitle;
-            }
-            loadMediaPlayer();
-        });
 }
 
 
@@ -1311,9 +1286,10 @@ function loadMediaPlayer()
     if (! "mediaSession" in navigator) return;
 
     const urlParams = new URLSearchParams(window.location.search);
-    const artist = videoUploader? videoUploader : document.querySelector('meta[property="og:site_name"]').getAttribute('content');
+    const title = meta.title.length > length ? meta.title.substring(0, length - 3) + "..." : meta.title
+    const artist = meta.uploader? meta.uploader : document.querySelector('meta[property="og:site_name"]').getAttribute('content');
     navigator.mediaSession.metadata = new MediaMetadata({
-        title: videoTitle,
+        title: title,
         artist: artist,
         album: "",
         artwork: [
