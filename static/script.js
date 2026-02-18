@@ -1325,6 +1325,7 @@ function loadMediaPlayer()
         ],
     });
     
+    const videoElement = player.el().querySelector('video');
     navigator.mediaSession.setActionHandler("seekbackward", () => {
         videoElement.currentTime(videoElement.currentTime() - 10);
     });
