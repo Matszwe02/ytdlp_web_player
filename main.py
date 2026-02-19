@@ -778,6 +778,23 @@ def hls_stream(filename):
     return send_file_partial(full_path)
 
 
+@app.route('/search')
+def search():
+    url = get_url(request)
+    if not url.startswith('https://youtube.com/watch?v='): return url
+    try:
+        query = url.split('?v=', 1)[-1]
+        print(f'Searching for {query}')
+        ydl_opts = {'quiet': True, 'skip_download': True, 'default_search': 'auto'}
+        ydl_opts.update(ydl_global_opts)
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.sanitize_info(ydl.extract_info(query, download=False))
+            return info.get('entries', [{}])[0].get('original_url', '')
+    except Exception as e:
+        return (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e)))), 404
+    return None
+
+
 
 thread = Thread(target=delete_old_files)
 downloader_thread = Thread(target=ytdlp_download)
