@@ -780,10 +780,8 @@ def hls_stream(filename):
 
 @app.route('/search')
 def search():
-    url = get_url(request)
-    if not url.startswith('https://youtube.com/watch?v='): return url
     try:
-        query = url.split('?v=', 1)[-1]
+        query = request.args.get('q')
         print(f'Searching for {query}')
         ydl_opts = {'quiet': True, 'skip_download': True, 'default_search': 'auto'}
         ydl_opts.update(ydl_global_opts)

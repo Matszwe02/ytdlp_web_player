@@ -24,7 +24,7 @@
     
         <div style="display: inline-block; text-align: center; width: 50%" class="non-video">
             <h1><i class="fa-solid fa-link"></i> Video URL:</h1>
-            <input type="text" id="standard_url" name="url" placeholder="type URL or enter to auto-paste" autofocus/>
+            <input type="text" id="standard_url" name="url" placeholder="type URL or search query or hit enter" autofocus/>
             <button onclick="handlePlayButtonClick()" class="play-button">
                 <i class="fa-solid fa-play"></i>
             </button>
@@ -83,7 +83,22 @@
                 let url = urlInput.value.trim();
                 if (url)
                 {
-                    window.location.href = '/watch?url=' + encodeURIComponent(url);
+                    try
+                    {
+                        new URL(url);
+                        window.location.href = '/watch?url=' + encodeURIComponent(url);
+                    }
+                    catch (e)
+                    {
+                        fetch(`/search?q=${encodeURIComponent(url)}`)
+                            .then(response => {
+                                if (!response.ok) return;
+                                response.text().then(data => {
+                                    if (!data) return;
+                                    window.location.href = '/watch?url=' + encodeURIComponent(data);
+                                });
+                            })
+                    }
                     return;
                 }
                 navigator.clipboard.readText()
