@@ -78,7 +78,8 @@
                     <li><a href="{{original_url}}" target="_blank"><i class="fa-solid fa-link"></i> Open video url</a></li>
                     <li><a href="https://github.com/yt-dlp/yt-dlp" target="_blank"><i class="fa-solid fa-download"></i> YT-DLP version:<br><b>{{ydl_version}}</b></a></li>
                     <li><a href="https://ffmpeg.org" target="_blank"><i class="fa-solid fa-cogs"></i> FFmpeg version:<br><b>{{ffmpeg_version}}</b></a></li>
-                    <li><a href="https://github.com/Matszwe02/ytdlp_web_player" target="_blank"><i class="fa-brands fa-github"></i></i> App version:<br><b>{{app_version}}</b></a></li>
+                    <li><a href="https://github.com/Matszwe02/ytdlp_web_player" target="_blank"><i class="fa-brands fa-github"></i> App version:<br><b>{{app_version}}</b></a></li>
+                    <li onclick="toggleAmoled()"><i class="fa-solid fa-circle-half-stroke"></i>Toggle AMOLED</li>
                 </ul>
             </div>
         </div>
@@ -124,6 +125,25 @@
                     expandButton.click();
                 }
             });
+
+            function toggleAmoled()
+            {
+                const htmlElement = document.documentElement;
+                let isAmoled = htmlElement.style.getPropertyValue('--theme-bg') === '#000';
+
+                if (isAmoled)
+                {
+                    htmlElement.style.setProperty('--theme-bg', '#222');
+                    htmlElement.style.setProperty('--theme-bg-light', '#333');
+                    document.cookie = "amoled_bg=false; path=/; expires=Fri, 31 Dec 9999 23:59:59 GMT";
+                }
+                else
+                {
+                    htmlElement.style.setProperty('--theme-bg', '#000');
+                    htmlElement.style.setProperty('--theme-bg-light', '#000');
+                    document.cookie = "amoled_bg=true; path=/; expires=Fri, 31 Dec 9999 23:59:59 GMT";
+                }
+            }
         </script>
     </body>
 </html>

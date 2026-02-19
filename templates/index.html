@@ -23,7 +23,8 @@
     <body>
     
         <div style="display: inline-block; text-align: center; width: 50%" class="non-video">
-            <h1><i class="fa-solid fa-link"></i> Video URL:</h1>
+            <img src="{{ url_for('static', filename='favicon_large.png') }}" alt="" height="250px">
+            <h1 style="margin-top: 0;">{{ app_title }}</h1>
             <input type="text" id="standard_url" name="url" placeholder="type URL or search query or hit enter" autofocus/>
             <button onclick="handlePlayButtonClick()" class="play-button">
                 <i class="fa-solid fa-play"></i>
