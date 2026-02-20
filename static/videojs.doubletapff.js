@@ -3,8 +3,10 @@ function doubleTapFF(options)
 	var videoElement = this;
 	var videoElementId = this.id();
 	document.getElementById(videoElementId).addEventListener("touchstart", tapHandler);
+	document.getElementById(videoElementId).addEventListener("touchmove", moveHandler);
 	var tappedTwice = false;
     var tapTimer = null;
+    var initialMoveDistance = null;
 
     function getTapTimer()
     {
@@ -43,6 +45,11 @@ function doubleTapFF(options)
         {
             return false;
         }
+        if (e.touches.length > 1)
+        {
+            clearTapTimer();
+            initialMoveDistance = null;
+        }
 
         var br = document.getElementById(videoElementId).getBoundingClientRect();
         var x = e.touches[0].clientX - br.left;
@@ -80,5 +87,39 @@ function doubleTapFF(options)
 
         }
 	}
+
+    function moveHandler(e)
+    {
+        if (e.touches.length > 1)
+        {
+            clearTapTimer();
+        }
+        if (e.touches.length === 2)
+        {
+            const x0 = e.touches[0].clientX;
+            const y0 = e.touches[0].clientY;
+            const x1 = e.touches[1].clientX;
+            const y1 = e.touches[1].clientY;
+
+            const dx = x1 - x0;
+            const dy = y1 - y0;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (initialMoveDistance == null)
+            {
+                initialMoveDistance = distance;
+            }
+            else
+            {
+                const change = distance - initialMoveDistance;
+                if (Math.abs(change) > 20)
+                {
+                    videoElement.controlBar.ZoomToFillToggle.handleClick(change > 0);
+                    initialMoveDistance = distance;
+                }
+            }
+        }
+    }
+
 }
 videojs.registerPlugin('doubleTapFF', doubleTapFF);
