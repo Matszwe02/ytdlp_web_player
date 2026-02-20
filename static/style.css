@@ -10,9 +10,9 @@ body
     font-family: Verdana, Geneva, Tahoma, sans-serif;
 }
 
-input
+#standard_url
 {
-    width: 100%;
+    width: 60%;
     height: 50px; 
     border-radius: 20px; 
     text-align: center;
@@ -22,6 +22,22 @@ input
     font-size: 16pt;
     font-family: Verdana, Geneva, Tahoma, sans-serif;
     margin-top: 100px;
+}
+
+@media only screen and (max-width: 900px)
+{
+    #standard_url
+    {
+        width: 80%;
+    }
+}
+
+@media only screen and (max-width: 600px)
+{
+    #standard_url
+    {
+        width: 90%;
+    }
 }
 
 .play-button
@@ -48,7 +64,7 @@ input
     color: #666;
     box-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
 }
-        
+
 .video-button
 {
     padding: 10px 20px;
@@ -235,8 +251,6 @@ input
 }
 
 .expand-button.expanded {
-    background-color: #444;
-    color: #aaa;
     transform: rotate(180deg);
 }
 
@@ -244,7 +258,7 @@ input
     position: absolute;
     bottom: 50px;
     right: 0;
-    background-color: #333;
+    background-color: var(--theme-bg-light);
     border-radius: 8px;
     overflow: hidden;
     max-height: 0;

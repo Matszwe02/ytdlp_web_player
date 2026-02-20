@@ -1202,11 +1202,11 @@ function loadVideo()
             if (typeof meta.title == 'string' && meta.title != '')
             {
                 const appTitle = document.querySelector('meta[property="og:site_name"]').getAttribute('content');
-                var titleLength = 80 - (' | ' + appTitle).length;
+                const titleLength = 80 - (' | ' + appTitle).length;
                 meta.shortTitle = meta.title.length > titleLength ? meta.title.substring(0, titleLength - 3) + "..." : meta.title;
                 player.addChild('TitleBar', { title: meta.title, uploader: meta.uploader });
                 document.title = meta.shortTitle + ' | ' + appTitle;
-                meta.uploader = meta.uploader? meta.uploader : document.querySelector('meta[property="og:site_name"]').getAttribute('content');
+                meta.uploader = meta.uploader? meta.uploader : appTitle;
             }
 
             try
