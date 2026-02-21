@@ -253,9 +253,20 @@ class HLSToggleButton extends videojs.getComponent('Button')
 
     handleClick(state = null)
     {
-        this.hlsEnabled = !this.hlsEnabled;
+        this.hlsEnabled = state != null ? state : !this.hlsEnabled;
         this.updateHlsState();
-        applyVideoQuality();
+        if (hlsEnabled)
+        {
+            retryFetch(getVideoSource()
+                .then(response => {
+                    applyVideoQuality();
+                }
+            ));
+        }
+        else
+        {
+            applyVideoQuality();
+        }
     }
 
     updateHlsState()
