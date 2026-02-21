@@ -13,12 +13,13 @@
 - implemented sponsorblock for supported sites (currently YouTube)
 - PWA support with "share with" target for Android
 - Media Session API integration for system playback controls
-- nice animations while loading video
 - video download option
 - video format selection
 - closed captions support
 - HLS support for shorter load times and better performance (experimental)
 - Player embedding using `/iframe` endpoint (experimental)
+- video searching functionality
+- nice animations while loading video
 - configurable themes
 
 **Daily auto update of yt-dlp to immediately support new yt-dlp codecs and sites**
