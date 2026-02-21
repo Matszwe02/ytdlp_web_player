@@ -1,7 +1,7 @@
 # YT-DLP Web Player
 ### Arbitraty internet video player powered by yt-dlp
 
-<p style="text-align:center">
+<p align="center">
   <img src="static/favicon.png" />
 </p>
 
