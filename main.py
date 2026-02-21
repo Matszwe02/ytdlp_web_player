@@ -438,8 +438,11 @@ def download_file(url: str, media_type='video'):
             ffmpeg_command = [
                 '-c:v', 'libx264',
                 '-crf', '22',
+                '-r', f'{meta.get("fps", "30")}',
                 '-c:a', 'aac',
+                '-ar', '44100',
                 '-f', 'hls',
+                '-force_key_frames', f'expr:gte(t,n_forced*{hls_duration})',
                 '-hls_time', f'{hls_duration}',
                 '-hls_playlist_type', 'vod',
                 '-hls_segment_filename', os.path.join(hls_output_dir, 'segment%04d.ts'),
@@ -470,14 +473,23 @@ def download_file(url: str, media_type='video'):
                 f.write("#EXT-X-ENDLIST\n")
             
             def download_hls_files():
+                nonlocal video_file_path
                 try:
-                    proc = subprocess.run(ffmpeg_command, check=True, capture_output=True)
-                    proc.check_returncode()
-                    with open(temp_m3u8_path, 'r') as f:
-                        contents = f.read()
-                    with open(m3u8_path, 'w') as f:
-                        f.write(contents.replace('segment', seg_path + 'segment'))
-                    os.remove(temp_m3u8_path)
+                    proc = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    time.sleep(30)
+                    if not video_file_path:
+                        video_file_path = download_file(url, f'video-{res}p')
+                        if not video_file_path: raise RuntimeError('Could not download video')
+                        proc.kill()
+                        os.rename(m3u8_path, temp_m3u8_path)
+                        download_file(url, media_type)
+                        return
+                    if proc.wait() == 0:
+                        with open(temp_m3u8_path, 'r') as f:
+                            contents = f.read()
+                        with open(m3u8_path, 'w') as f:
+                            f.write(contents.replace('segment', seg_path + 'segment'))
+                        os.remove(temp_m3u8_path)
                 except Exception as e:
                     print(f"An unexpected error occurred during HLS conversion: {e}")
 
