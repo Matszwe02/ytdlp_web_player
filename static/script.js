@@ -12,6 +12,17 @@ let repeatMode = false;
 let repeatStartTime = 0;
 let repeatEndTime = 0;
 
+
+function tryStopPropagation(event)
+{
+    try
+    {
+        event.stopPropagation();
+    }
+    catch (error) {}
+}
+
+
 function chooseGoodQuality()
 {
     let targetQuality = 720
@@ -325,7 +336,7 @@ class SettingsButton extends videojs.getComponent('Button')
 
     handleClick(event)
     {
-        event.stopPropagation();
+        tryStopPropagation(event);
         if (this.menu.style.display === 'flex')
         {
             this.handleCloseMenu();
@@ -386,7 +397,7 @@ class DownloadButton extends videojs.getComponent('Button')
 
     handleClick(event)
     {
-        event.stopPropagation();
+        tryStopPropagation(event);
         if (this.menu.style.display === 'block')
         {
             this.handleCloseMenu();
@@ -441,7 +452,7 @@ class DownloadButton extends videojs.getComponent('Button')
             button.classList.add('vjs-resolution-option');
 
             const handleEvent = (event) => {
-                event.stopPropagation();
+                tryStopPropagation(event);
                 if (option.quality == 'trim') {
                     if (this.startBtn.style.display === 'block')
                     {
@@ -488,16 +499,16 @@ class DownloadButton extends videojs.getComponent('Button')
         this.startBtn.classList.add('vjs-resolution-option');
         this.startBtn.title = 'Click To Adjust Start Time';
         this.startBtn.style.display = 'none'; // Initially hidden
-        this.startBtn.addEventListener('touchend', (e) => { e.stopPropagation(); this.startTime = player.currentTime(); this.updateTimeLabels(); });
-        this.startBtn.addEventListener('click', (e) => { e.stopPropagation(); this.startTime = player.currentTime(); this.updateTimeLabels(); });
+        this.startBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.startTime = player.currentTime(); this.updateTimeLabels(); });
+        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.startTime = player.currentTime(); this.updateTimeLabels(); });
         menu.appendChild(this.startBtn);
 
         this.endBtn = document.createElement('button');
         this.endBtn.classList.add('vjs-resolution-option');
         this.endBtn.title = 'Click To Adjust End Time';
         this.endBtn.style.display = 'none'; // Initially hidden
-        this.endBtn.addEventListener('touchend', (e) => { e.stopPropagation(); this.endTime = player.currentTime(); this.updateTimeLabels(); });
-        this.endBtn.addEventListener('click', (e) => { e.stopPropagation(); this.endTime = player.currentTime(); this.updateTimeLabels(); });
+        this.endBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.endTime = player.currentTime(); this.updateTimeLabels(); });
+        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.endTime = player.currentTime(); this.updateTimeLabels(); });
         menu.appendChild(this.endBtn);
 
         this.updateTimeLabels();
@@ -527,7 +538,7 @@ class RepeatButton extends videojs.getComponent('Button')
     }
 
     handleClick(event) {
-        event.stopPropagation();
+        tryStopPropagation(event);
         if (this.menu.style.display === 'block')
         {
             this.handleCloseMenu();
@@ -570,7 +581,7 @@ class RepeatButton extends videojs.getComponent('Button')
         toggleButton.textContent = 'Toggle Repeat';
         toggleButton.classList.add('vjs-resolution-option');
         toggleButton.addEventListener('click', (e) => {
-            e.stopPropagation();
+            tryStopPropagation(e);
             this.repeatActive = !this.repeatActive;
             if (this.repeatActive)
             {
@@ -594,13 +605,13 @@ class RepeatButton extends videojs.getComponent('Button')
         this.startBtn = document.createElement('button');
         this.startBtn.classList.add('vjs-resolution-option');
         this.startBtn.title = 'Click To Adjust Start Time';
-        this.startBtn.addEventListener('click', (e) => { e.stopPropagation(); this.repeatStartTime = player.currentTime(); this.updateTimeLabels(); repeatStartTime = this.repeatStartTime; });
+        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatStartTime = player.currentTime(); this.updateTimeLabels(); repeatStartTime = this.repeatStartTime; });
         menu.appendChild(this.startBtn);
 
         this.endBtn = document.createElement('button');
         this.endBtn.classList.add('vjs-resolution-option');
         this.endBtn.title = 'Click To Adjust End Time';
-        this.endBtn.addEventListener('click', (e) => { e.stopPropagation(); this.repeatEndTime = player.currentTime(); this.updateTimeLabels(); repeatEndTime = this.repeatEndTime; });
+        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatEndTime = player.currentTime(); this.updateTimeLabels(); repeatEndTime = this.repeatEndTime; });
         menu.appendChild(this.endBtn);
 
         this.updateTimeLabels();
@@ -628,7 +639,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
 
     handleClick(event)
     {
-        event.stopPropagation();
+        tryStopPropagation(event);
         if (this.menu.style.display === 'block')
         {
             this.menu.style.display = 'none';
@@ -679,7 +690,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
             }
             
             button.onclick = (event) => {
-                event.stopPropagation();
+                tryStopPropagation(event);
                 
                 if (abortController) abortController.abort();
                 abortController = new AbortController();
@@ -741,7 +752,7 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button')
 
     handleClick(event)
     {
-        event.stopPropagation();
+        tryStopPropagation(event);
         if (this.menu.style.display === 'block')
         {
             this.menu.style.display = 'none';
@@ -784,7 +795,7 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button')
             button.classList.add('vjs-subtitle-option');
 
             button.onclick = (event) => {
-                event.stopPropagation();
+                tryStopPropagation(event);
                 this.handleSubtitleSelection(lang);
                 this.handleCloseMenu();
             };
@@ -865,7 +876,7 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
 
     handleClick(event)
     {
-        event.stopPropagation();
+        tryStopPropagation(event);
         if (this.menu.style.display === 'flex')
             this.menu.style.display = 'none';
         else
@@ -903,7 +914,7 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
             }
 
             button.onclick = (event) => {
-                event.stopPropagation();
+                tryStopPropagation(event);
                 this.player.playbackRate(speed);
                 if (speed == 1.0)
                     this.el().classList.remove('vjs-active');

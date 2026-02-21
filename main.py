@@ -620,6 +620,43 @@ def watch():
 
 
 
+@app.route('/iframe')
+def iframe():
+    print('Started serving iframe')
+    original_url = get_url(request)
+    
+    video_width = 1280
+    video_height = 720
+
+    meta_result = []
+    meta_event = threading.Event()
+
+    def get_meta_threaded():
+        meta = get_meta(original_url)
+        if meta:
+            meta_result.append(meta)
+        meta_event.set()
+
+    meta_thread = Thread(target=get_meta_threaded)
+    meta_thread.start()
+
+    meta_event.wait(timeout=0.1)
+
+    if meta_result:
+        meta = meta_result[0]
+        video_width = meta.get('width', video_width)
+        video_height = meta.get('height', video_height)
+    else:
+        dwnl1 = lambda: download_file(original_url, 'thumb')
+        Thread(target=dwnl1).start()
+        dwnl2 = lambda: get_meta(original_url)
+        Thread(target=dwnl2).start()
+
+    print('Stopped serving iframe')
+    return render_template('iframe.html', app_title=app_title, theme_color=theme_color, generate_sprite_below=generate_sprite_below, video_width=video_width, video_height=video_height)
+
+
+
 @app.route('/thumb')
 def serve_thumbnail():
     url = get_url(request)
