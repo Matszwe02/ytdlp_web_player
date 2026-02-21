@@ -1,9 +1,10 @@
-# YT-DLP Web Player
-### Arbitraty internet video player powered by yt-dlp
-
 <p align="center">
   <img src="static/favicon.png" />
 </p>
+
+# YT-DLP Web Player
+
+### Arbitraty internet video player powered by yt-dlp
 
 ## Features
 - videojs usage to support custom video elements
