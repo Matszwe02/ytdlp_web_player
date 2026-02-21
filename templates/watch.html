@@ -125,23 +125,22 @@
                     expandButton.click();
                 }
             });
-
-            function toggleAmoled()
+            const amoledThemeCookie = document.cookie.split('; ').find(row => row.startsWith('amoledTheme='));
+            toggleAmoled(amoledThemeCookie?.split('=')[1] === 'true');
+            function toggleAmoled(state = null)
             {
-                const htmlElement = document.documentElement;
-                let isAmoled = htmlElement.style.getPropertyValue('--theme-bg') === '#000';
+                let newState = state != null ? state : document.documentElement.style.getPropertyValue('--theme-bg') != '#000';
+                document.cookie = `amoledTheme=${newState}; path=/`;
 
-                if (isAmoled)
+                if (newState)
                 {
-                    htmlElement.style.setProperty('--theme-bg', '#222');
-                    htmlElement.style.setProperty('--theme-bg-light', '#333');
-                    document.cookie = "amoled_bg=false; path=/; expires=Fri, 31 Dec 9999 23:59:59 GMT";
+                    document.documentElement.style.setProperty('--theme-bg', '#000');
+                    document.documentElement.style.setProperty('--theme-bg-light', '#000');
                 }
                 else
                 {
-                    htmlElement.style.setProperty('--theme-bg', '#000');
-                    htmlElement.style.setProperty('--theme-bg-light', '#000');
-                    document.cookie = "amoled_bg=true; path=/; expires=Fri, 31 Dec 9999 23:59:59 GMT";
+                    document.documentElement.style.setProperty('--theme-bg', '#222');
+                    document.documentElement.style.setProperty('--theme-bg-light', '#333');
                 }
             }
         </script>
