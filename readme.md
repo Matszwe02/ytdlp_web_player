@@ -1,22 +1,30 @@
-# Arbitraty internet video player powered by yt-dlp
+# YT-DLP Web Player
+### Arbitraty internet video player powered by yt-dlp
+
+<p style="text-align:center">
+  <img src="static/favicon.png" />
+</p>
 
 ## Features
 - videojs usage to support custom video elements
 - yt-dlp used for video download
-- ffmpeg for better format selection
+- ffmpeg for better format support
 - implemented sponsorblock for supported sites (currently YouTube)
 - PWA support with "share with" target for Android
+- Media Session API integration for system playback controls
 - nice animations while loading video
 - video download option
-- video format selection (default is 720p)
+- video format selection
 - closed captions support
+- HLS support for shorter load times and better performance (experimental)
+- Player embedding using `/iframe` endpoint (experimental)
+- configurable themes
 
-**Daily auto update of yt-dlp and ffmpeg to immediately support new yt-dlp codecs and sites**
+**Daily auto update of yt-dlp to immediately support new yt-dlp codecs and sites**
 
 ## Planned
-- HLS support for shorter load times and livestream support
-  - Since version `2026-02-03` experimental HLS support can be enabled from the video menu
-- Player embedding
+- livestream support
+- more QoL features
 
 ## Images
 
