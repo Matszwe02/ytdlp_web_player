@@ -479,7 +479,7 @@ body
 }
 
 .vjs-button.vjs-active {
-    color: #ff2e2e !important;
+    color: var(--vjs-theme-custom--primary) !important;
 }
 
 .vjs-repeat-menu {
