@@ -24,7 +24,7 @@ DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
 theme_color = os.environ.get('THEME_COLOR', '#ff7300')
-generate_sprite_below = str(os.environ.get('GENERATE_SPRITE_BELOW', '1800'))
+generate_sprite_below = int(os.environ.get('GENERATE_SPRITE_BELOW', '1800'))
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
 ydl_global_opts = {'ffmpeg-location': shutil.which("ffmpeg")}
 
