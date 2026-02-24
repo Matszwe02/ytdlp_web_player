@@ -495,6 +495,10 @@ def download_file(url: str, media_type='video'):
 
             Thread(target=download_hls_files).start()
 
+            for _ in range(300):
+                if os.path.exists(os.path.abspath(os.path.join(hls_output_dir, f'segment{min(2, seg_num):0>4}.ts'))): break
+                time.sleep(0.1)
+
 
         elif media_type.startswith('sub'):
             lang = media_type.split('-')[1]
