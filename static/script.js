@@ -470,10 +470,14 @@ class DownloadButton extends videojs.getComponent('Button')
                 }
                 else
                 {
-                    if (option.quality == 'current') option.quality = currentVideoQuality;
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const originalUrl = urlParams.get('v') || urlParams.get('url');
+                    const currentQuality = urlParams.get('quality') || currentVideoQuality || chooseGoodQuality();
+                    var quality = option.quality;
+                    if (option.quality == 'current') quality = currentQuality;
 
                     const link = document.createElement('a');
-                    link.href = `${baseDownloadUrl}&quality=${option.quality}`;
+                    link.href = `/download?url=${encodeURIComponent(originalUrl)}&quality=${quality}`;
 
                     if (this.startTime != null && this.endTime != null)
                         link.href += `&start=${this.startTime.toFixed(1)}&end=${this.endTime.toFixed(1)}`;
