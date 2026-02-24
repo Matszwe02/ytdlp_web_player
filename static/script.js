@@ -223,7 +223,7 @@ class ZoomToFillToggle extends videojs.getComponent('Button')
         this.addClass('vjs-zoom-control');
     }
     
-    handleClick(state = null)
+    handleClick(event, state = null)
     {
         const video = player.el().querySelector('video');
         var newState = video.style.objectFit == 'contain';
@@ -262,17 +262,17 @@ class HLSToggleButton extends videojs.getComponent('Button')
         this.updateHlsState();
     }
 
-    handleClick(state = null)
+    handleClick(event, state = null)
     {
         this.hlsEnabled = state != null ? state : !this.hlsEnabled;
         this.updateHlsState();
-        if (hlsEnabled)
+        if (this.hlsEnabled)
         {
-            retryFetch(getVideoSource()[0]
+            retryFetch(getVideoSource()[0])
                 .then(response => {
                     applyVideoQuality();
                 }
-            ));
+            );
         }
         else
         {
@@ -1148,7 +1148,7 @@ function loadVideo()
     playerContainer = player.el();
     
     const zoomToFillCookie = document.cookie.split('; ').find(row => row.startsWith('zoomToFill='));
-    player.controlBar.ZoomToFillToggle.handleClick(zoomToFillCookie?.split('=')[1] === 'true');
+    player.controlBar.ZoomToFillToggle.handleClick(state = zoomToFillCookie?.split('=')[1] === 'true');
     
     const spacer = document.createElement('div');
     playerContainer.querySelector('.vjs-control-bar').appendChild(spacer);
