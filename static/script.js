@@ -258,7 +258,7 @@ class HLSToggleButton extends videojs.getComponent('Button')
         const urlParams = new URLSearchParams(window.location.search);
         this.addClass('menu-button');
         this.el().innerHTML = '<i class="fa-solid fa-video"></i>';
-        this.hlsEnabled = urlParams.get('hls') === 'true';
+        this.hlsEnabled = urlParams.get('hls') != 'false';
         this.updateHlsState();
     }
 
@@ -268,9 +268,27 @@ class HLSToggleButton extends videojs.getComponent('Button')
         this.updateHlsState();
         if (this.hlsEnabled)
         {
+            // TODO: Refetch with new timestamps, join logic with `updateResolutions`
             retryFetch(getVideoSource()[0])
-                .then(response => {
-                    applyVideoQuality();
+                .then(response => response.text())
+                .then(playlist => {
+                    var segments = playlist.split('\n');
+                    const segmentToDownload = String(Math.ceil(player.currentTime()/10)).padStart(4,'0') + ".ts";
+                    segments.forEach(segment => {
+                        console.log(`try ${segment} with ${segmentToDownload}`);
+                        if (segment.endsWith(segmentToDownload))
+                        {
+                            console.log(`found ${segment}`);
+                            retryFetch(segment)
+                                .then(response => {
+                                    const switchTime = player.currentTime();
+                                    const isPlaying = !player.paused();
+                                    applyVideoQuality();
+                                    player.currentTime(switchTime);
+                                    if (isPlaying) player.play();
+                                });
+                        }
+                    });
                 }
             );
         }
@@ -287,13 +305,13 @@ class HLSToggleButton extends videojs.getComponent('Button')
         {
             this.el().classList.add('vjs-active');
             this.controlText('HLS Streaming: On');
-            urlParams.set('hls', 'true');
+            urlParams.delete('hls');
         }
         else
         {
             this.el().classList.remove('vjs-active');
             this.controlText('HLS Streaming: Off');
-            urlParams.delete('hls');
+            urlParams.set('hls', 'false');
         }
         history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
     }
@@ -541,7 +559,8 @@ class RepeatButton extends videojs.getComponent('Button')
         this.el().appendChild(this.menu);
     }
 
-    handleClick(event) {
+    handleClick(event)
+    {
         tryStopPropagation(event);
         if (this.menu.style.display === 'block')
         {
@@ -703,21 +722,50 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
                 const buttons = this.menu.querySelectorAll('.vjs-resolution-option');
                 urlParams.set('quality', height);
                 history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
-
-                retryFetch(getVideoSource()[0], { signal })
-                    .then(response => {
-                        const switchTime = player.currentTime();
-                        const isPlaying = !player.paused();
-                        applyVideoQuality();
-                        player.currentTime(switchTime);
-                        if (isPlaying) player.play();
-
-                        buttons.forEach(btn => btn.classList.remove('vjs-resolution-option-current'));
-                        button.classList.add('vjs-resolution-option-current');
-                    })
-                    .catch(error => {
-                        console.error('Error fetching new quality:', error);
+                const hlsEnabled = urlParams.get('hls') != 'false' && height != null;
+                if (hlsEnabled)
+                {
+                    console.log('HLS ENABLED');
+                    retryFetch(getVideoSource()[0])
+                        .then(response => response.text())
+                        .then(playlist => {
+                            var segments = playlist.split('\n');
+                            const segmentToDownload = String(Math.ceil(player.currentTime()/10)).padStart(4,'0') + ".ts";
+                            segments.forEach(segment => {
+                                if (segment.endsWith(segmentToDownload))
+                                {
+                                    retryFetch(segment)
+                                        .then(response => {
+                                            const switchTime = player.currentTime();
+                                            const isPlaying = !player.paused();
+                                            applyVideoQuality();
+                                            player.currentTime(switchTime);
+                                            if (isPlaying) player.play();
+                    
+                                            buttons.forEach(btn => btn.classList.remove('vjs-resolution-option-current'));
+                                            button.classList.add('vjs-resolution-option-current');
+                                        });
+                                }
+                            });
                     });
+                }
+                else
+                {
+                    retryFetch(getVideoSource()[0], { signal })
+                        .then(response => {
+                            const switchTime = player.currentTime();
+                            const isPlaying = !player.paused();
+                            applyVideoQuality();
+                            player.currentTime(switchTime);
+                            if (isPlaying) player.play();
+    
+                            buttons.forEach(btn => btn.classList.remove('vjs-resolution-option-current'));
+                            button.classList.add('vjs-resolution-option-current');
+                        })
+                        .catch(error => {
+                            console.error('Error fetching new quality:', error);
+                        });
+                }
 
                 this.handleCloseMenu();
             };
@@ -1335,6 +1383,12 @@ function loadMediaPlayer()
     });
     navigator.mediaSession.setActionHandler("previoustrack", null);
     navigator.mediaSession.setActionHandler("nexttrack", null);
+    try
+    {
+        player.on('play', function(){navigator.mediaSession.playbackState('playing')});
+        player.on('pause', function(){navigator.mediaSession.playbackState('paused')});
+    }
+    catch{}
     console.log("Loaded Media Player API");
 }
 

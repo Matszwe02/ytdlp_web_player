@@ -476,7 +476,7 @@ def download_file(url: str, media_type='video'):
                 nonlocal video_file_path
                 try:
                     proc = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                    time.sleep(30)
+                    time.sleep(10)
                     if not video_file_path:
                         video_file_path = download_file(url, f'video-{res}p')
                         if not video_file_path: raise RuntimeError('Could not download video')
