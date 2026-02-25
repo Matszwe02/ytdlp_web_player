@@ -114,7 +114,7 @@ function doubleTapFF(options)
                 const change = distance - initialMoveDistance;
                 if (Math.abs(change) > 20)
                 {
-                    videoElement.controlBar.ZoomToFillToggle.handleClick(change > 0);
+                    videoElement.controlBar.ZoomToFillToggle.handleClick(state = change > 0);
                     initialMoveDistance = distance;
                 }
             }
