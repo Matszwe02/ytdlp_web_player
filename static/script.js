@@ -148,15 +148,15 @@ function getVideoSource()
     const urlParams = new URLSearchParams(window.location.search);
     const originalUrl = urlParams.get('v') || urlParams.get('url');
     const quality = urlParams.get('quality') || currentVideoQuality;
-    console.log(`Video quality: ${quality}`);
-    const hlsEnabled = urlParams.get('hls') === 'true';
+    const hlsEnabled = urlParams.get('hls') != 'false' && quality != null;
+    console.log(`Video quality: ${quality} ${hlsEnabled ? '(HLS)' : ''}`);
 
     let downloadUrl;
     let videoType;
 
     if (hlsEnabled)
     {
-        downloadUrl = `/hls?url=${encodeURIComponent(originalUrl)}&quality=${quality != null ? quality : chooseGoodQuality()}`;
+        downloadUrl = `/hls?url=${encodeURIComponent(originalUrl)}&quality=${quality}`;
         videoType = 'application/x-mpegURL';
     }
     else
