@@ -17,8 +17,10 @@ from PIL import Image
 import math
 import mimetypes
 import json
+from dotenv import load_dotenv
 
 
+load_dotenv()
 app = Flask(__name__)
 DOWNLOAD_PATH = './download'
 os.makedirs(DOWNLOAD_PATH, exist_ok=True)

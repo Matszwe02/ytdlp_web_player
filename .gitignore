@@ -4,6 +4,7 @@ env/
 .venv/
 .venv*/
 env*/
+.env
 download
 __pycache__/
 yt-dlp*

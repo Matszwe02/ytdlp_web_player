@@ -1,3 +1,4 @@
+dotenv
 Flask
 requests
 yt-dlp
