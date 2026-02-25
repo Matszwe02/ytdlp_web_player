@@ -9,7 +9,7 @@ RUN python version.py
 FROM python:3.12-slim
 WORKDIR /app
 COPY . /app
-RUN apt-get update && apt-get install -y ffmpeg
+RUN apt-get update && apt-get install --no-install-recommends -y ffmpeg && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /build/version.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir gunicorn
