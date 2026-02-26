@@ -721,7 +721,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
                 const buttons = this.menu.querySelectorAll('.vjs-resolution-option');
                 urlParams.set('quality', height);
                 history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
-                const hlsEnabled = urlParams.get('hls') != 'false' && height != null && height != 'audio';
+                const hlsEnabled = urlParams.get('hls') != 'false' && height != '' && height != 'audio';
                 if (hlsEnabled)
                 {
                     console.log('HLS ENABLED');
