@@ -11,10 +11,6 @@
             .vjs-theme-custom {
                 --vjs-theme-custom--primary: {{ theme_color }};
             }
-            html {
-                --theme-bg: {{ "#000" if amoled_bg else "#222" }};
-                --theme-bg-light: {{ "#000" if amoled_bg else "#333" }};
-            }
         </style>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
         <!-- VideoJS CSS -->
@@ -29,7 +25,7 @@
         <meta property="og:url" content="/watch?{{(request.query_string.decode())}}">
         <meta property="og:title" content="{{video_title}}">
         <meta property="og:image" content="/thumb/{{original_url|urlencode}}">
-        <meta property="og:description" content="{{video_title}}">
+        <meta property="og:description" content="{{app_title}}">
         <meta property="al:web:url" content="/watch?{{(request.query_string.decode())}}">
         <meta property="og:type" content="video.other">
         <meta property="og:video:url" content="/download?{{(request.query_string.decode())}}">
@@ -41,7 +37,7 @@
         <meta name="twitter:card" content="player">
         <meta name="twitter:url" content="/watch?{{(request.query_string.decode())}}">
         <meta name="twitter:title" content="{{video_title}}">
-        <meta name="twitter:description" content="{{video_title}}">
+        <meta name="twitter:description" content="{{app_title}}">
         <meta name="twitter:image" content="/thumb/{{original_url|urlencode}}">
         <meta name="twitter:player" content="/download?{{(request.query_string.decode())}}">
         <meta name="twitter:player:stream" content="/download?{{(request.query_string.decode())}}">
@@ -79,7 +75,7 @@
                     <li><a href="https://github.com/yt-dlp/yt-dlp" target="_blank"><i class="fa-solid fa-download"></i> YT-DLP version:<br><b>{{ydl_version}}</b></a></li>
                     <li><a href="https://ffmpeg.org" target="_blank"><i class="fa-solid fa-cogs"></i> FFmpeg version:<br><b>{{ffmpeg_version}}</b></a></li>
                     <li><a href="https://github.com/Matszwe02/ytdlp_web_player" target="_blank"><i class="fa-brands fa-github"></i> App version:<br><b>{{app_version}}</b></a></li>
-                    <li onclick="toggleAmoled()"><i class="fa-solid fa-circle-half-stroke"></i>Toggle AMOLED</li>
+                    <li><a href="javascript:void(0)" onclick="toggleAmoled()"><i class="fa-solid fa-circle-half-stroke"></i>Toggle AMOLED</a></li>
                 </ul>
             </div>
         </div>
@@ -125,9 +121,11 @@
                     expandButton.click();
                 }
             });
-            function toggleAmoled()
+            function toggleAmoled(state = null)
             {
-                if (document.documentElement.style.getPropertyValue('--theme-bg') != '#000')
+                var newState = document.documentElement.style.getPropertyValue('--theme-bg') != '#000';
+                if (state != null) newState = state;
+                if (newState)
                 {
                     document.documentElement.style.setProperty('--theme-bg', '#000');
                     document.documentElement.style.setProperty('--theme-bg-light', '#000');
@@ -138,6 +136,7 @@
                     document.documentElement.style.setProperty('--theme-bg-light', '#333');
                 }
             }
+            toggleAmoled({{'true' if amoled_bg else 'false'}});
         </script>
     </body>
 </html>
