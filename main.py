@@ -527,7 +527,9 @@ def download_file(url: str, media_type='video'):
 
 
         elif media_type.startswith('sprite'):
+            meta = get_meta(url)
             if get_meta(url)["duration"] > generate_sprite_below: raise ValueError(f"Video too long to generate sprite! ({get_meta(url)["duration"]}s)")
+            if not meta.get('width'): raise TypeError('Sprite not available on non-video media!')
             video_path = check_media(url=url, media_type='video')
             if not video_path:
                 download_file(url, 'video')
@@ -797,8 +799,8 @@ def serve_meta():
         meta['formats'] = jsonify({'error': (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))}), 403
     meta['duration'] = f'{raw_meta["duration"]}'
     meta['subtitles'] = get_subtitles(raw_meta)
-    meta['width'] = raw_meta['width']
-    meta['height'] = raw_meta['height']
+    meta['width'] = raw_meta.get('width')
+    meta['height'] = raw_meta.get('height')
     
     dwnl = lambda: download_file(url, 'thumb')
     Thread(target=dwnl).start()

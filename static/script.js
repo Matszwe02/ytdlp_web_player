@@ -171,7 +171,8 @@ function getVideoSource()
 function applyVideoQuality()
 {
     const urlParams = new URLSearchParams(window.location.search);
-    const quality = urlParams.get('quality') || currentVideoQuality;
+    var quality = urlParams.get('quality') || currentVideoQuality;
+    if (meta['width'] == null) quality = 'audio';
     const videoSource = getVideoSource();
 
     const videoEl = player.el().querySelector('video');
@@ -1033,8 +1034,8 @@ function adjustVideoSize()
 {
     const videoElement = playerContainer.querySelector('video');
 
-    const width = videoElement.videoWidth || parseInt(meta.width);
-    const height = videoElement.videoHeight || parseInt(meta.height);
+    const width = videoElement.videoWidth || parseInt(meta['width']) || 720;
+    const height = videoElement.videoHeight || parseInt(meta['height']) || 480;
     const innerWidth = window.innerWidth * 0.9;
     const innerHeight = window.innerHeight * 0.9;
     
