@@ -125,14 +125,9 @@
                     expandButton.click();
                 }
             });
-            const amoledThemeCookie = document.cookie.split('; ').find(row => row.startsWith('amoledTheme='));
-            toggleAmoled(amoledThemeCookie?.split('=')[1] === 'true');
-            function toggleAmoled(state = null)
+            function toggleAmoled()
             {
-                let newState = state != null ? state : document.documentElement.style.getPropertyValue('--theme-bg') != '#000';
-                document.cookie = `amoledTheme=${newState}; path=/`;
-
-                if (newState)
+                if (document.documentElement.style.getPropertyValue('--theme-bg') != '#000')
                 {
                     document.documentElement.style.setProperty('--theme-bg', '#000');
                     document.documentElement.style.setProperty('--theme-bg-light', '#000');

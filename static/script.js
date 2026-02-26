@@ -236,14 +236,12 @@ class ZoomToFillToggle extends videojs.getComponent('Button')
             video.style.setProperty('object-fit', 'cover');
             this.el().innerHTML = '<span class="fa-solid fa-down-left-and-up-right-to-center"></span>';
             this.controlText('Restore Zoom');
-            document.cookie = "zoomToFill=true; path=/";
         }
         else
         {
             video.style.setProperty('object-fit', 'contain');
             this.el().innerHTML = '<span class="fa-solid fa-up-right-and-down-left-from-center"></span>';
             this.controlText('Zoom to Fill');
-            document.cookie = "zoomToFill=false; path=/";
         }
     };
 }
@@ -1199,8 +1197,7 @@ function loadVideo()
     player.doubleTapFF();
     playerContainer = player.el();
     
-    const zoomToFillCookie = document.cookie.split('; ').find(row => row.startsWith('zoomToFill='));
-    player.controlBar.ZoomToFillToggle.handleClick(state = zoomToFillCookie?.split('=')[1] === 'true');
+    player.controlBar.ZoomToFillToggle.handleClick(state = false);
     
     const spacer = document.createElement('div');
     playerContainer.querySelector('.vjs-control-bar').appendChild(spacer);
@@ -1383,12 +1380,6 @@ function loadMediaPlayer()
     });
     navigator.mediaSession.setActionHandler("previoustrack", null);
     navigator.mediaSession.setActionHandler("nexttrack", null);
-    try
-    {
-        player.on('play', function(){navigator.mediaSession.playbackState('playing')});
-        player.on('pause', function(){navigator.mediaSession.playbackState('paused')});
-    }
-    catch{}
     console.log("Loaded Media Player API");
 }
 
