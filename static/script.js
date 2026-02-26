@@ -1198,7 +1198,7 @@ function loadVideo()
     player.doubleTapFF();
     playerContainer = player.el();
     
-    player.controlBar.ZoomToFillToggle.handleClick(state = false);
+    player.controlBar.ZoomToFillToggle.handleClick(null, state = false);
     
     const spacer = document.createElement('div');
     playerContainer.querySelector('.vjs-control-bar').appendChild(spacer);
