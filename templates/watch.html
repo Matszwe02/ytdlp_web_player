@@ -27,9 +27,9 @@
         <link rel="icon" href="/thumb/{{original_url|urlencode}}">
         <meta property="og:site_name" content="{{app_title}}">
         <meta property="og:url" content="/watch?{{(request.query_string.decode())}}">
-        <meta property="og:title" content="{{app_title}}">
+        <meta property="og:title" content="{{video_title}}">
         <meta property="og:image" content="/thumb/{{original_url|urlencode}}">
-        <meta property="og:description" content="{{app_title}}">
+        <meta property="og:description" content="{{video_title}}">
         <meta property="al:web:url" content="/watch?{{(request.query_string.decode())}}">
         <meta property="og:type" content="video.other">
         <meta property="og:video:url" content="/download?{{(request.query_string.decode())}}">
@@ -40,8 +40,8 @@
         <meta property="og:video:height" content="{{ video_height }}">
         <meta name="twitter:card" content="player">
         <meta name="twitter:url" content="/watch?{{(request.query_string.decode())}}">
-        <meta name="twitter:title" content="{{app_title}}">
-        <meta name="twitter:description" content="{{app_title}}">
+        <meta name="twitter:title" content="{{video_title}}">
+        <meta name="twitter:description" content="{{video_title}}">
         <meta name="twitter:image" content="/thumb/{{original_url|urlencode}}">
         <meta name="twitter:player" content="/download?{{(request.query_string.decode())}}">
         <meta name="twitter:player:stream" content="/download?{{(request.query_string.decode())}}">

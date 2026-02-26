@@ -610,6 +610,7 @@ def watch():
     
     video_width = 1280
     video_height = 720
+    video_title = app_title
 
     meta_result = []
     meta_event = threading.Event()
@@ -629,6 +630,7 @@ def watch():
         meta = meta_result[0]
         video_width = meta.get('width', video_width)
         video_height = meta.get('height', video_height)
+        video_title = meta.get('title', app_title)
     else:
         dwnl1 = lambda: download_file(original_url, 'thumb')
         Thread(target=dwnl1).start()
@@ -636,7 +638,7 @@ def watch():
         Thread(target=dwnl2).start()
 
     print('Stopped serving watch')
-    return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, generate_sprite_below=generate_sprite_below, amoled_bg=amoled_bg, video_width=video_width, video_height=video_height)
+    return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, generate_sprite_below=generate_sprite_below, amoled_bg=amoled_bg, video_width=video_width, video_height=video_height, video_title=video_title)
 
 
 
