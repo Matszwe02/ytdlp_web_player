@@ -41,7 +41,7 @@ function doubleTapFF(options)
 
 	function tapHandler(e)
     {
-        if (e.target?.tagName?.toLowerCase() != 'video')
+        if (e.target?.tagName?.toLowerCase() != 'video' || e.target?.classList.contains('vjs-poster'))
         {
             return false;
         }

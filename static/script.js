@@ -148,7 +148,7 @@ function getVideoSource()
     const urlParams = new URLSearchParams(window.location.search);
     const originalUrl = urlParams.get('v') || urlParams.get('url');
     const quality = urlParams.get('quality') || currentVideoQuality;
-    const hlsEnabled = urlParams.get('hls') != 'false' && quality != null;
+    const hlsEnabled = urlParams.get('hls') != 'false' && quality != null && quality != 'audio';
     console.log(`Video quality: ${quality} ${hlsEnabled ? '(HLS)' : ''}`);
 
     let downloadUrl;
@@ -722,7 +722,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
                 const buttons = this.menu.querySelectorAll('.vjs-resolution-option');
                 urlParams.set('quality', height);
                 history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
-                const hlsEnabled = urlParams.get('hls') != 'false' && height != null;
+                const hlsEnabled = urlParams.get('hls') != 'false' && height != null && height != 'audio';
                 if (hlsEnabled)
                 {
                     console.log('HLS ENABLED');
@@ -1034,9 +1034,9 @@ function skipclick()
 function adjustVideoSize()
 {
     const videoElement = playerContainer.querySelector('video');
-    
-    const width = videoElement.videoWidth;
-    const height = videoElement.videoHeight;
+
+    const width = videoElement.videoWidth || parseInt(meta.width);
+    const height = videoElement.videoHeight || parseInt(meta.height);
     const innerWidth = window.innerWidth * 0.9;
     const innerHeight = window.innerHeight * 0.9;
     

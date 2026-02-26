@@ -797,6 +797,8 @@ def serve_meta():
         meta['formats'] = jsonify({'error': (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))}), 403
     meta['duration'] = f'{raw_meta["duration"]}'
     meta['subtitles'] = get_subtitles(raw_meta)
+    meta['width'] = raw_meta['width']
+    meta['height'] = raw_meta['height']
     
     dwnl = lambda: download_file(url, 'thumb')
     Thread(target=dwnl).start()

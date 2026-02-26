@@ -161,6 +161,11 @@ body
 }
 
 
+.vjs-poster
+{
+    pointer-events: none;
+}
+
 .vjs-poster>img
 {
     object-fit: cover !important;
@@ -178,6 +183,11 @@ body
 #video
 {
     filter: brightness(0);
+}
+
+video
+{
+    display: block !important;
 }
 
 
