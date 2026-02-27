@@ -811,7 +811,7 @@ def serve_meta():
 
 @app.route('/manifest.json')
 def serve_manifest():
-    return render_template('manifest.json', app_title=app_title, theme_color=theme_color)
+    return render_template('manifest.json', app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg)
 
 
 @app.route('/hls')
