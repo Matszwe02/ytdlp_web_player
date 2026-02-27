@@ -730,6 +730,8 @@ def download_media():
 
 @app.route('/low')
 def download_low_quality():
+    if filename:= check_media(get_url(request), 'video-low'):
+        return send_from_directory(os.path.dirname(filename), os.path.basename(filename))
     formats = get_video_formats(get_url(request))
     filename = check_media(get_url(request), 'video')
     media_type = 'video'
@@ -741,8 +743,9 @@ def download_low_quality():
         'ffmpeg',
         '-i', filename,
         '-c:v', 'libx264',
-        '-crf', '40',
+        '-crf', '38',
         '-c:a', 'aac',
+        '-r', '30',
         '-preset', 'veryfast',
         os.path.join(get_data_dir(get_url(request)), 'video-low.mp4')
     ]
