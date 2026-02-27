@@ -14,7 +14,7 @@
         </style>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
         <!-- VideoJS CSS -->
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.3.0/video-js.min.css" rel="stylesheet" />
+        <link href="https://vjs.zencdn.net/8.23.4/video-js.css" rel="stylesheet" />
         <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
         <link rel="stylesheet" href="{{ url_for('static', filename='videojs.css') }}" />
         <link rel="icon" type="image/png" href="/thumb/{{original_url|urlencode}}">
@@ -83,7 +83,7 @@
         <span id="enable-sprite" data-sprite-duration="{{ generate_sprite_below }}"></span>
         
         <!-- VideoJS Script -->
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.3.0/video.min.js"></script>
+        <script src="https://vjs.zencdn.net/8.23.4/video.min.js"></script>
         
         <!-- https://github.com/ctd1500/videojs-hotkeys -->
         <script src="//cdn.sc.gl/videojs-hotkeys/latest/videojs.hotkeys.min.js"></script>
