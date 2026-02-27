@@ -1,7 +1,7 @@
 services:
     ytdlp_web_player:
-        build: .
-        # image: matszwe02/ytdlp_web_player
+        # build: .
+        image: matszwe02/ytdlp_web_player
         restart: unless-stopped
         environment:
             - APP_TITLE=YT-DLP Player
@@ -10,3 +10,10 @@ services:
             - AMOLED_BG=false
         ports:
             - 5000:5000
+
+
+    # # For automatic updates, I recommend running `watchtower` container, example below. Uncomment it to enable daily updates.
+    # watchtower:
+    #     image: nickfedor/watchtower
+    #     volumes:
+    #         - /var/run/docker.sock:/var/run/docker.sock
