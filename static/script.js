@@ -17,6 +17,8 @@ function tryStopPropagation(event)
 {
     try
     {
+        if (player && event.target?.classList.contains('menu-button'))
+            player.clickedChildMenuButton = true;
         event.stopPropagation();
     }
     catch (error) {}
@@ -353,6 +355,11 @@ class SettingsButton extends videojs.getComponent('Button')
 
     handleClick(event)
     {
+        if (player.clickedChildMenuButton)
+        {
+            player.clickedChildMenuButton = false;
+            return;
+        }
         tryStopPropagation(event);
         if (this.menu.style.display === 'flex')
         {
@@ -453,7 +460,7 @@ class DownloadButton extends videojs.getComponent('Button')
         const baseDownloadUrl = `/download?${urlParams.toString()}`;
 
         const menu = document.createElement('div');
-        menu.classList.add('vjs-resolution-menu');
+        menu.classList.add('vjs-setting-menu');
         menu.style.display = 'none'; // Initially hidden
 
         const options = [
@@ -596,7 +603,7 @@ class RepeatButton extends videojs.getComponent('Button')
     createRepeatMenu()
     {
         const menu = document.createElement('div');
-        menu.classList.add('vjs-repeat-menu');
+        menu.classList.add('vjs-setting-menu');
         menu.style.display = 'none';
 
         const toggleButton = document.createElement('button');
@@ -708,9 +715,17 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('quality') == height || (urlParams.get('quality') == null && height == ''))
             {
-                button.classList.add('vjs-resolution-option-current');
+                button.classList.add('vjs-menu-option-selected');
             }
-            
+
+
+            button.ontouchstart = (event) => {
+                event.preventDefault();
+                tryStopPropagation(event);
+                button.click();
+            };
+
+
             button.onclick = (event) => {
                 tryStopPropagation(event);
                 
@@ -741,8 +756,8 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
                                             player.currentTime(switchTime);
                                             if (isPlaying) player.play();
                     
-                                            buttons.forEach(btn => btn.classList.remove('vjs-resolution-option-current'));
-                                            button.classList.add('vjs-resolution-option-current');
+                                            buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
+                                            button.classList.add('vjs-menu-option-selected');
                                         });
                                 }
                             });
@@ -758,8 +773,8 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
                             player.currentTime(switchTime);
                             if (isPlaying) player.play();
     
-                            buttons.forEach(btn => btn.classList.remove('vjs-resolution-option-current'));
-                            button.classList.add('vjs-resolution-option-current');
+                            buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
+                            button.classList.add('vjs-menu-option-selected');
                         })
                         .catch(error => {
                             console.error('Error fetching new quality:', error);
@@ -776,7 +791,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
     createResolutionMenu()
     {
         const menu = document.createElement('div');
-        menu.classList.add('vjs-resolution-menu');
+        menu.classList.add('vjs-setting-menu');
         menu.style.display = 'none';
         return menu;
     }
@@ -845,9 +860,22 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button')
             button.textContent = lang === 'none' ? 'None' : lang;
             button.classList.add('vjs-subtitle-option');
 
+
+            button.ontouchstart = (event) => {
+                event.preventDefault();
+                tryStopPropagation(event);
+                button.click();
+            };
+
+
             button.onclick = (event) => {
                 tryStopPropagation(event);
                 this.handleSubtitleSelection(lang);
+                menu.querySelectorAll('.vjs-subtitle-option').forEach(btn => {
+                    btn.classList.remove('vjs-menu-option-selected');
+                });
+                button.classList.add('vjs-menu-option-selected');
+
                 this.handleCloseMenu();
             };
             this.menu.appendChild(button);
@@ -882,7 +910,13 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button')
                     label: lang
                 });
             }
+            this.el().classList.add('vjs-active');
         }
+        else
+        {
+            this.el().classList.remove('vjs-active');
+        }
+
         tracks = player.textTracks();
         for (let i = 0; i < tracks.length; i++)
         {
@@ -902,7 +936,7 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button')
 
     createSubtitleMenu() {
         const menu = document.createElement('div');
-        menu.classList.add('vjs-subtitle-menu');
+        menu.classList.add('vjs-setting-menu');
         menu.style.display = 'none';
         return menu;
     }
@@ -951,7 +985,7 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
     createPlaybackSpeedMenu()
     {
         const menu = document.createElement('div');
-        menu.classList.add('vjs-playback-speed-menu');
+        menu.classList.add('vjs-setting-menu');
         menu.style.display = 'none';
 
         const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
@@ -961,8 +995,16 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
             button.classList.add('vjs-playback-speed-option');
             if (this.player && this.player.playbackRate() === speed)
             {
-                button.classList.add('vjs-playback-speed-option-current');
+                button.classList.add('vjs-menu-option-selected');
             }
+
+
+            button.ontouchstart = (event) => {
+                event.preventDefault();
+                tryStopPropagation(event);
+                button.click();
+            };
+
 
             button.onclick = (event) => {
                 tryStopPropagation(event);
@@ -973,9 +1015,9 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
                     this.el().classList.add('vjs-active');
 
                 menu.querySelectorAll('.vjs-playback-speed-option').forEach(btn => {
-                    btn.classList.remove('vjs-playback-speed-option-current');
+                    btn.classList.remove('vjs-menu-option-selected');
                 });
-                button.classList.add('vjs-playback-speed-option-current');
+                button.classList.add('vjs-menu-option-selected');
 
                 this.handleCloseMenu();
             };
