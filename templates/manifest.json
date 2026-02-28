@@ -1,6 +1,6 @@
 {
   "name": "{{ app_title }}",
-  "short_name": "YT-DLP Player",
+  "short_name": "{{ app_title }}",
   "description": "Arbitraty internet video player powered by yt-dlp",
   "start_url": "/",
   "display": "standalone",
