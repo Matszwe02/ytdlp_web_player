@@ -871,7 +871,7 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button')
             button.onclick = (event) => {
                 tryStopPropagation(event);
                 this.handleSubtitleSelection(lang);
-                menu.querySelectorAll('.vjs-subtitle-option').forEach(btn => {
+                this.menu.querySelectorAll('.vjs-subtitle-option').forEach(btn => {
                     btn.classList.remove('vjs-menu-option-selected');
                 });
                 button.classList.add('vjs-menu-option-selected');
@@ -1014,7 +1014,7 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
                 else
                     this.el().classList.add('vjs-active');
 
-                menu.querySelectorAll('.vjs-playback-speed-option').forEach(btn => {
+                this.menu.querySelectorAll('.vjs-playback-speed-option').forEach(btn => {
                     btn.classList.remove('vjs-menu-option-selected');
                 });
                 button.classList.add('vjs-menu-option-selected');
