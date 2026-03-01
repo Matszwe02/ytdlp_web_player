@@ -102,7 +102,7 @@ def get_video_sources(url):
         if f.get('acodec', 'none') != 'none':
             audio_name = 'audio_drc' if 'drc' in f"{f.get('format_id')} {f.get('format_note')}".lower() else 'audio'
         name = video_name + audio_name
-        quality = float(f.get('quality', 0))
+        quality = float(f.get('quality') or 0)
         if not name: continue
 
         if name.startswith('audio') and quality < best_audio:
@@ -529,7 +529,7 @@ def download_file(url: str, media_type='video'):
         elif media_type.startswith('sprite'):
             meta = get_meta(url)
             if get_meta(url)["duration"] > generate_sprite_below: raise ValueError(f"Video too long to generate sprite! ({get_meta(url)["duration"]}s)")
-            if not meta.get('width'): raise TypeError('Sprite not available on non-video media!')
+            if not meta.get('height') and not meta.get('width'): raise TypeError('Sprite not available on non-video media!')
             video_path = check_media(url=url, media_type='video')
             if not video_path:
                 download_file(url, 'video')

@@ -174,7 +174,7 @@ function applyVideoQuality()
 {
     const urlParams = new URLSearchParams(window.location.search);
     var quality = urlParams.get('quality') || currentVideoQuality;
-    if (meta['width'] == null) quality = 'audio';
+    if (meta['height'] == null && meta['width'] == null) quality = 'audio';
     const videoSource = getVideoSource();
 
     const videoEl = player.el().querySelector('video');
