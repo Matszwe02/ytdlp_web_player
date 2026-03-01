@@ -862,9 +862,16 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button')
 
 
             button.ontouchstart = (event) => {
-                event.preventDefault();
-                tryStopPropagation(event);
-                button.click();
+                button.ontouchend = (event) => {
+                    event.preventDefault();
+                    tryStopPropagation(event);
+                    button.click();
+                };
+            };
+
+            button.ontouchmove = (event) => {
+                button.ontouchend = (event) => {
+                };
             };
 
 
@@ -1000,9 +1007,16 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
 
 
             button.ontouchstart = (event) => {
-                event.preventDefault();
-                tryStopPropagation(event);
-                button.click();
+                button.ontouchend = (event) => {
+                    event.preventDefault();
+                    tryStopPropagation(event);
+                    button.click();
+                };
+            };
+
+            button.ontouchmove = (event) => {
+                button.ontouchend = (event) => {
+                };
             };
 
 
