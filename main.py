@@ -477,25 +477,29 @@ def download_file(url: str, media_type='video'):
             def download_hls_files():
                 nonlocal video_file_path
                 try:
-                    proc = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                    time.sleep(10)
                     if not video_file_path:
+                        proc = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        time.sleep(10)
                         video_file_path = download_file(url, f'video-{res}p')
                         if not video_file_path: raise RuntimeError('Could not download video')
                         proc.kill()
                         os.rename(m3u8_path, temp_m3u8_path)
                         download_file(url, media_type)
                         return
-                    if proc.wait() == 0:
+                    proc = subprocess.run(ffmpeg_command, capture_output=True)
+                    if proc.returncode == 0:
+                        print(f"FFMPEG Finished HLS Conversion!")
                         with open(temp_m3u8_path, 'r') as f:
                             contents = f.read()
                         with open(m3u8_path, 'w') as f:
                             f.write(contents.replace('segment', seg_path + 'segment'))
                         os.remove(temp_m3u8_path)
+                    else:
+                        print(f"An unexpected FFMPEG error occurred during HLS conversion: {proc.stderr}")
                 except Exception as e:
                     print(f"An unexpected error occurred during HLS conversion: {e}")
 
-            Thread(target=download_hls_files).start()
+            Thread(target=download_hls_files, daemon=True).start()
 
             for _ in range(300):
                 if os.path.exists(os.path.abspath(os.path.join(hls_output_dir, f'segment{min(2, seg_num):0>4}.ts'))): break
