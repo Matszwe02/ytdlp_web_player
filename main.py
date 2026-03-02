@@ -27,6 +27,7 @@ os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
 theme_color = os.environ.get('THEME_COLOR', '#ff7300')
 generate_sprite_below = int(os.environ.get('GENERATE_SPRITE_BELOW', '1800'))
+max_video_age = int(os.environ.get('max_video_age', '3600'))
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
 ydl_global_opts = {'ffmpeg-location': shutil.which("ffmpeg")}
 
@@ -140,9 +141,8 @@ def ytdlp_download():
 
 
 def delete_old_files():
-    max_file_age = 3600 # 1 hour
     while True:
-        threshold = time.time() - max_file_age
+        threshold = time.time() - max_video_age
 
         try:
             for item_name in os.listdir(DOWNLOAD_PATH):
@@ -166,7 +166,7 @@ def delete_old_files():
         except Exception as e:
             print(f"Error in delete_old_files: {e}")
 
-        time.sleep(max_file_age / 2)
+        time.sleep(max_video_age / 2)
 
 
 
