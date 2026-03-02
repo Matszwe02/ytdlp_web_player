@@ -389,6 +389,12 @@ class SettingsButton extends videojs.getComponent('Button')
     handleCloseMenu()
     {
         this.menu.style.display = 'none';
+        player.clickedChildMenuButton = false;
+        this.resolutionSwitcher.handleCloseMenu();
+        this.subtitleSwitcher.handleCloseMenu();
+        this.playbackSpeedButton.handleCloseMenu();
+        this.downloadButton.handleCloseMenu();
+        this.repeatButton.handleCloseMenu();
     }
 
     createSettingsMenu()
