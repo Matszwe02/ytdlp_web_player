@@ -374,6 +374,11 @@ class SettingsButton extends videojs.getComponent('Button')
         if (this.menu.style.display === 'flex')
         {
             this.handleCloseMenu();
+            this.resolutionSwitcher.handleCloseMenu();
+            this.subtitleSwitcher.handleCloseMenu();
+            this.playbackSpeedButton.handleCloseMenu();
+            this.downloadButton.handleCloseMenu();
+            this.repeatButton.handleCloseMenu();
         }
         else
         {
@@ -390,11 +395,6 @@ class SettingsButton extends videojs.getComponent('Button')
     {
         this.menu.style.display = 'none';
         player.clickedChildMenuButton = false;
-        this.resolutionSwitcher.handleCloseMenu();
-        this.subtitleSwitcher.handleCloseMenu();
-        this.playbackSpeedButton.handleCloseMenu();
-        this.downloadButton.handleCloseMenu();
-        this.repeatButton.handleCloseMenu();
     }
 
     createSettingsMenu()
