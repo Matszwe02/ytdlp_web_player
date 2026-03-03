@@ -734,18 +734,19 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
                 button.classList.add('vjs-menu-option-selected');
             }
 
-
+            var moved = false;
             button.ontouchstart = (event) => {
-                button.ontouchend = (event) => {
+                setTimeout(() => {
+                    if (moved) return;
                     event.preventDefault();
                     tryStopPropagation(event);
                     button.click();
-                };
+                }, 200);
+                moved = false;
             };
 
             button.ontouchmove = (event) => {
-                button.ontouchend = (event) => {
-                };
+                moved = true;
             };
 
 
@@ -894,17 +895,19 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button')
             button.classList.add('vjs-subtitle-option');
 
 
+            var moved = false;
             button.ontouchstart = (event) => {
-                button.ontouchend = (event) => {
+                setTimeout(() => {
+                    if (moved) return;
                     event.preventDefault();
                     tryStopPropagation(event);
                     button.click();
-                };
+                }, 200);
+                moved = false;
             };
 
             button.ontouchmove = (event) => {
-                button.ontouchend = (event) => {
-                };
+                moved = true;
             };
 
 
@@ -1039,17 +1042,19 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
             }
 
 
+            var moved = false;
             button.ontouchstart = (event) => {
-                button.ontouchend = (event) => {
+                setTimeout(() => {
+                    if (moved) return;
                     event.preventDefault();
                     tryStopPropagation(event);
                     button.click();
-                };
+                }, 200);
+                moved = false;
             };
 
             button.ontouchmove = (event) => {
-                button.ontouchend = (event) => {
-                };
+                moved = true;
             };
 
 
