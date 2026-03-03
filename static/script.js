@@ -1334,6 +1334,7 @@ function loadVideo()
 
     // When video is loaded
     player.on('loadeddata', () => {
+        playerContainer.style.transitionDuration = '1s';
         playerContainer.querySelector('img').classList.add('loaded-img');
         adjustVideoSize();
         window.addEventListener('resize', adjustVideoSize);
