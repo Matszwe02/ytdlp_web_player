@@ -145,6 +145,27 @@ function formatTime(timeInSeconds)
 }
 
 
+var prevRotation = 0;
+function fullscreenOnRotate(angle)
+{
+    const screenAspect = (screen.height / screen.width);
+    const videoAspect = (player.videoHeight() / player.videoWidth());
+    const aspectDiff = Math.abs(videoAspect - screenAspect) - Math.abs((1/videoAspect) - screenAspect);
+    if (aspectDiff < -0.3 && !player.isFullscreen())
+    {
+        player.requestFullscreen();
+    }
+    else if (aspectDiff > 0.3 && player.isFullscreen())
+    {
+        player.exitFullscreen();
+    }
+}
+screen.orientation.addEventListener("change", (event) => {
+  const angle = event.target.angle;
+  fullscreenOnRotate(angle);
+});
+
+
 function getVideoSource()
 {
     const urlParams = new URLSearchParams(window.location.search);
