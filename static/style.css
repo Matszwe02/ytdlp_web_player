@@ -148,7 +148,7 @@ body
 }
 
 
-#videoPlayer:not(.vjs-fullscreen) video
+#videoPlayer:not(.vjs-fullscreen):not(.iframe) video
 {
     object-fit: cover !important;
 }
