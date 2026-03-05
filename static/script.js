@@ -146,7 +146,7 @@ function formatTime(timeInSeconds)
 
 
 var prevRotation = 0;
-function fullscreenOnRotate(angle)
+function fullscreenOnRotate()
 {
     const screenAspect = (screen.height / screen.width);
     const videoAspect = (player.videoHeight() / player.videoWidth());
@@ -161,8 +161,7 @@ function fullscreenOnRotate(angle)
     }
 }
 screen.orientation.addEventListener("change", (event) => {
-  const angle = event.target.angle;
-  fullscreenOnRotate(angle);
+    fullscreenOnRotate();
 });
 
 
