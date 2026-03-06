@@ -773,7 +773,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
     updateResolutions()
     {
         let resolutions = meta.formats;
-        if (!resolutions || resolutions.length < 2) return;
+        if (!resolutions || resolutions.length < 1) return;
         this.el().style.display = '';
         this.menu.innerHTML = ''
         
