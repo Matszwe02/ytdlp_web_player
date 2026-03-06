@@ -225,6 +225,86 @@ function applyVideoQuality()
 }
 
 
+function setVideoQuality(height = 0, button = null)
+{
+    let menu = player.controlBar.SettingsButton.resolutionSwitcher.menu;
+    let hlsMenu = player.controlBar.SettingsButton.hlsToggleButton;
+    hlsMenu.updateHlsState();
+    if (abortController) abortController.abort();
+    abortController = new AbortController();
+    const signal = abortController.signal;
+    const urlParams = new URLSearchParams(window.location.search);
+    const buttons = menu.querySelectorAll('.vjs-resolution-option');
+    if (height === 0)
+    {
+        height = urlParams.get('quality');
+    }
+    urlParams.set('quality', height);
+    if (button == null)
+    {
+        buttons.forEach(b => {
+            if ((b.textContent.toLowerCase().contains(height)) || (b.textContent == 'Default' && height == '')) button = b;
+        });
+    }
+    history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
+    const hlsEnabled = urlParams.get('hls') != 'false' && height != '' && height != 'audio';
+    if (hlsEnabled)
+    {
+        console.log('HLS ENABLED');
+        retryFetch(getVideoSource()[0])
+            .then(response => response.text())
+            .then(playlist => {
+                function tryToFetchHLS()
+                {
+                    var segments = playlist.split('\n');
+                    const segmentToDownload = String(Math.ceil(player.currentTime()/10)).padStart(4,'0') + ".ts";
+                    segments.forEach(segment => {
+                        if (segment.endsWith(segmentToDownload))
+                        {
+                            retryFetch(segment, {}, 1)
+                                .then(response => {
+                                    const switchTime = player.currentTime();
+                                    const isPlaying = !player.paused();
+                                    applyVideoQuality();
+                                    player.currentTime(switchTime);
+                                    if (isPlaying) player.play();
+                                    buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
+                                    button?.classList?.add('vjs-menu-option-selected');
+                                })
+                                .catch(error => {
+                                    console.log('HLS not ready. Retrying fetching...');
+                                    setTimeout(() => {
+                                        tryToFetchHLS();
+                                    }, 1000);
+                                });
+                        }
+                    });
+                }
+                tryToFetchHLS();
+        });
+    }
+    else
+    {
+        retryFetch(getVideoSource()[0], { signal })
+            .then(response => {
+                const switchTime = player.currentTime();
+                const isPlaying = !player.paused();
+                applyVideoQuality();
+                player.currentTime(switchTime);
+                if (isPlaying) player.play();
+                buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
+                button?.classList?.add('vjs-menu-option-selected');
+
+                buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
+                button?.classList?.add('vjs-menu-option-selected');
+            })
+            .catch(error => {
+                console.error('Error fetching new quality:', error);
+            });
+    }
+}
+
+
 const sbColorMap = {
     'selfpromo': '#ffff00',
     'outro': '#0000ff',
@@ -286,47 +366,7 @@ class HLSToggleButton extends videojs.getComponent('Button')
     handleClick(event, state = null)
     {
         this.hlsEnabled = state != null ? state : !this.hlsEnabled;
-        this.updateHlsState();
-        if (this.hlsEnabled)
-        {
-            // TODO: Join logic with `updateResolutions`
-            retryFetch(getVideoSource()[0])
-                .then(response => response.text())
-                .then(playlist => {
-                    var segments = playlist.split('\n');
-                    function tryToFetchHLS()
-                    {
-                        const segmentToDownload = String(Math.ceil(player.currentTime()/10)).padStart(4,'0') + ".ts";
-                        segments.forEach(segment => {
-                            console.log(`try ${segment} with ${segmentToDownload}`);
-                            if (segment.endsWith(segmentToDownload))
-                            {
-                                console.log(`found ${segment}`);
-                                retryFetch(segment, {}, 1)
-                                    .then(response => {
-                                        const switchTime = player.currentTime();
-                                        const isPlaying = !player.paused();
-                                        applyVideoQuality();
-                                        player.currentTime(switchTime);
-                                        if (isPlaying) player.play();
-                                    })
-                                    .catch(error => {
-                                        console.log('HLS not ready. Retrying fetching...');
-                                        setTimeout(() => {
-                                            tryToFetchHLS();
-                                        }, 1000);
-                                    });
-                            }
-                        });
-                    }
-                    tryToFetchHLS();
-                }
-            );
-        }
-        else
-        {
-            applyVideoQuality();
-        }
+        setVideoQuality();
     }
 
     updateHlsState()
@@ -772,69 +812,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
 
             button.onclick = (event) => {
                 tryStopPropagation(event);
-                
-                if (abortController) abortController.abort();
-                abortController = new AbortController();
-                const signal = abortController.signal;
-                const urlParams = new URLSearchParams(window.location.search);
-                const buttons = this.menu.querySelectorAll('.vjs-resolution-option');
-                urlParams.set('quality', height);
-                history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
-                const hlsEnabled = urlParams.get('hls') != 'false' && height != '' && height != 'audio';
-                if (hlsEnabled)
-                {
-                    console.log('HLS ENABLED');
-                    retryFetch(getVideoSource()[0])
-                        .then(response => response.text())
-                        .then(playlist => {
-                            function tryToFetchHLS()
-                            {
-                                var segments = playlist.split('\n');
-                                const segmentToDownload = String(Math.ceil(player.currentTime()/10)).padStart(4,'0') + ".ts";
-                                segments.forEach(segment => {
-                                    if (segment.endsWith(segmentToDownload))
-                                    {
-                                        retryFetch(segment, {}, 1)
-                                            .then(response => {
-                                                const switchTime = player.currentTime();
-                                                const isPlaying = !player.paused();
-                                                applyVideoQuality();
-                                                player.currentTime(switchTime);
-                                                if (isPlaying) player.play();
-                        
-                                                buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
-                                                button.classList.add('vjs-menu-option-selected');
-                                            })
-                                            .catch(error => {
-                                                console.log('HLS not ready. Retrying fetching...');
-                                                setTimeout(() => {
-                                                    tryToFetchHLS();
-                                                }, 1000);
-                                            });
-                                    }
-                                });
-                            }
-                            tryToFetchHLS();
-                    });
-                }
-                else
-                {
-                    retryFetch(getVideoSource()[0], { signal })
-                        .then(response => {
-                            const switchTime = player.currentTime();
-                            const isPlaying = !player.paused();
-                            applyVideoQuality();
-                            player.currentTime(switchTime);
-                            if (isPlaying) player.play();
-    
-                            buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
-                            button.classList.add('vjs-menu-option-selected');
-                        })
-                        .catch(error => {
-                            console.error('Error fetching new quality:', error);
-                        });
-                }
-
+                setVideoQuality(height, button);
                 this.handleCloseMenu();
             };
             this.menu.appendChild(button);
