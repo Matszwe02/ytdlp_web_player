@@ -1306,6 +1306,9 @@ function loadVideo()
         if (repeatMode && player.currentTime() >= repeatEndTime)
         {
             player.currentTime(repeatStartTime);
+            setTimeout(() => {
+                player.play();
+            }, 100);
         }
     });
 
