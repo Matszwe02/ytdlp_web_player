@@ -608,77 +608,59 @@ def watch():
     print('Started serving watch')
     ydl_version = Downloader.get_ytdlp_version()
     ffmpeg_version = Downloader.get_ffmpeg_version()
-    original_url = get_url(request)
+    url = get_url(request)
     
     video_width = 1280
     video_height = 720
     video_title = app_title
 
-    meta_result = []
-    meta_event = threading.Event()
-
-    def get_meta_threaded():
-        meta = get_meta(original_url)
-        if meta:
-            meta_result.append(meta)
-        meta_event.set()
-
-    meta_thread = Thread(target=get_meta_threaded)
-    meta_thread.start()
-
-    meta_event.wait(timeout=0.1)
-
-    if meta_result:
-        meta = meta_result[0]
+    if check_media(url, 'meta'):
+        meta = get_meta(url)
         video_width = meta.get('width', video_width)
         video_height = meta.get('height', video_height)
         video_title = meta.get('title', app_title)
-    else:
-        dwnl1 = lambda: download_file(original_url, 'thumb')
-        Thread(target=dwnl1).start()
-        dwnl2 = lambda: get_meta(original_url)
-        Thread(target=dwnl2).start()
+    preload(url)
 
     print('Stopped serving watch')
-    return render_template('watch.html', original_url=original_url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, generate_sprite_below=generate_sprite_below, amoled_bg=amoled_bg, video_width=video_width, video_height=video_height, video_title=video_title)
-
+    return render_template('watch.html', original_url=url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, generate_sprite_below=generate_sprite_below, amoled_bg=amoled_bg, video_width=video_width, video_height=video_height, video_title=video_title)
 
 
 @app.route('/iframe')
 def iframe():
     print('Started serving iframe')
-    original_url = get_url(request)
+    url = get_url(request)
     
     video_width = 1280
     video_height = 720
 
-    meta_result = []
-    meta_event = threading.Event()
-
-    def get_meta_threaded():
-        meta = get_meta(original_url)
-        if meta:
-            meta_result.append(meta)
-        meta_event.set()
-
-    meta_thread = Thread(target=get_meta_threaded)
-    meta_thread.start()
-
-    meta_event.wait(timeout=0.1)
-
-    if meta_result:
-        meta = meta_result[0]
+    if check_media(url, 'meta'):
+        meta = get_meta(url)
         video_width = meta.get('width', video_width)
         video_height = meta.get('height', video_height)
-    else:
-        dwnl1 = lambda: download_file(original_url, 'thumb')
-        Thread(target=dwnl1).start()
-        dwnl2 = lambda: get_meta(original_url)
-        Thread(target=dwnl2).start()
+    preload(url)
 
     print('Stopped serving iframe')
     return render_template('iframe.html', app_title=app_title, theme_color=theme_color, generate_sprite_below=generate_sprite_below, video_width=video_width, video_height=video_height)
 
+
+@app.route('/preload')
+def preload(url = None, meta = None):
+    url = url or get_url(request)
+    print('Running preload')
+
+    if meta:
+        try:
+            os.makedirs(get_data_dir(url), exist_ok=True)
+            with open(os.path.join(get_data_dir(url), 'meta.json'), 'w') as f:
+                json.dump(meta, f)
+        except:
+            pass
+
+    if not check_media(url, 'meta'):
+        Thread(target=get_meta, args=[url]).start()
+    if not check_media(url, 'thumb'):
+        Thread(target=download_file, args=[url, 'thumb']).start()
+    return 'Preloading', 202
 
 
 @app.route('/thumb')
@@ -853,7 +835,10 @@ def search():
         ydl_opts.update(ydl_global_opts)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.sanitize_info(ydl.extract_info(query, download=False))
-            return info.get('entries', [{}])[0].get('original_url', '')
+            meta = info.get('entries', [{}])[0]
+            url = meta.get('original_url', '')
+            preload(url, meta)
+            return url
     except Exception as e:
         return (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e)))), 404
     return None
