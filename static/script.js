@@ -227,6 +227,7 @@ function applyVideoQuality()
 
 function setVideoQuality(height = 0, button = null)
 {
+    console.log(`Setting video quality to ${height}`)
     let menu = player.controlBar.SettingsButton.resolutionSwitcher.menu;
     let hlsMenu = player.controlBar.SettingsButton.hlsToggleButton;
     hlsMenu.updateHlsState();
@@ -1397,9 +1398,8 @@ function loadVideo()
                     {
                         setTimeout(() => {
                             console.warn("Changing video quality due to unsupported format...");
-                            currentVideoQuality = chooseGoodQuality();
-                            applyVideoQuality();
-                        }, 1000);
+                            setVideoQuality(chooseGoodQuality())
+                        }, 500);
                     }
                 }
             });
