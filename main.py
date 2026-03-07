@@ -424,7 +424,9 @@ def download_file(url: str, media_type='video'):
             audio_url = None
             video_file_path = check_media(url=url, media_type='video-' + res_str)
 
-            if not video_file_path:
+            if video_file_path:
+                print(f'Generating HLS from {video_file_path}')
+            else:
                 if res_str in sources:
                     if res_str == 'audio' or res_str == 'audio_drc':
                         audio_url = sources[res_str]
@@ -500,10 +502,6 @@ def download_file(url: str, media_type='video'):
                     print(f"An unexpected error occurred during HLS conversion: {e}")
 
             Thread(target=download_hls_files, daemon=True).start()
-
-            for _ in range(300):
-                if os.path.exists(os.path.abspath(os.path.join(hls_output_dir, f'segment{min(2, seg_num):0>4}.ts'))): break
-                time.sleep(0.1)
 
 
         elif media_type.startswith('sub'):
