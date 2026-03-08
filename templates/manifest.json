@@ -8,14 +8,9 @@
   "background_color": "{{ '#000' if amoled_bg else '#222' }}",
   "icons": [
     {
-      "src": "{{ url_for('static', filename='favicon.png') }}",
-      "sizes": "128x128",
-      "type": "image/png"
-    },
-    {
-      "src": "{{ url_for('static', filename='favicon_large.png') }}",
-      "sizes": "512x512",
-      "type": "image/png"
+      "src": "favicon.svg",
+      "sizes": "480x480",
+      "type": "image/svg+xml"
     }
   ],
   "share_target": {
@@ -23,7 +18,7 @@
     "method": "GET",
     "enctype": "application/x-www-form-urlencoded",
     "params": {
-      "text": "v"
+      "text": "url"
     }
   }
 }

@@ -801,6 +801,14 @@ def serve_manifest():
     return render_template('manifest.json', app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg)
 
 
+@app.route('/favicon.svg')
+def serve_favicon():
+    with open('static/favicon.svg', 'r') as f:
+        favicon = f.read()
+    favicon = favicon.replace('#ff7300', theme_color)
+    return Response(favicon, mimetype='image/svg+xml')
+
+
 @app.route('/hls')
 def download_hls():
     res = (request.args.get('quality') or '').removesuffix("p")    

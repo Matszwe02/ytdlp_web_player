@@ -10,7 +10,7 @@
         <title>{{ app_title }}</title>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
         <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
-        <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon.png') }}">
+        <link rel="icon" type="image/png" href="favicon.svg">
         <link rel="manifest" href="/manifest.json">
         <meta name="theme-color" content="{{ theme_color }}">
         <style>
@@ -23,8 +23,8 @@
     <body>
     
         <div style="display: inline-block; text-align: center; width: 100%" class="non-video">
-            <img src="{{ url_for('static', filename='favicon_large.png') }}" alt="" height="250px">
-            <h1 style="margin-top: 0;">{{ app_title }}</h1>
+            <img src="favicon.svg" alt="" height="250px">
+            <h1 style="margin-top: 0; color: {{ theme_color }};">{{ app_title }}</h1>
             <input type="text" id="standard_url" name="url" placeholder="type URL or search query or hit enter" autofocus/>
             <div></div>
             <button onclick="handlePlayButtonClick()" class="play-button">

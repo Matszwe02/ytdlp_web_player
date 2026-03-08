@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="static/favicon.png" />
+  <img src="static/favicon.svg" width="128px" />
 </p>
 
 # YT-DLP Web Player
