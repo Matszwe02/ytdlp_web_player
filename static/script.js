@@ -624,6 +624,7 @@ class DownloadButton extends videojs.getComponent('Button')
 videojs.registerComponent('DownloadButton', DownloadButton);
 
 
+// TODO: Universal time range selection: Share between RepeatButton and DownloadButton, draggable markers on seekbar
 class RepeatButton extends videojs.getComponent('Button')
 {
     constructor(player, options)
@@ -706,18 +707,41 @@ class RepeatButton extends videojs.getComponent('Button')
             repeatStartTime = this.repeatStartTime;
             repeatEndTime = this.repeatEndTime;
         });
+        toggleButton.ontouchstart = (event) => {
+            setTimeout(() => {
+                event.preventDefault();
+                tryStopPropagation(event);
+                toggleButton.click();
+            }, 200);
+        };
         menu.appendChild(toggleButton);
 
         this.startBtn = document.createElement('button');
         this.startBtn.classList.add('vjs-resolution-option');
         this.startBtn.title = 'Click To Adjust Start Time';
         this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatStartTime = player.currentTime(); this.updateTimeLabels(); repeatStartTime = this.repeatStartTime; });
+
+        this.startBtn.ontouchstart = (event) => {
+            setTimeout(() => {
+                event.preventDefault();
+                tryStopPropagation(event);
+                this.startBtn.click();
+            }, 200);
+        };
         menu.appendChild(this.startBtn);
 
         this.endBtn = document.createElement('button');
         this.endBtn.classList.add('vjs-resolution-option');
         this.endBtn.title = 'Click To Adjust End Time';
         this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatEndTime = player.currentTime(); this.updateTimeLabels(); repeatEndTime = this.repeatEndTime; });
+
+        this.endBtn.ontouchstart = (event) => {
+            setTimeout(() => {
+                event.preventDefault();
+                tryStopPropagation(event);
+                this.endBtn.click();
+            }, 200);
+        };
         menu.appendChild(this.endBtn);
 
         this.updateTimeLabels();
