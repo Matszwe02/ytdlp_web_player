@@ -258,7 +258,7 @@ function setVideoQuality(height = 0, button = null)
                 function tryToFetchHLS()
                 {
                     var segments = playlist.split('\n');
-                    const segmentToDownload = String(Math.ceil(player.currentTime()/10)).padStart(4,'0') + ".ts";
+                    const segmentToDownload = String(Math.ceil((player.currentTime() + 5)/10)).padStart(4,'0') + ".ts";
                     segments.forEach(segment => {
                         if (segment.endsWith(segmentToDownload))
                         {
