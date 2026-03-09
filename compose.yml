@@ -9,6 +9,7 @@ services:
             - GENERATE_SPRITE_BELOW=1800 # video length in seconds
             - AMOLED_BG=false
             - MAX_VIDEO_AGE=3600 # video will be removed after inactivity, in seconds
+            - DEFAULT_QUALITY=720
         ports:
             - 5000:5000
 

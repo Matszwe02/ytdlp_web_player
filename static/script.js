@@ -25,24 +25,6 @@ function tryStopPropagation(event)
 }
 
 
-function chooseGoodQuality()
-{
-    let targetQuality = 720
-    let closestQuality = Infinity;
-    for (const quality of meta.formats)
-    {
-        if (quality >= targetQuality && closestQuality > targetQuality)
-        {
-            closestQuality = quality;
-        }
-    }
-    if (closestQuality === Infinity) closestQuality = 720;
-    console.log(`Choosing quality ${closestQuality} for current video`);
-    return closestQuality;
-}
-
-
-
 function addFetch()
 {
     activeFetches += 1;
@@ -573,7 +555,7 @@ class DownloadButton extends videojs.getComponent('Button')
                 {
                     const urlParams = new URLSearchParams(window.location.search);
                     const originalUrl = urlParams.get('v') || urlParams.get('url');
-                    const currentQuality = urlParams.get('quality') || currentVideoQuality || chooseGoodQuality();
+                    const currentQuality = urlParams.get('quality') || currentVideoQuality || meta.default_quality;
                     var quality = option.quality;
                     if (option.quality == 'current') quality = currentQuality;
 
@@ -1425,7 +1407,7 @@ function loadVideo()
                     {
                         setTimeout(() => {
                             console.warn("Changing video quality due to unsupported format...");
-                            setVideoQuality(chooseGoodQuality())
+                            setVideoQuality(meta.default_quality)
                         }, 500);
                     }
                 }

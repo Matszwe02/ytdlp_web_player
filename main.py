@@ -28,6 +28,7 @@ app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
 theme_color = os.environ.get('THEME_COLOR', '#ff7300')
 generate_sprite_below = int(os.environ.get('GENERATE_SPRITE_BELOW', '1800'))
 max_video_age = int(os.environ.get('max_video_age', '3600'))
+default_quality = int(os.environ.get('DEFAULT_QUALITY', '720'))
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
 ydl_global_opts = {'ffmpeg-location': shutil.which("ffmpeg")}
 
@@ -131,6 +132,35 @@ def get_fastest_quality(url):
         if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and f.get('protocol') == 'https':
             return f.get('url'), f.get('ext')
     return None, None
+
+
+def get_good_quality(formats: list):
+    if type(formats) != list: return default_quality
+    closest_quality = 9999
+    for quality in formats:
+        if quality >= default_quality and closest_quality > default_quality:
+            closest_quality = quality
+    if closest_quality == 9999:
+        closest_quality = default_quality
+    print(f'Choosing quality {closest_quality} for current video')
+    return closest_quality
+
+
+def clean_meta(raw_meta: dict):
+    meta = {}
+    meta['title'] = raw_meta.get('title', '')
+    meta['uploader'] = raw_meta.get('uploader', '')
+    try:
+        meta['formats'] = get_video_formats(meta=raw_meta)
+    except BaseException as e:
+        meta['formats'] = jsonify({'error': (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))}), 403
+    meta['duration'] = f'{raw_meta["duration"]}'
+    meta['subtitles'] = get_subtitles(raw_meta)
+    meta['width'] = raw_meta.get('width')
+    meta['height'] = raw_meta.get('height')
+    meta['url'] = raw_meta.get('original_url')
+    meta['default_quality'] = get_good_quality(meta['formats'])
+    return meta
 
 
 def ytdlp_download():
@@ -778,22 +808,7 @@ def serve_meta():
     meta = {}
     url = get_url(request)
     if not url: return jsonify({"error": "URL parameter is required"}), 400
-
-    raw_meta = get_meta(url)
-    meta['title'] = raw_meta.get('title', '')
-    meta['uploader'] = raw_meta.get('uploader', '')
-    try:
-        meta['formats'] = get_video_formats(meta=raw_meta)
-    except BaseException as e:
-        meta['formats'] = jsonify({'error': (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))}), 403
-    meta['duration'] = f'{raw_meta["duration"]}'
-    meta['subtitles'] = get_subtitles(raw_meta)
-    meta['width'] = raw_meta.get('width')
-    meta['height'] = raw_meta.get('height')
-    
-    dwnl = lambda: download_file(url, 'thumb')
-    Thread(target=dwnl).start()
-    return meta
+    return clean_meta(get_meta(url))
 
 
 @app.route('/manifest.json')
