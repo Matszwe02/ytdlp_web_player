@@ -410,7 +410,7 @@ def download_file(url: str, media_type='video'):
 
         elif media_type.startswith('hls'):
             meta = get_meta(url)
-            hls_url_dir = os.path.join(gen_pathname(url), f"playlist-{res}")
+            hls_url_dir = os.path.join(gen_pathname(url), f"hls_playlist-{res}")
             hls_output_dir = os.path.join(DOWNLOAD_PATH, hls_url_dir)
             os.makedirs(hls_output_dir, exist_ok=True)
 
