@@ -1371,6 +1371,11 @@ function loadVideo()
             {
                 player.controlBar.SettingsButton.updateResolutions();
                 player.controlBar.SettingsButton.updateSubtitles(meta.subtitles);
+
+                if (urlParams.get('quality') == null && meta.load_default_quality)
+                {
+                    setVideoQuality(meta.default_quality);
+                }
             }
 
             if (typeof meta.title == 'string' && meta.title != '')

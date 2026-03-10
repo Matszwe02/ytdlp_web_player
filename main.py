@@ -27,8 +27,10 @@ os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
 theme_color = os.environ.get('THEME_COLOR', '#ff7300')
 generate_sprite_below = int(os.environ.get('GENERATE_SPRITE_BELOW', '1800'))
-max_video_age = int(os.environ.get('max_video_age', '3600'))
+max_video_age = int(os.environ.get('MAX_VIDEO_AGE', '3600'))
+max_video_duration = int(os.environ.get('MAX_VIDEO_DURATION', '36000'))
 default_quality = int(os.environ.get('DEFAULT_QUALITY', '720'))
+load_default_quality = os.environ.get('LOAD_DEFAULT_QUALITY', True)
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
 ydl_global_opts = {'ffmpeg-location': shutil.which("ffmpeg")}
 
@@ -160,6 +162,7 @@ def clean_meta(raw_meta: dict):
     meta['height'] = raw_meta.get('height')
     meta['url'] = raw_meta.get('original_url')
     meta['default_quality'] = get_good_quality(meta['formats'])
+    meta['load_default_quality'] = load_default_quality
     return meta
 
 
@@ -366,10 +369,10 @@ def download_file(url: str, media_type='video'):
         
         ydl_opts = {"outtmpl": output_path}
         ydl_opts.update(ydl_global_opts)
-        
+        meta = get_meta(url)
+        if meta.get('duration', 0) > max_video_duration: return "Video too long for this app to handle", 403
         timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
-        default_res = '720p' if get_meta(url).get('duration', 0) < 300 else '240p'
-        res = int((re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or default_res).removesuffix('p'))
+        res = int((re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or str(default_quality)).removesuffix('p'))
         
         if timestamps:
             try:
@@ -388,7 +391,6 @@ def download_file(url: str, media_type='video'):
 
 
         if media_type == 'thumb':
-            meta = get_meta(url)
             thumb_url = meta['thumbnail']
             download_media_file(thumb_url, os.path.join(data_dir, 'thumb_orig'))
             try:
@@ -439,7 +441,6 @@ def download_file(url: str, media_type='video'):
                 dwnl(url, ydl_opts)
 
         elif media_type.startswith('hls'):
-            meta = get_meta(url)
             hls_url_dir = os.path.join(gen_pathname(url), f"hls_playlist-{res}")
             hls_output_dir = os.path.join(DOWNLOAD_PATH, hls_url_dir)
             os.makedirs(hls_output_dir, exist_ok=True)
@@ -537,7 +538,6 @@ def download_file(url: str, media_type='video'):
         elif media_type.startswith('sub'):
             lang = media_type.split('-')[1]
             print(f'downloading sub for {lang=}')
-            meta = get_meta(url)
 
             sub = {**meta.get('subtitles', {}), **meta.get('automatic_captions', {})}.get(lang, '')
             for i in sub:
@@ -559,8 +559,7 @@ def download_file(url: str, media_type='video'):
 
 
         elif media_type.startswith('sprite'):
-            meta = get_meta(url)
-            if get_meta(url)["duration"] > generate_sprite_below: raise ValueError(f"Video too long to generate sprite! ({get_meta(url)["duration"]}s)")
+            if meta["duration"] > generate_sprite_below: raise ValueError(f"Video too long to generate sprite! ({meta["duration"]}s)")
             if not meta.get('height') and not meta.get('width'): raise TypeError('Sprite not available on non-video media!')
             video_path = check_media(url=url, media_type='video')
             if not video_path:
@@ -805,7 +804,6 @@ def serve_subtitle():
 
 @app.route('/meta')
 def serve_meta():
-    meta = {}
     url = get_url(request)
     if not url: return jsonify({"error": "URL parameter is required"}), 400
     return clean_meta(get_meta(url))
