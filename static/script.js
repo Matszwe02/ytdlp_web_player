@@ -1242,6 +1242,8 @@ function loadVideo()
         responsive: true,
         fluid: true,
         poster: `/thumb?${urlParams.toString()}`,
+        enableSmoothSeeking: true,
+        disableSeekWhileScrubbingOnMobile: true,
         html5:
         {
             hls:
