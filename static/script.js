@@ -225,7 +225,7 @@ function setVideoQuality(height = 0, button = null)
     if (button == null)
     {
         buttons.forEach(b => {
-            if ((b.textContent.toLowerCase().contains(height)) || (b.textContent == 'Default' && height == '')) button = b;
+            if ((b.textContent.toLowerCase().includes(height)) || (b.textContent == 'Default' && height == '')) button = b;
         });
     }
     history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
