@@ -6,7 +6,6 @@ body
     height: 100vh;
     margin: 0;
     background-color: var(--theme-bg);
-    transition: background-color ease-in-out 1s;
     color: white;
     font-family: Verdana, Geneva, Tahoma, sans-serif;
 }
@@ -70,7 +69,6 @@ body
 {
     padding: 10px 20px;
     background-color: var(--theme-bg);
-    transition: background-color ease-in-out 1s;
     color: #555;
     border: none;
     border-radius: 5px;
@@ -253,13 +251,13 @@ video
     display: flex;
     justify-content: center;
     align-items: center;
-    transition: all 0.3s cubic-bezier( 0.86, 0, 0.07, 1 ), background-color ease-in-out 1s;
+    transition: all 0.3s cubic-bezier( 0.86, 0, 0.07, 1 );
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
 .expand-button:hover {
     color: #aaa;
-    background-color: #444;
+    background-color: #333;
 }
 
 .expand-button.expanded {
@@ -274,7 +272,7 @@ video
     border-radius: 8px;
     overflow: hidden;
     max-height: 0;
-    transition: max-height 0.3s cubic-bezier( 0.86, 0, 0.07, 1 ), background-color ease-in-out 1s;
+    transition: max-height 0.3s cubic-bezier( 0.86, 0, 0.07, 1 );
     width: 200px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
@@ -298,7 +296,7 @@ video
 }
 
 .expandable-content li:hover {
-    background-color: #3a3a3a;
+    background-color: #333;
 }
 
 .expandable-content a {
