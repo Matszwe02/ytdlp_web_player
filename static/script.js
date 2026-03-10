@@ -4,7 +4,6 @@ let player;
 let playerContainer;
 let skipSegment;
 let skipTime = 0;
-let currentVideoQuality = null;
 let meta = null;
 let activeFetches = 0; // Counter for active retryFetch calls
 let abortController = null; // AbortController for cancelling fetches
@@ -151,7 +150,7 @@ function getVideoSource()
 {
     const urlParams = new URLSearchParams(window.location.search);
     const originalUrl = urlParams.get('v') || urlParams.get('url');
-    const quality = urlParams.get('quality') || currentVideoQuality;
+    const quality = urlParams.get('quality');
     const hlsEnabled = urlParams.get('hls') != 'false' && quality != null && quality != 'audio';
     console.log(`Video quality: ${quality} ${hlsEnabled ? '(HLS)' : ''}`);
 
@@ -175,7 +174,7 @@ function getVideoSource()
 function applyVideoQuality()
 {
     const urlParams = new URLSearchParams(window.location.search);
-    var quality = urlParams.get('quality') || currentVideoQuality;
+    var quality = urlParams.get('quality');
     if (meta['height'] == null && meta['width'] == null) quality = 'audio';
     const videoSource = getVideoSource();
 
@@ -555,7 +554,7 @@ class DownloadButton extends videojs.getComponent('Button')
                 {
                     const urlParams = new URLSearchParams(window.location.search);
                     const originalUrl = urlParams.get('v') || urlParams.get('url');
-                    const currentQuality = urlParams.get('quality') || currentVideoQuality || meta.default_quality;
+                    const currentQuality = urlParams.get('quality') || meta.default_quality;
                     var quality = option.quality;
                     if (option.quality == 'current') quality = currentQuality;
 
