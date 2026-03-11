@@ -148,6 +148,19 @@ def get_good_quality(formats: list):
     return closest_quality
 
 
+def search(query, search_engine='auto'):
+    print(f'Searching for {query}')
+    ydl_opts = {'quiet': True, 'skip_download': True, 'default_search': search_engine}
+    ydl_opts.update(ydl_global_opts)
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.sanitize_info(ydl.extract_info(query, download=False))
+    entries = info.get('entries', [{}])
+    meta = info.get('entries', [{}])[0]
+    url = meta.get('original_url', '')
+    preload(url, meta)
+    return entries
+
+
 def clean_meta(raw_meta: dict):
     meta = {}
     meta['title'] = raw_meta.get('title', '')
@@ -845,21 +858,14 @@ def hls_stream(filename):
 
 
 @app.route('/search')
-def search():
+def serve_search():
     try:
         query = request.args.get('q')
-        print(f'Searching for {query}')
-        ydl_opts = {'quiet': True, 'skip_download': True, 'default_search': 'auto'}
-        ydl_opts.update(ydl_global_opts)
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.sanitize_info(ydl.extract_info(query, download=False))
-            meta = info.get('entries', [{}])[0]
-            url = meta.get('original_url', '')
-            preload(url, meta)
-            return url
+        meta = search(query)[0]
+        url = meta.get('original_url', '')
+        return url
     except Exception as e:
         return (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e)))), 404
-    return None
 
 
 
