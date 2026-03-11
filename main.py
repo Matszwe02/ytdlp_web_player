@@ -32,7 +32,7 @@ max_video_duration = int(os.environ.get('MAX_VIDEO_DURATION', '36000'))
 default_quality = int(os.environ.get('DEFAULT_QUALITY', '720'))
 load_default_quality = os.environ.get('LOAD_DEFAULT_QUALITY', True)
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
-ydl_global_opts = {'ffmpeg-location': shutil.which("ffmpeg")}
+ydl_global_opts = {'ffmpeg-location': shutil.which("ffmpeg"), "noplaylist": True}
 
 
 
@@ -209,9 +209,6 @@ def get_url(req):
 
     parsed_url = urlparse(url)
     query_params = parse_qs(parsed_url.query)
-
-    if 'list' in query_params:
-        del query_params['list']
 
     new_query = urlencode(query_params, doseq=True)
     url = urlunparse(parsed_url._replace(query=new_query))
