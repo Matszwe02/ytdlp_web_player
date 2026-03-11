@@ -462,3 +462,21 @@ video
     pointer-events: all !important;
     width: fit-content;
 }
+
+.vjs-text-track-display > div
+{
+    display: flex;
+    flex-direction: column;
+    justify-content: end;
+}
+
+.vjs-text-track-cue
+{
+    position: initial !important;
+}
+
+.vjs-text-track-cue > div
+{
+    background-color: transparent !important;
+    text-shadow: 0 0 4pt black;
+}
