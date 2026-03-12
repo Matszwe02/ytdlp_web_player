@@ -380,7 +380,7 @@ def download_file(url: str, media_type='video'):
         ydl_opts = {"outtmpl": output_path}
         ydl_opts.update(ydl_global_opts)
         meta = get_meta(url)
-        if meta.get('duration', 0) > max_video_duration: return "Video too long for this app to handle", 403
+        if int(meta.get('duration', 0)) > max_video_duration: return "Video too long for this app to handle", 403
         timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
         res = int((re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or str(default_quality)).removesuffix('p'))
         
