@@ -155,9 +155,6 @@ def search(query, search_engine='auto'):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.sanitize_info(ydl.extract_info(query, download=False))
     entries = info.get('entries', [{}])
-    meta = info.get('entries', [{}])[0]
-    url = meta.get('original_url', '')
-    preload(url, meta)
     return entries
 
 
@@ -684,7 +681,7 @@ def iframe():
 
 @app.route('/preload')
 def preload(url = None, meta = None):
-    url = url or get_url(request)
+    url = url or (meta.get('original_url', '') if meta else get_url(request))
     print('Running preload')
 
     if meta:
@@ -863,6 +860,7 @@ def serve_search():
         query = request.args.get('q')
         meta = search(query)[0]
         url = meta.get('original_url', '')
+        preload(url, meta)
         return url
     except Exception as e:
         return (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e)))), 404
