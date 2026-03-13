@@ -150,8 +150,9 @@ function getVideoSource()
 {
     const urlParams = new URLSearchParams(window.location.search);
     const originalUrl = urlParams.get('v') || urlParams.get('url');
-    const quality = urlParams.get('quality');
-    const hlsEnabled = urlParams.get('hls') != 'false' && quality != null && quality != 'audio' && quality != '';
+    var quality = urlParams.get('quality');
+    if (quality == '') quality = null;
+    const hlsEnabled = quality != null && quality != 'audio'
     console.log(`Video quality: ${quality} ${hlsEnabled ? '(HLS)' : ''}`);
 
     let downloadUrl;
@@ -210,8 +211,6 @@ function setVideoQuality(height = 0, button = null)
 {
     console.log(`Setting video quality to ${height}`)
     let menu = player.controlBar.SettingsButton.resolutionSwitcher.menu;
-    let hlsMenu = player.controlBar.SettingsButton.hlsToggleButton;
-    hlsMenu.updateHlsState();
     if (abortController) abortController.abort();
     abortController = new AbortController();
     const signal = abortController.signal;
@@ -229,7 +228,7 @@ function setVideoQuality(height = 0, button = null)
         });
     }
     history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
-    const hlsEnabled = urlParams.get('hls') != 'false' && height != '' && height != 'audio';
+    const hlsEnabled = height != '' && height != 'audio';
     if (hlsEnabled)
     {
         console.log('HLS ENABLED');
@@ -333,43 +332,47 @@ class ZoomToFillToggle extends videojs.getComponent('Button')
 videojs.registerComponent('ZoomToFillToggle', ZoomToFillToggle);
 
 
-class HLSToggleButton extends videojs.getComponent('Button')
+class OverAmplificationButton extends videojs.getComponent('Button')
 {
     constructor(player, options)
     {
         super(player, options);
         const urlParams = new URLSearchParams(window.location.search);
         this.addClass('menu-button');
-        this.el().innerHTML = '<i class="fa-solid fa-video"></i>';
-        this.hlsEnabled = urlParams.get('hls') != 'false';
-        this.updateHlsState();
+        this.el().innerHTML = '<i class="fa-solid fa-bullhorn"></i>';
+        this.enabled = false;
+        this.gainNode = null;
+        this.controlText('Over-Amplification');
     }
 
     handleClick(event, state = null)
     {
-        this.hlsEnabled = state != null ? state : !this.hlsEnabled;
-        setVideoQuality();
+        this.enabled = state != null ? state : !this.enabled;
+        this.setUpGain(this.enabled);
     }
 
-    updateHlsState()
+    setUpGain()
     {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (this.hlsEnabled)
+        if (this.enabled)
         {
+            if (this.gainNode === null)
+    {
+                const context = new (window.AudioContext || window.webkitAudioContext)();
+                const source = context.createMediaElementSource(player.el().firstChild);
+                this.gainNode = new GainNode(context);
+                source.connect(this.gainNode).connect(context.destination);
+            }
             this.el().classList.add('vjs-active');
-            this.controlText('HLS Streaming: On');
-            urlParams.delete('hls');
+            this.gainNode.gain.value = 2;
         }
         else
         {
             this.el().classList.remove('vjs-active');
-            this.controlText('HLS Streaming: Off');
-            urlParams.set('hls', 'false');
+            this.gainNode.gain.value = 1;
         }
-        history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
     }
 }
-videojs.registerComponent('HLSToggleButton', HLSToggleButton);
+videojs.registerComponent('OverAmplificationButton', OverAmplificationButton);
 
 
 class SettingsButton extends videojs.getComponent('Button')
@@ -389,20 +392,19 @@ class SettingsButton extends videojs.getComponent('Button')
         this.playbackSpeedButton = new PlaybackSpeedButton(player, options);
         this.downloadButton = new DownloadButton(player, options);
         this.repeatButton = new RepeatButton(player, options);
-        this.hlsToggleButton = new HLSToggleButton(player, options);
+        this.overAmplificationButton = new OverAmplificationButton(player, options);
         this.resolutionSwitcher.parent = this;
         this.subtitleSwitcher.parent = this;
         this.playbackSpeedButton.parent = this;
         this.downloadButton.parent = this;
         this.repeatButton.parent = this;
-        this.hlsToggleButton.parent = this;
 
         this.menu.appendChild(this.resolutionSwitcher.el());
         this.menu.appendChild(this.subtitleSwitcher.el());
         this.menu.appendChild(this.playbackSpeedButton.el());
         this.menu.appendChild(this.downloadButton.el());
         this.menu.appendChild(this.repeatButton.el());
-        this.menu.appendChild(this.hlsToggleButton.el());
+        this.menu.appendChild(this.overAmplificationButton.el());
     }
 
     handleClick(event)
@@ -1413,7 +1415,7 @@ function loadVideo()
                     {
                         setTimeout(() => {
                             console.warn("Changing video quality due to unsupported format...");
-                            setVideoQuality(meta.default_quality)
+                            setVideoQuality(meta.default_quality);
                         }, 500);
                     }
                 }
