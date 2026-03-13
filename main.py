@@ -425,6 +425,26 @@ def download_file(url: str, media_type='video'):
                 print(f"Error cropping thumbnail: {e}")
 
 
+        elif media_type.startswith('playlist'):
+            parsed_url = urlparse(url)
+            query = parse_qs(parsed_url.query).get('q')
+            entries = []
+            if query:
+                input_entries = search(query[0], 'ytsearch10')
+            else:
+                ydl_opts.update({"playlistend": 10, 'quiet': True, 'skip_download': True})
+                del ydl_opts['noplaylist']
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    input_entries = ydl.sanitize_info(ydl.extract_info(url, download=False)).get('entries', {})
+
+            for entry in input_entries:
+                preload(meta=entry)
+                entries.append(clean_meta(entry))
+
+            with open(os.path.join(get_data_dir(url), 'playlist.json'), 'w') as f:
+                json.dump(entries, f)
+
+
         elif media_type.startswith('audio'):
             ydl_opts.update({"format": "bestaudio/best", "extract_audio": True, "outtmpl": os.path.join(data_dir, f'{media_type}.mp3')})
             dwnl(url, ydl_opts)
@@ -821,6 +841,11 @@ def serve_manifest():
     return render_template('manifest.json', app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg)
 
 
+@app.route('/playlist')
+def serve_playlist():
+    return host_file(get_url(request), 'playlist')
+
+
 @app.route('/favicon.svg')
 def serve_favicon():
     with open('static/favicon.svg', 'r') as f:
@@ -860,8 +885,15 @@ def serve_search():
         query = request.args.get('q')
         meta = search(query)[0]
         url = meta.get('original_url', '')
-        preload(url, meta)
-        return url
+
+        parsed_url = urlparse(url)
+        query_params = parse_qs(parsed_url.query)
+        query_params['q'] = query
+        new_query_string = urlencode(query_params, doseq=True)
+        final_url = urlunparse(parsed_url._replace(query=new_query_string))
+
+        preload(final_url, meta)
+        return final_url
     except Exception as e:
         return (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e)))), 404
 
