@@ -32,6 +32,7 @@ body
     background-color: transparent;
     color: black;
     outline: none;
+    text-align: center;
 }
 
 @media only screen and (max-width: 900px)
@@ -380,6 +381,7 @@ video
 .menu-button {
   cursor: pointer;
   padding: 10px !important;
+  border-radius: 7px;
 }
 .menu-button:hover {
   background-color: #555;
