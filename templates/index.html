@@ -24,12 +24,14 @@
     
         <div style="display: inline-block; text-align: center; width: 100%" class="non-video">
             <img src="favicon.svg" alt="" height="250px">
-            <h1 style="margin-top: 0; color: {{ theme_color }};">{{ app_title }}</h1>
-            <input type="text" id="standard_url" name="url" placeholder="type URL or search query or hit enter" autofocus/>
-            <div></div>
-            <button onclick="handlePlayButtonClick()" class="play-button">
-                <i class="fa-solid fa-play"></i>
-            </button>
+            <h1 style="margin-top: 0; margin-bottom: 100px; color: {{ theme_color }};">{{ app_title }}</h1>
+            <div id="main-input">
+                <input type="text" id="url" name="url" placeholder="type URL or search query or hit enter" autofocus/>
+                <!-- <input type="text" id="standard_url2" name="url" placeholder="type URL or search query or hit enter" autofocus/> -->
+                <button onclick="handlePlayButtonClick()" id="submit">
+                    <i class="fa-solid fa-play"></i>
+                </button>
+            </div>
         </div>
         
         <!-- Expandable menu -->
@@ -72,7 +74,7 @@
                 }
             });
 
-            const urlInput = document.getElementById('standard_url');
+            const urlInput = document.getElementById('url');
             urlInput.addEventListener('keypress', function(event) {
                 if (event.key === 'Enter') {
                     event.preventDefault();
