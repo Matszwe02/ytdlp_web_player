@@ -28,9 +28,10 @@ generate_sprite_below = int(os.environ.get('GENERATE_SPRITE_BELOW', '1800'))
 max_video_age = int(os.environ.get('MAX_VIDEO_AGE', '3600'))
 max_video_duration = int(os.environ.get('MAX_VIDEO_DURATION', '36000'))
 default_quality = int(os.environ.get('DEFAULT_QUALITY', '720'))
-load_default_quality = os.environ.get('LOAD_DEFAULT_QUALITY', True)
+load_default_quality = (os.environ.get('LOAD_DEFAULT_QUALITY', 'True')).lower() == 'true'
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
 download_path = os.environ.get('DOWNLOAD_PATH', './download')
+
 os.makedirs(download_path, exist_ok=True)
 ydl_global_opts = {'ffmpeg-location': shutil.which("ffmpeg"), "noplaylist": True}
 
