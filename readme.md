@@ -36,11 +36,13 @@
 
 ![image](.github/images/image.png)
 ![loading screen](.github/images/image2.png)
-![main page](.github/images/image3.png)
+![main page - PWA](.github/images/image3.png)
 ![vertical](.github/images/image4.png)
 
 
 # How to run
+
+### **There are no official instances of this app due to anti-bot policies of popular video sharing platforms**
 
 App should be accessible at [http://localhost:5000](http://localhost:5000)
 
