@@ -22,8 +22,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 app = Flask(__name__)
-DOWNLOAD_PATH = './download'
-os.makedirs(DOWNLOAD_PATH, exist_ok=True)
 app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
 theme_color = os.environ.get('THEME_COLOR', '#ff7300')
 generate_sprite_below = int(os.environ.get('GENERATE_SPRITE_BELOW', '1800'))
@@ -32,6 +30,8 @@ max_video_duration = int(os.environ.get('MAX_VIDEO_DURATION', '36000'))
 default_quality = int(os.environ.get('DEFAULT_QUALITY', '720'))
 load_default_quality = os.environ.get('LOAD_DEFAULT_QUALITY', True)
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
+download_path = os.environ.get('DOWNLOAD_PATH', './download')
+os.makedirs(download_path, exist_ok=True)
 ydl_global_opts = {'ffmpeg-location': shutil.which("ffmpeg"), "noplaylist": True}
 
 
@@ -46,7 +46,7 @@ def gen_pathname(url: str):
 
 
 def get_data_dir(url):
-    data_dir = os.path.join(DOWNLOAD_PATH, gen_pathname(url))
+    data_dir = os.path.join(download_path, gen_pathname(url))
     return data_dir
 
 
@@ -188,8 +188,8 @@ def delete_old_files():
         threshold = time.time() - max_video_age
 
         try:
-            for item_name in os.listdir(DOWNLOAD_PATH):
-                item_path = os.path.join(DOWNLOAD_PATH, item_name)
+            for item_name in os.listdir(download_path):
+                item_path = os.path.join(download_path, item_name)
 
                 if os.path.isdir(item_path):
                     try:
@@ -469,7 +469,7 @@ def download_file(url: str, media_type='video'):
 
         elif media_type.startswith('hls'):
             hls_url_dir = os.path.join(gen_pathname(url), f"hls_playlist-{res}")
-            hls_output_dir = os.path.join(DOWNLOAD_PATH, hls_url_dir)
+            hls_output_dir = os.path.join(download_path, hls_url_dir)
             os.makedirs(hls_output_dir, exist_ok=True)
 
             temp_m3u8_path = os.path.join(data_dir, f'{media_type}.m3u8.temp')
@@ -863,7 +863,7 @@ def download_hls():
 
 @app.route('/hls_stream/<path:filename>')
 def hls_stream(filename):
-    base_dir = os.path.abspath(DOWNLOAD_PATH)
+    base_dir = os.path.abspath(download_path)
     full_path = os.path.abspath(os.path.join(base_dir, filename))
 
     if not full_path.startswith(base_dir):
