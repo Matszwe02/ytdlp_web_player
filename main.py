@@ -42,6 +42,10 @@ app_version = Downloader.get_app_version()
 
 
 
+def pprint_exc(e, code = 500):
+    return (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e)))), code
+
+
 def gen_pathname(url: str):
     return sha1(url.encode()).hexdigest()
 
@@ -378,7 +382,7 @@ def download_file(url: str, media_type='video'):
         ydl_opts = {"outtmpl": output_path}
         ydl_opts.update(ydl_global_opts)
         meta = get_meta(url)
-        if int(meta.get('duration', 0)) > max_video_duration: return "Video too long for this app to handle", 403
+        if int(meta.get('duration', 0)) > max_video_duration: raise ValueError("Video too long for this app to handle")
         timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
         res = int((re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or str(default_quality)).removesuffix('p'))
         
@@ -390,7 +394,7 @@ def download_file(url: str, media_type='video'):
                 print(f"Downloading section {start_time}-{end_time}")
             except ValueError:
                 print("Error parsing start/end times from media_type")
-        
+
 
         def dwnl(url, ydl_opts):
             print(f'YTDLP: downloading "{unquote(url)}" with options "{ydl_opts}"')
@@ -427,8 +431,7 @@ def download_file(url: str, media_type='video'):
 
 
         elif media_type.startswith('playlist'):
-            parsed_url = urlparse(url)
-            query = parse_qs(parsed_url.query).get('q')
+            query = parse_qs(urlparse(url).query).get('q')
             entries = []
             if query:
                 input_entries = search(query[0], 'ytsearch10')
@@ -702,34 +705,45 @@ def iframe():
 
 @app.route('/preload')
 def preload(url = None, meta = None):
-    url = url or (meta.get('original_url', '') if meta else get_url(request))
-    print('Running preload')
+    try:
+        url = url or (meta.get('original_url', '') if meta else get_url(request))
+        print('Running preload')
 
-    if meta:
-        try:
-            os.makedirs(get_data_dir(url), exist_ok=True)
-            with open(os.path.join(get_data_dir(url), 'meta.json'), 'w') as f:
-                json.dump(meta, f)
-        except:
-            pass
+        if meta:
+            try:
+                os.makedirs(get_data_dir(url), exist_ok=True)
+                with open(os.path.join(get_data_dir(url), 'meta.json'), 'w') as f:
+                    json.dump(meta, f)
+            except:
+                pass
 
-    if not check_media(url, 'meta'):
-        Thread(target=get_meta, args=[url]).start()
-    if not check_media(url, 'thumb'):
-        Thread(target=download_file, args=[url, 'thumb']).start()
-    return 'Preloading', 202
+        if not check_media(url, 'meta'):
+            Thread(target=get_meta, args=[url]).start()
+        if not check_media(url, 'thumb'):
+            Thread(target=download_file, args=[url, 'thumb']).start()
+        if not check_media(url, 'audio'):
+            Thread(target=download_file, args=[url, 'audio']).start()
+        return 'Preloading', 202
+    except Exception as e:
+        return pprint_exc(e)
 
 
 @app.route('/thumb')
 def serve_thumbnail():
-    url = get_url(request)
-    return serve_thumbnail_by_path(url)
+    try:
+        url = get_url(request)
+        return serve_thumbnail_by_path(url)
+    except Exception as e:
+        return pprint_exc(e)
 
 
 
 @app.route('/thumb/<path:url>')
 def serve_thumbnail_by_path(url):
-    return host_file(url, 'thumb')
+    try:
+        return host_file(url, 'thumb')
+    except Exception as e:
+        return pprint_exc(e)
 
 
 @app.route('/sprite')
@@ -757,66 +771,74 @@ def raw():
 
 @app.route('/download')
 def download_media():
-    res = (request.args.get('quality') or '').removesuffix("p")
-    start_time = request.args.get('start', 0, type=float)
-    end_time = request.args.get('end', 0, type=float)
-    
-    media_type = 'audio' if res == 'audio' else f'video-{res}p'.removesuffix('-p')
-    
-    if start_time > 0 or end_time > 0:
-        media_type += f'_{start_time:.1f}-{end_time:.1f}'
+    try:
+        res = (request.args.get('quality') or '').removesuffix("p")
+        start_time = request.args.get('start', 0, type=float)
+        end_time = request.args.get('end', 0, type=float)
+        
+        media_type = 'audio' if res == 'audio' else f'video-{res}p'.removesuffix('-p')
+        
+        if start_time > 0 or end_time > 0:
+            media_type += f'_{start_time:.1f}-{end_time:.1f}'
 
-    return host_file(get_url(request), media_type)
+        return host_file(get_url(request), media_type)
+    except Exception as e:
+        return pprint_exc(e)
 
 
 @app.route('/low')
 def download_low_quality():
-    if filename:= check_media(get_url(request), 'video-low'):
-        return send_from_directory(os.path.dirname(filename), os.path.basename(filename))
-    formats = get_video_formats(get_url(request))
-    filename = check_media(get_url(request), 'video')
-    media_type = 'video'
-    if not filename:
-        media_type = f'video-{formats[0]}'
-        filename = download_file(get_url(request), media_type)
-
-    ffmpeg_command = [
-        'ffmpeg',
-        '-i', filename,
-        '-c:v', 'libx264',
-        '-crf', '38',
-        '-c:a', 'aac',
-        '-r', '30',
-        '-preset', 'veryfast',
-        os.path.join(get_data_dir(get_url(request)), 'video-low.mp4')
-    ]
     try:
+        if filename:= check_media(get_url(request), 'video-low'):
+            return send_from_directory(os.path.dirname(filename), os.path.basename(filename))
+        formats = get_video_formats(get_url(request))
+        filename = check_media(get_url(request), 'video')
+        media_type = 'video'
+        if not filename:
+            media_type = f'video-{formats[0]}'
+            filename = download_file(get_url(request), media_type)
+
+        ffmpeg_command = [
+            'ffmpeg',
+            '-i', filename,
+            '-c:v', 'libx264',
+            '-crf', '38',
+            '-c:a', 'aac',
+            '-r', '30',
+            '-preset', 'veryfast',
+            os.path.join(get_data_dir(get_url(request)), 'video-low.mp4')
+        ]
         proc = subprocess.run(ffmpeg_command, check=True, capture_output=True)
         proc.check_returncode()
+        return host_file(get_url(request), 'video-low')
     except Exception as e:
-        print(f"An unexpected error occurred during conversion: {e}")
-    return host_file(get_url(request), 'video-low')
-
+        return pprint_exc(e)
 
 
 @app.route('/download/<path:filename>')
 def download_ytdlp(filename):
-    print('Started serving download/path')
-    print(filename)
-    path = (os.path.join('download', filename))
-    print(f'Serving {path}')
-    os.utime(path)
-    print('Stopped serving download/path')
-    return send_from_directory(os.path.dirname(path), os.path.basename(path))
+    try:
+        print('Started serving download/path')
+        print(filename)
+        path = (os.path.join('download', filename))
+        print(f'Serving {path}')
+        os.utime(path)
+        print('Stopped serving download/path')
+        return send_from_directory(os.path.dirname(path), os.path.basename(path))
+    except Exception as e:
+        return pprint_exc(e)
 
 
 @app.route('/fastest')
 def resp_fastest_stream():
-    url = get_url(request)
-    fastest_url, _ = get_fastest_quality(url)
-    if fastest_url:
-        return stream_media_file(fastest_url)
-    return download_media()
+    try:
+        url = get_url(request)
+        fastest_url, _ = get_fastest_quality(url)
+        if fastest_url:
+            return stream_media_file(fastest_url)
+        return download_media()
+    except Exception as e:
+        return pprint_exc(e)
 
 
 
@@ -832,9 +854,12 @@ def serve_subtitle():
 
 @app.route('/meta')
 def serve_meta():
-    url = get_url(request)
-    if not url: return jsonify({"error": "URL parameter is required"}), 400
-    return clean_meta(get_meta(url))
+    try:
+        url = get_url(request)
+        if not url: return jsonify({"error": "URL parameter is required"}), 400
+        return clean_meta(get_meta(url))
+    except Exception as e:
+        return pprint_exc(e)
 
 
 @app.route('/manifest.json')
@@ -844,7 +869,10 @@ def serve_manifest():
 
 @app.route('/playlist')
 def serve_playlist():
-    return host_file(get_url(request), 'playlist')
+    try:
+        return host_file(get_url(request), 'playlist')
+    except Exception as e:
+        return pprint_exc(e)
 
 
 @app.route('/favicon.svg')
@@ -857,9 +885,12 @@ def serve_favicon():
 
 @app.route('/hls')
 def download_hls():
-    res = (request.args.get('quality') or '').removesuffix("p")    
-    media_type = 'hls' if res == 'audio' else f'hls-{res}p'.removesuffix('-p')
-    return host_file(get_url(request), media_type)
+    try:
+        res = (request.args.get('quality') or '').removesuffix("p")    
+        media_type = 'hls' if res == 'audio' else f'hls-{res}p'.removesuffix('-p')
+        return host_file(get_url(request), media_type)
+    except Exception as e:
+        return pprint_exc(e)
 
 
 @app.route('/hls_stream/<path:filename>')
@@ -896,7 +927,7 @@ def serve_search():
         preload(final_url, meta)
         return final_url
     except Exception as e:
-        return (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e)))), 404
+        return pprint_exc(e)
 
 
 
