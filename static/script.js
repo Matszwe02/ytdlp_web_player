@@ -356,9 +356,9 @@ class OverAmplificationButton extends videojs.getComponent('Button')
         if (this.enabled)
         {
             if (this.gainNode === null)
-    {
+            {
                 const context = new (window.AudioContext || window.webkitAudioContext)();
-                const source = context.createMediaElementSource(player.el().firstChild);
+                const source = context.createMediaElementSource(player.el().querySelector('video'));
                 this.gainNode = new GainNode(context);
                 source.connect(this.gainNode).connect(context.destination);
             }
@@ -1481,13 +1481,15 @@ function loadMediaPlayer()
             },
         ],
     });
-    
-    const videoElement = player.el().querySelector('video');
-    navigator.mediaSession.setActionHandler("seekbackward", () => {
-        videoElement.currentTime(videoElement.currentTime() - 10);
+
+    navigator.mediaSession.setActionHandler("seekbackward", (details) => {
+        player.currentTime(player.currentTime() - (details.seekOffset || 10));
     });
-    navigator.mediaSession.setActionHandler("seekforward", () => {
-        videoElement.currentTime(videoElement.currentTime() + 10);
+    navigator.mediaSession.setActionHandler("seekforward", (details) => {
+        player.currentTime(player.currentTime() + (details.seekOffset || 10));
+    });
+    navigator.mediaSession.setActionHandler("seekto", (details) => {
+        player.currentTime(details.seekTime);
     });
     navigator.mediaSession.setActionHandler("previoustrack", null);
     navigator.mediaSession.setActionHandler("nexttrack", null);
