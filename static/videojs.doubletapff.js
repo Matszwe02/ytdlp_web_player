@@ -4,6 +4,7 @@ function doubleTapFF(options)
 	var videoElementId = this.id();
 	document.getElementById(videoElementId).addEventListener("touchstart", tapHandler);
 	document.getElementById(videoElementId).addEventListener("touchmove", moveHandler);
+	document.getElementById(videoElementId).addEventListener("touchend", tapEndHandler);
 	var tappedTwice = false;
     var tapTimer = null;
     var initialMoveDistance = null;
@@ -115,10 +116,16 @@ function doubleTapFF(options)
                 if (Math.abs(change) > 20)
                 {
                     videoElement.controlBar.ZoomToFillToggle.handleClick(null, change > 0);
-                    initialMoveDistance = distance;
+                    initialMoveDistance = distance - (Math.sign(change) * 20);
                 }
+                videoElement.el().querySelector('video').style.scale = 1 + ((distance - initialMoveDistance) / 100);
             }
         }
+    }
+
+    function tapEndHandler(e)
+    {
+        videoElement.el().querySelector('video').style.scale = 1;
     }
 
 }

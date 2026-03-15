@@ -196,6 +196,7 @@ body
 video
 {
     display: block !important;
+    transition: scale .1s ease-out;
 }
 
 
