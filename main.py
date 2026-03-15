@@ -459,21 +459,20 @@ def download_file(url: str, media_type='video'):
 
 
         elif media_type.startswith('video'):
-            download_best = media_type.startswith('video-best')
-            if not download_best:
-                print(f"Downloading quality {res}p")
-                try:
-                    ydl_opts.update({"format": f"bestvideo[height<={res}]+bestaudio/best"})
-                    dwnl(url, ydl_opts)
-                except Exception:
-                    download_best = True
-                    formats = get_video_formats(url)
-                    print(f'WARNING: Counld not download selected format. Available formats:\n{formats}')
-            
-            if download_best:
-                print("Downloading best quality")
-                ydl_opts.update({"format": "best"})
+            height_param = "" if media_type.startswith('video-best') else f'[height<={res}]'
+
+            ydl_opts.update({"format": f"bestvideo{height_param}", "outtmpl": os.path.join(data_dir, f'temp-{media_type}.%(ext)s')})
+            dwnl(url, ydl_opts)
+            audio_file = check_media(url, 'audio') or download_file(url, 'audio')
+            temp_video = check_media(url, f'temp-{media_type}')
+            ffmpeg_command = [ffmpeg, '-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]
+            proc = subprocess.run(ffmpeg_command, capture_output=True)
+            os.remove(temp_video)
+            if proc.returncode != 0:
+                print(f'Falling back to standard video download due to FFMPEG error: {proc.stderr}')
+                ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(data_dir, f'{media_type}.%(ext)s')})
                 dwnl(url, ydl_opts)
+
 
         elif media_type.startswith('hls'):
             hls_url_dir = os.path.join(gen_pathname(url), f"hls_playlist-{res}")
