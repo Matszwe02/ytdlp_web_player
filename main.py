@@ -59,7 +59,10 @@ def get_meta(url: str):
     with FileCachingLock(url, 'meta') as cache:
         print(cache)
         if cache:
-            with open(cache, 'r') as f: return json.load(f)
+            try:
+                with open(cache, 'r') as f: return json.load(f)
+            except:
+                print('Meta file invalid - Regenerating...')
         print(f'downloading meta for {url}')
         ydl_opts = {'quiet': True, 'skip_download': True}
         ydl_opts.update(ydl_global_opts)
@@ -593,6 +596,8 @@ def download_file(url: str, media_type='video'):
             if meta["duration"] > generate_sprite_below: raise ValueError(f"Video too long to generate sprite! ({meta["duration"]}s)")
             if not meta.get('height') and not meta.get('width'): raise TypeError('Sprite not available on non-video media!')
             video_path = check_media(url=url, media_type='video')
+            sprite_dir = os.path.join(data_dir, 'temp_sprite')
+            os.makedirs(sprite_dir, exist_ok=True)
             if not video_path:
                 download_file(url, 'video')
                 video_path = check_media(url=url, media_type='video')
@@ -606,13 +611,13 @@ def download_file(url: str, media_type='video'):
                     'ffmpeg',
                     '-i', video_path,
                     '-vf', f'fps={1/frame_interval},scale={frame_width}:{frame_height}',
-                    os.path.join(data_dir, 'frame_%04d.jpg')
+                    os.path.join(sprite_dir, 'frame_%04d.jpg')
                 ]
 
                 try:
                     subprocess.run(ffmpeg_command, check=True)
                     # Create sprite image
-                    frame_files = sorted([f for f in os.listdir(data_dir) if f.startswith('frame')])
+                    frame_files = sorted([f for f in os.listdir(sprite_dir) if f.startswith('frame')])
                     num_frames = len(frame_files)
                     num_rows = math.ceil(num_frames / frames_per_row)
                     canvas_width = frames_per_row * frame_width
@@ -622,24 +627,17 @@ def download_file(url: str, media_type='video'):
                     sprite_image = Image.new('RGB', (canvas_width, canvas_height))
 
                     for i, frame_file in enumerate(frame_files):
-                        frame_path = os.path.join(data_dir, frame_file)
+                        frame_path = os.path.join(sprite_dir, frame_file)
                         with Image.open(frame_path) as img:
                             row = i // frames_per_row
                             col = i % frames_per_row
                             x = col * frame_width
                             y = row * frame_height
                             sprite_image.paste(img, (x, y))
-                        os.remove(frame_path) # Clean up individual frames
                     sprite_image.save(os.path.join(data_dir, 'sprite.jpg'))
+                    os.rmdir(sprite_dir)
                 except Exception as e:
                     print(f"Sprite error: {e}")
-
-
-        elif media_type.startswith('sources'):
-            print(f'downloading sources for {url}')
-            sources_data = get_video_sources(url)
-            with open(os.path.join(data_dir, f'{media_type}.json'), 'w') as f:
-                f.write(jsonify(sources_data).get_data(as_text=True))
 
         return check_media(url=url, media_type=media_type)
 
@@ -839,12 +837,6 @@ def resp_fastest_stream():
         return download_media()
     except Exception as e:
         return pprint_exc(e)
-
-
-
-@app.route('/sources')
-def sources():
-    return host_file(get_url(request), 'sources')
 
 
 @app.route('/subtitle')
