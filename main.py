@@ -33,7 +33,8 @@ amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
 download_path = os.environ.get('DOWNLOAD_PATH', './download')
 
 os.makedirs(download_path, exist_ok=True)
-ydl_global_opts = {'ffmpeg-location': shutil.which("ffmpeg"), "noplaylist": True}
+ffmpeg = shutil.which("ffmpeg")
+ydl_global_opts = {'ffmpeg-location': ffmpeg, "noplaylist": True}
 
 
 
@@ -416,7 +417,7 @@ def download_file(url: str, media_type='video'):
                     thumb_file = check_media(url=url, media_type='thumb_orig')
 
                     ffmpeg_command = [
-                        'ffmpeg',
+                        ffmpeg,
                         '-y',
                         '-i', thumb_file,
                         '-vf', f'crop=w=min(iw\\,ih*({video_width}/{video_height})):h=min(ih\\,iw*({video_height}/{video_width})):x=(iw-ow)/2:y=(ih-oh)/2',
@@ -486,21 +487,22 @@ def download_file(url: str, media_type='video'):
 
             sources = get_video_sources(url)
             video_url = None
-            audio_url = None
+            audio_source = None
             video_file_path = check_media(url=url, media_type='video-' + res_str)
 
             if video_file_path:
                 print(f'Generating HLS from {video_file_path}')
             else:
+                audio_source = check_media(url, 'audio')
                 if res_str in sources:
                     if res_str == 'audio' or res_str == 'audio_drc':
-                        audio_url = sources[res_str]
+                        audio_source = audio_source or sources[res_str]
                     else:
                         video_url = sources[res_str]
-                        audio_url = sources.get('audio_drc') or sources.get('audio') # Prefer audio_drc
+                        audio_source = audio_source or sources.get('audio_drc') or sources.get('audio') # Prefer audio_drc
 
-                print(f'sources: {video_url}, {audio_url}')
-                if not video_url and not audio_url:
+                print(f'sources: {video_url}, {audio_source}')
+                if not video_url and not audio_source:
                     print('Could not find any suitable streamable video format: Downloading the whole video')
                     video_file_path = download_file(url, f'video-{res}p')
 
@@ -520,12 +522,12 @@ def download_file(url: str, media_type='video'):
 
             if video_url:
                 ffmpeg_command = ['-i', video_url] + ffmpeg_command
-            if audio_url:
-                ffmpeg_command = ['-i', audio_url] + ffmpeg_command
+            if audio_source:
+                ffmpeg_command = ['-i', audio_source] + ffmpeg_command
             if video_file_path:
                 ffmpeg_command = ['-i', video_file_path] + ffmpeg_command
 
-            ffmpeg_command = ['ffmpeg'] + ffmpeg_command
+            ffmpeg_command = [ffmpeg] + ffmpeg_command
 
             seg_time = 0
             seg_num = 0
@@ -569,6 +571,22 @@ def download_file(url: str, media_type='video'):
             Thread(target=download_hls_files, daemon=True).start()
 
 
+        elif media_type.startswith('low'):
+            ffmpeg_command = [
+                ffmpeg,
+                '-i', download_file(url, 'video'),
+                '-c:v', 'libx265',
+                '-crf', '38',
+                '-c:a', 'aac',
+                '-r', '30',
+                '-vf', 'scale=-2:240',
+                '-preset', 'veryfast',
+                os.path.join(get_data_dir(get_url(request)), 'low.mp4')
+            ]
+            proc = subprocess.run(ffmpeg_command, check=True, capture_output=True)
+            proc.check_returncode()
+
+
         elif media_type.startswith('sub'):
             lang = media_type.split('-')[1]
             print(f'downloading sub for {lang=}')
@@ -608,7 +626,7 @@ def download_file(url: str, media_type='video'):
                 frames_per_row = 10
 
                 ffmpeg_command = [
-                    'ffmpeg',
+                    ffmpeg,
                     '-i', video_path,
                     '-vf', f'fps={1/frame_interval},scale={frame_width}:{frame_height}',
                     os.path.join(sprite_dir, 'frame_%04d.jpg')
@@ -617,7 +635,7 @@ def download_file(url: str, media_type='video'):
                 try:
                     subprocess.run(ffmpeg_command, check=True)
                     # Create sprite image
-                    frame_files = sorted([f for f in os.listdir(sprite_dir) if f.startswith('frame')])
+                    frame_files = sorted(os.listdir(sprite_dir))
                     num_frames = len(frame_files)
                     num_rows = math.ceil(num_frames / frames_per_row)
                     canvas_width = frames_per_row * frame_width
@@ -787,28 +805,7 @@ def download_media():
 @app.route('/low')
 def download_low_quality():
     try:
-        if filename:= check_media(get_url(request), 'video-low'):
-            return send_from_directory(os.path.dirname(filename), os.path.basename(filename))
-        formats = get_video_formats(get_url(request))
-        filename = check_media(get_url(request), 'video')
-        media_type = 'video'
-        if not filename:
-            media_type = f'video-{formats[0]}'
-            filename = download_file(get_url(request), media_type)
-
-        ffmpeg_command = [
-            'ffmpeg',
-            '-i', filename,
-            '-c:v', 'libx264',
-            '-crf', '38',
-            '-c:a', 'aac',
-            '-r', '30',
-            '-preset', 'veryfast',
-            os.path.join(get_data_dir(get_url(request)), 'video-low.mp4')
-        ]
-        proc = subprocess.run(ffmpeg_command, check=True, capture_output=True)
-        proc.check_returncode()
-        return host_file(get_url(request), 'video-low')
+        host_file(get_url(request), 'low')
     except Exception as e:
         return pprint_exc(e)
 
