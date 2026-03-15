@@ -635,7 +635,7 @@ def download_file(url: str, media_type='video'):
                             y = row * frame_height
                             sprite_image.paste(img, (x, y))
                     sprite_image.save(os.path.join(data_dir, 'sprite.jpg'))
-                    os.rmdir(sprite_dir)
+                    shutil.rmtree(sprite_dir)
                 except Exception as e:
                     print(f"Sprite error: {e}")
 
