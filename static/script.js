@@ -407,22 +407,23 @@ class SettingsButton extends videojs.getComponent('Button')
         this.menu.appendChild(this.overAmplificationButton.el());
     }
 
+    closeAllSubmenus()
+    {
+        this.resolutionSwitcher.handleCloseMenu();
+        this.subtitleSwitcher.handleCloseMenu();
+        this.playbackSpeedButton.handleCloseMenu();
+        this.downloadButton.handleCloseMenu();
+        this.repeatButton.handleCloseMenu();
+    }
+
     handleClick(event)
     {
-        if (player.clickedChildMenuButton)
-        {
             player.clickedChildMenuButton = false;
-            return;
-        }
         tryStopPropagation(event);
         if (this.menu.style.display === 'flex')
         {
             this.handleCloseMenu();
-            this.resolutionSwitcher.handleCloseMenu();
-            this.subtitleSwitcher.handleCloseMenu();
-            this.playbackSpeedButton.handleCloseMenu();
-            this.downloadButton.handleCloseMenu();
-            this.repeatButton.handleCloseMenu();
+            this.closeAllSubmenus();
         }
         else
         {
@@ -494,6 +495,7 @@ class DownloadButton extends videojs.getComponent('Button')
 
     handleOpenMenu()
     {
+        this.parent.closeAllSubmenus();
         this.menu.style.display = 'block';
     }
 
@@ -641,6 +643,7 @@ class RepeatButton extends videojs.getComponent('Button')
 
     handleOpenMenu()
     {
+        this.parent.closeAllSubmenus();
         this.menu.style.display = 'block';
     }
 
@@ -765,13 +768,14 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
 
     handleOpenMenu()
     {
+        this.parent.closeAllSubmenus();
         this.menu.style.display = 'block';
     }
 
-    handleCloseMenu()
+    handleCloseMenu(propagate = false)
     {
         this.menu.style.display = 'none';
-        if (this.parent)
+        if (this.parent && propagate)
         {
             this.parent.handleCloseMenu();
         }
@@ -821,7 +825,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
             button.onclick = (event) => {
                 tryStopPropagation(event);
                 setVideoQuality(height, button);
-                this.handleCloseMenu();
+                this.handleCloseMenu(true);
             };
             this.menu.appendChild(button);
         });
@@ -871,13 +875,14 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button')
 
     handleOpenMenu()
     {
+        this.parent.closeAllSubmenus();
         this.menu.style.display = 'block';
     }
 
-    handleCloseMenu()
+    handleCloseMenu(propagate = false)
     {
         this.menu.style.display = 'none';
-        if (this.parent)
+        if (this.parent && propagate)
         {
             this.parent.handleCloseMenu();
         }
@@ -925,7 +930,7 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button')
                 });
                 button.classList.add('vjs-menu-option-selected');
 
-                this.handleCloseMenu();
+                this.handleCloseMenu(true);
             };
             this.menu.appendChild(button);
         });
@@ -1019,13 +1024,14 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
 
     handleOpenMenu()
     {
+        this.parent.closeAllSubmenus();
         this.menu.style.display = 'flex';
     }
 
-    handleCloseMenu()
+    handleCloseMenu(propagate = false)
     {
         this.menu.style.display = 'none';
-        if (this.parent)
+        if (this.parent && propagate)
         {
             this.parent.handleCloseMenu();
         }
@@ -1077,7 +1083,7 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
                 });
                 button.classList.add('vjs-menu-option-selected');
 
-                this.handleCloseMenu();
+                this.handleCloseMenu(true);
             };
             menu.appendChild(button);
         });
