@@ -418,7 +418,13 @@ class SettingsButton extends videojs.getComponent('Button')
 
     handleClick(event)
     {
-            player.clickedChildMenuButton = false;
+        if (player.clickedChildMenuButton)
+        {
+            setTimeout(() => {
+                player.clickedChildMenuButton = false;
+            }, 100);
+            return;
+        }
         tryStopPropagation(event);
         if (this.menu.style.display === 'flex')
         {
