@@ -347,6 +347,7 @@ class OverAmplificationButton extends videojs.getComponent('Button')
 
     handleClick(event, state = null)
     {
+        setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
         this.enabled = state != null ? state : !this.enabled;
         this.setUpGain(this.enabled);
     }
@@ -420,9 +421,7 @@ class SettingsButton extends videojs.getComponent('Button')
     {
         if (player.clickedChildMenuButton)
         {
-            setTimeout(() => {
-                player.clickedChildMenuButton = false;
-            }, 100);
+            setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
             return;
         }
         tryStopPropagation(event);
@@ -488,6 +487,7 @@ class DownloadButton extends videojs.getComponent('Button')
 
     handleClick(event)
     {
+        setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
         tryStopPropagation(event);
         if (this.menu.style.display === 'block')
         {
@@ -636,6 +636,7 @@ class RepeatButton extends videojs.getComponent('Button')
 
     handleClick(event)
     {
+        setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
         tryStopPropagation(event);
         if (this.menu.style.display === 'block')
         {
@@ -761,6 +762,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
 
     handleClick(event)
     {
+        setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
         tryStopPropagation(event);
         if (this.menu.style.display === 'block')
         {
@@ -868,6 +870,7 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button')
 
     handleClick(event)
     {
+        setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
         tryStopPropagation(event);
         if (this.menu.style.display === 'block')
         {
@@ -1021,6 +1024,7 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
 
     handleClick(event)
     {
+        setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
         tryStopPropagation(event);
         if (this.menu.style.display === 'flex')
             this.menu.style.display = 'none';
