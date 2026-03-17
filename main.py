@@ -146,15 +146,14 @@ def get_fastest_quality(url):
 
 
 def get_good_quality(formats: list):
-    if type(formats) != list: return default_quality
-    closest_quality = 9999
-    for quality in formats:
-        if quality >= default_quality and closest_quality > default_quality:
-            closest_quality = quality
-    if closest_quality == 9999:
-        closest_quality = default_quality
-    print(f'Choosing quality {closest_quality} for current video')
-    return closest_quality
+    if not isinstance(formats, list) or not formats: return default_quality
+    sorted_formats = sorted(formats)
+    for quality in sorted_formats:
+        if quality >= default_quality:
+            print(f'Choosing quality {quality} for current video')
+            return quality
+    print(f'Choosing quality {sorted_formats[-1]} for current video')
+    return sorted_formats[-1]
 
 
 def search(query, search_engine='auto'):
