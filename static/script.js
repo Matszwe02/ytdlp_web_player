@@ -12,6 +12,17 @@ let repeatStartTime = 0;
 let repeatEndTime = 0;
 
 
+function keepalive()
+{
+    fetch(getVideoSource()[0])
+        .then(response => response.text());
+    setTimeout(() => {
+        keepalive();
+    }, 300000);
+}
+keepalive();
+
+
 function tryStopPropagation(event)
 {
     try

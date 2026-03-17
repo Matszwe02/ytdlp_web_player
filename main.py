@@ -193,32 +193,28 @@ def ytdlp_download():
 
 def delete_old_files():
     while True:
-        threshold = time.time() - max_video_age
-
         try:
             for item_name in os.listdir(download_path):
-                item_path = os.path.join(download_path, item_name)
+                vid_path = os.path.join(download_path, item_name)
 
-                if os.path.isdir(item_path):
-                    try:
-                        files = [f for f in os.listdir(item_path) if os.path.isfile(os.path.join(item_path, f))]
-
-                        for filename in files:
-                            if os.path.getmtime(os.path.join(item_path, filename)) >= threshold:
-                                break
-
-                        else:
-                            print(f"Deleting old directory: {item_path}")
-                            shutil.rmtree(item_path)
-
-                    except OSError as e:
-                        print(f"Error processing directory {item_path}: {e}")
+                keepalive_file = os.path.join(vid_path, 'keepalive')
+                mtime = 0
+                if os.path.exists(keepalive_file):
+                    with open(keepalive_file, 'r') as f:
+                        mtime = int(f.read())
+                if time.time() - mtime > max_video_age:
+                    print(f"Deleting old directory: {vid_path}")
+                    shutil.rmtree(vid_path)
 
         except Exception as e:
             print(f"Error in delete_old_files: {e}")
 
         time.sleep(max_video_age / 2)
 
+
+def keepalive(data_dir):
+    with open(os.path.join(data_dir, 'keepalive'), 'w') as f:
+        f.write(str(int(time.time())))
 
 
 def get_url(req):
@@ -330,7 +326,7 @@ def check_media(url: str, media_type: str):
             if i.startswith(media_type):
                 path = os.path.join(data_dir, i)
                 print(f'Serving {path}')
-                os.utime(path)
+                keepalive(data_dir)
                 print(f'Media for {url=} and {media_type=} found')
                 return path
     except:
@@ -357,6 +353,7 @@ class FileCachingLock:
             return cached_media
         
         os.makedirs(self.data_dir, exist_ok=True)
+        keepalive(self.data_dir)
         with open(os.path.join(self.data_dir, f'{self.media_type}.temp'), 'w') as f:
             f.write(datetime.now().isoformat())
         
