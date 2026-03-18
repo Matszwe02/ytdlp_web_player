@@ -457,7 +457,6 @@ def download_file(url: str, media_type='video'):
             for entry in input_entries:
                 entries.append(clean_meta(entry))
             for entry in input_entries:
-                entry['original_url'] = append_query_to_url(entry['original_url'], query)
                 preload(meta=entry, playlist=entries)
 
             with open(os.path.join(get_data_dir(url), 'playlist.json'), 'w') as f:
