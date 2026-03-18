@@ -136,6 +136,18 @@ function formatTime(timeInSeconds)
     return String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(milliseconds);
 }
 
+function formatTimeShort(timeInSeconds)
+{
+    if (timeInSeconds === null || isNaN(timeInSeconds)) return '-';
+    var out_str = "";
+    const hours = Math.floor(timeInSeconds / 3600);
+    if (hours > 0) out_str += String(hours).padStart(2, '0') + ":";
+    const minutes = Math.floor((timeInSeconds % 3600) / 60);
+    const seconds = Math.floor(timeInSeconds % 60);
+    out_str += String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+    return out_str.startsWith("0") ? out_str.substring(1) : out_str;
+}
+
 
 var prevRotation = 0;
 function fullscreenOnRotate()
@@ -1151,6 +1163,112 @@ class TitleBar extends Component
 videojs.registerComponent('TitleBar', TitleBar);
 
 
+class PlaylistComponent extends Component
+{
+    constructor(player, options = {})
+    {
+        super(player, options);
+        this.options = options;
+        this.player = player;
+        this.addClass('vjs-playlist-component');
+        var params = new URLSearchParams(window.location.search);
+        this.currentVideoUrl = params.get('v') || params.get('url');
+
+        this.menu = this.createPlaylistMenu();
+        this.el().appendChild(this.menu);
+
+        this.toggleButton = this.createToggleButton();
+        this.el().appendChild(this.toggleButton);
+
+        if (options.playlistData)
+        {
+            this.updatePlaylist(options.playlistData);
+        }
+    }
+
+    createEl()
+    {
+        return videojs.dom.createEl('div', {
+            className: 'vjs-playlist-container'
+        });
+    }
+
+    createToggleButton()
+    {
+        const button = videojs.dom.createEl('button', {
+            className: 'vjs-playlist-toggle-button',
+            id: 'vjs-playlist-toggle-button'
+        });
+        videojs.appendContent(button, videojs.dom.createEl('i', { className: 'fa-solid fa-list-ul' }));
+
+        button.addEventListener('click', () => {
+            this.toggleClass('active');
+        });
+        return button;
+    }
+
+    createPlaylistMenu()
+    {
+        const menu = videojs.dom.createEl('ul', {
+            className: 'vjs-playlist-items'
+        });
+        return menu;
+    }
+
+    updatePlaylist(playlistData)
+    {
+        videojs.emptyEl(this.menu);
+        playlistData.forEach(item => {
+            const listItem = videojs.dom.createEl('li', {
+                className: 'vjs-playlist-item'
+            });
+
+            console.log(`Item URL: ${item.url}, self URL: ${this.currentVideoUrl}`);
+
+            if (item.url === this.currentVideoUrl)
+            {
+                listItem.classList.add('vjs-current-video');
+            }
+
+            const link = videojs.dom.createEl('a', {
+                href: `/watch?url=${encodeURIComponent(item.url)}`
+            });
+
+            const thumbnail = videojs.dom.createEl('img', {
+                src: `/thumb?url=${encodeURIComponent(item.url)}`,
+                alt: item.title,
+                className: 'vjs-playlist-thumbnail'
+            });
+
+            const info = videojs.dom.createEl('div', {
+                className: 'vjs-playlist-info'
+            });
+
+            const title = videojs.dom.createEl('div', {
+                className: 'vjs-playlist-title'
+            }, {}, item.title);
+
+            const uploader = videojs.dom.createEl('div', {
+                className: 'vjs-playlist-uploader'
+            }, {}, item.uploader);
+
+            const duration = videojs.dom.createEl('div', {
+                className: 'vjs-playlist-duration'
+            }, {}, formatTimeShort(item.duration));
+
+            videojs.appendContent(link, thumbnail);
+            videojs.appendContent(link, duration);
+            videojs.appendContent(link, info);
+            videojs.appendContent(listItem, link);
+            videojs.appendContent(info, title);
+            videojs.appendContent(info, uploader);
+            videojs.appendContent(this.menu, listItem);
+        });
+    }
+}
+videojs.registerComponent('PlaylistComponent', PlaylistComponent);
+
+
 function skipclick()
 {
     if (player && player.currentTime() < skipTime) player.currentTime(skipTime);
@@ -1448,6 +1566,18 @@ function loadVideo()
                 }
             });
             loadMediaPlayer();
+
+            if (meta.playlist_support == true)
+            {
+                retryFetch(`/playlist?url=${encodeURIComponent(urlParams.get('v') || urlParams.get('url'))}`)
+                    .then(response => response.json())
+                    .then(playlistData => {
+                        if (Array.isArray(playlistData) && playlistData.length > 0)
+                        {
+                            player.addChild('PlaylistComponent', { playlistData: playlistData });
+                        }
+                    });
+            }
         })
         .catch(error => {
             console.error('Error fetching video:', error);

@@ -30,6 +30,7 @@ max_video_duration = int(os.environ.get('MAX_VIDEO_DURATION', '36000'))
 default_quality = int(os.environ.get('DEFAULT_QUALITY', '720'))
 load_default_quality = (os.environ.get('LOAD_DEFAULT_QUALITY', 'True')).lower() == 'true'
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
+playlist_support = os.environ.get('PLAYLIST_SUPPORT', 'False').lower() == 'true'
 download_path = os.environ.get('DOWNLOAD_PATH', './download')
 
 os.makedirs(download_path, exist_ok=True)
@@ -69,6 +70,7 @@ def get_meta(url: str):
         ydl_opts.update(ydl_global_opts)
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.sanitize_info(ydl.extract_info(url, download=False))
+            info['original_url'] = url
             with open(os.path.join(get_data_dir(url), 'meta.json'), 'w') as f:
                 json.dump(info, f)
                 return info
@@ -163,6 +165,8 @@ def search(query, search_engine='auto'):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.sanitize_info(ydl.extract_info(query, download=False))
     entries = info.get('entries', [{}])
+    for entry in entries:
+        entry['original_url'] = append_query_to_url(entry['original_url'], query)
     return entries
 
 
@@ -181,6 +185,7 @@ def clean_meta(raw_meta: dict):
     meta['url'] = raw_meta.get('original_url')
     meta['default_quality'] = get_good_quality(meta['formats'])
     meta['load_default_quality'] = load_default_quality
+    meta['playlist_support'] = playlist_support
     return meta
 
 
@@ -230,6 +235,14 @@ def get_url(req):
     if '.' not in url:
         url = 'https://youtube.com/watch?v=' + url
     return url
+
+
+def append_query_to_url(url, query):
+    parsed_url = urlparse(url)
+    query_params = parse_qs(parsed_url.query)
+    query_params['q'] = query
+    new_query_string = urlencode(query_params, doseq=True)
+    return urlunparse(parsed_url._replace(query=new_query_string))
 
 
 def download_media_file(url: str, path_without_ext: str, ext: str|None = None):
@@ -442,8 +455,10 @@ def download_file(url: str, media_type='video'):
                     input_entries = ydl.sanitize_info(ydl.extract_info(url, download=False)).get('entries', {})
 
             for entry in input_entries:
-                preload(meta=entry)
                 entries.append(clean_meta(entry))
+            for entry in input_entries:
+                entry['original_url'] = append_query_to_url(entry['original_url'], query)
+                preload(meta=entry, playlist=entries)
 
             with open(os.path.join(get_data_dir(url), 'playlist.json'), 'w') as f:
                 json.dump(entries, f)
@@ -715,7 +730,7 @@ def iframe():
 
 
 @app.route('/preload')
-def preload(url = None, meta = None):
+def preload(url = None, meta = None, playlist = None):
     try:
         url = url or (meta.get('original_url', '') if meta else get_url(request))
         print('Running preload')
@@ -734,6 +749,9 @@ def preload(url = None, meta = None):
             Thread(target=download_file, args=[url, 'thumb']).start()
         if not check_media(url, 'audio'):
             Thread(target=download_file, args=[url, 'audio']).start()
+        if playlist and not check_media(url, 'playlist'):
+            with open(os.path.join(get_data_dir(url), 'playlist.json'), 'w') as f:
+                json.dump(playlist, f)
         return 'Preloading', 202
     except Exception as e:
         return pprint_exc(e)
@@ -901,12 +919,7 @@ def serve_search():
         query = request.args.get('q')
         meta = search(query)[0]
         url = meta.get('original_url', '')
-
-        parsed_url = urlparse(url)
-        query_params = parse_qs(parsed_url.query)
-        query_params['q'] = query
-        new_query_string = urlencode(query_params, doseq=True)
-        final_url = urlunparse(parsed_url._replace(query=new_query_string))
+        final_url = append_query_to_url(url, query)
 
         preload(final_url, meta)
         return final_url

@@ -12,6 +12,7 @@ services:
             - MAX_VIDEO_DURATION=36000
             - DEFAULT_QUALITY=720
             - LOAD_DEFAULT_QUALITY=true
+            - PLAYLIST_SUPPORT=false
             - DOWNLOAD_PATH=./download
         ports:
             - 5000:5000
