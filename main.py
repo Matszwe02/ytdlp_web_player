@@ -433,6 +433,7 @@ def download_file(url: str, media_type='video'):
                         thumb_file.replace('thumb_orig', 'thumb')
                     ]
 
+                    print(f'Running FFMPEG: {ffmpeg_command}')
                     subprocess.run(ffmpeg_command, check=True)
                     print(f"Thumbnail cropped to video aspect ratio {video_width}:{video_height} using ffmpeg")
                     os.remove(thumb_file)
@@ -476,6 +477,7 @@ def download_file(url: str, media_type='video'):
             audio_file = check_media(url, 'audio') or download_file(url, 'audio')
             temp_video = check_media(url, f'temp-{media_type}')
             ffmpeg_command = [ffmpeg, '-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]
+            print(f'Running FFMPEG: {ffmpeg_command}')
             proc = subprocess.run(ffmpeg_command, capture_output=True)
             os.remove(temp_video)
             if proc.returncode != 0:
@@ -518,7 +520,7 @@ def download_file(url: str, media_type='video'):
             ffmpeg_command = [
                 '-c:v', 'libx264',
                 '-crf', '22',
-                '-r', f'{meta.get("fps", "30")}',
+                '-r', f'{meta.get("fps") or "30"}',
                 '-c:a', 'aac',
                 '-ar', '44100',
                 '-f', 'hls',
@@ -556,6 +558,7 @@ def download_file(url: str, media_type='video'):
                 nonlocal video_file_path
                 try:
                     if not video_file_path:
+                        print(f'Running FFMPEG: {ffmpeg_command}')
                         proc = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                         time.sleep(10)
                         video_file_path = download_file(url, f'video-{res}p')
@@ -564,6 +567,7 @@ def download_file(url: str, media_type='video'):
                         os.rename(m3u8_path, temp_m3u8_path)
                         download_file(url, media_type)
                         return
+                    print(f'Running FFMPEG: {ffmpeg_command}')
                     proc = subprocess.run(ffmpeg_command, capture_output=True)
                     if proc.returncode == 0:
                         print(f"FFMPEG Finished HLS Conversion!")
@@ -592,6 +596,7 @@ def download_file(url: str, media_type='video'):
                 '-preset', 'veryfast',
                 os.path.join(get_data_dir(get_url(request)), 'low.mp4')
             ]
+            print(f'Running FFMPEG: {ffmpeg_command}')
             proc = subprocess.run(ffmpeg_command, check=True, capture_output=True)
             proc.check_returncode()
 
@@ -642,6 +647,7 @@ def download_file(url: str, media_type='video'):
                 ]
 
                 try:
+                    print(f'Running FFMPEG: {ffmpeg_command}')
                     subprocess.run(ffmpeg_command, check=True)
                     # Create sprite image
                     frame_files = sorted(os.listdir(sprite_dir))
