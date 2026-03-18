@@ -433,6 +433,11 @@ video
     background-color: #666 !important;
 }
 
+.vjs-layout-tiny .vjs-picture-in-picture-control
+{
+    display: none;
+}
+
 .vjs-title-bar {
     position: absolute;
     top: 0;
