@@ -472,7 +472,7 @@ def download_file(url: str, media_type='video'):
         elif media_type.startswith('video'):
             height_param = "" if media_type.startswith('video-best') else f'[height<={res}]'
 
-            ydl_opts.update({"format": f"bestvideo{height_param}", "outtmpl": os.path.join(data_dir, f'temp-{media_type}.%(ext)s')})
+            ydl_opts.update({"format": f"bestvideo{height_param}/best", "outtmpl": os.path.join(data_dir, f'temp-{media_type}.%(ext)s')})
             dwnl(url, ydl_opts)
             audio_file = check_media(url, 'audio') or download_file(url, 'audio')
             temp_video = check_media(url, f'temp-{media_type}')
