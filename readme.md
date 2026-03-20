@@ -11,9 +11,10 @@
 - video download option, video repeat option
 - PWA support with "share with" target for Android
 - video searching
-- nice animations while loading video
-- configurable themes
-- Player embedding using `/iframe` endpoint (experimental)
+- clean UI, configurable themes
+- browser extension to allow including this player everywhere (experimental)
+  - note that this extension in the current version is vibe-coded (I do not guarantee that no LLMs were harmed in the process)
+  - uses player embedding using `/iframe` endpoint
 
 
 ## Technologies used

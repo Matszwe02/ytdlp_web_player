@@ -1,0 +1,37 @@
+{
+  "name": "YT-DLP Web Player",
+  "description": "Replaces videos with YT-DLP Player and adds context menu",
+  "version": "1.0.0",
+  "manifest_version": 3,
+  "permissions": [
+    "declarativeNetRequest",
+    "storage",
+    "tabs",
+    "windows",
+    "contextMenus"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_icon": {
+      "16": "favicon.png"
+    },
+    "default_popup": "options.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["replacer_script.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "icons": {
+    "48": "favicon.png",
+    "128": "favicon.png"
+  },
+  "options_page": "options.html"
+}
