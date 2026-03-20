@@ -1479,14 +1479,9 @@ function loadVideo()
     document.getElementById('video').style.filter = 'brightness(1)';
 
     playerContainer.querySelector('.vjs-poster').style.filter = '';
-    try
-    {
-        applyVideoQuality();
-    }
-    catch
-    {
-        console.warn('Video quality list needed, delaying playback');
-    }
+
+    const originalUrl = urlParams.get('v') || urlParams.get('url');
+    player.src({ src: `/fastest?url=${encodeURIComponent(originalUrl)}`, type: 'video/mp4' });
 
     // When video is loaded
     player.on('loadeddata', () => {
@@ -1515,7 +1510,6 @@ function loadVideo()
                 player = null;
                 return;
             }
-            applyVideoQuality();
             if (player.controlBar && player.controlBar.SettingsButton)
             {
                 player.controlBar.SettingsButton.updateResolutions();
@@ -1524,6 +1518,10 @@ function loadVideo()
                 if (urlParams.get('quality') == null && meta.load_default_quality)
                 {
                     setVideoQuality(meta.default_quality);
+                }
+                else
+                {
+                    setVideoQuality();
                 }
             }
 
