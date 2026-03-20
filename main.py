@@ -698,7 +698,7 @@ def host_file(url: str, media_type='video', download_name: str | None = None):
 def index():
     print('Started serving root')
     ydl_version = Downloader.get_ytdlp_version()
-    ffmpeg_version = Downloader.get_ffmpeg_version()
+    ffmpeg_version = Downloader.get_ffmpeg_version(ffmpeg)
     print('Stopped serving root')
     return render_template('index.html', ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg)
 
@@ -708,7 +708,7 @@ def index():
 def watch():
     print('Started serving watch')
     ydl_version = Downloader.get_ytdlp_version()
-    ffmpeg_version = Downloader.get_ffmpeg_version()
+    ffmpeg_version = Downloader.get_ffmpeg_version(ffmpeg)
     url = get_url(request)
     
     video_width = 1280

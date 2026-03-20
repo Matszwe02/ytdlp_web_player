@@ -41,20 +41,13 @@ class Downloader:
 
 
     @staticmethod
-    def get_ffmpeg_version():
+    def get_ffmpeg_version(ffmpeg_path):
         global ffmpeg_version
         if ffmpeg_version != '-': return ffmpeg_version
         try:
-            ffmpeg_path = shutil.which('ffmpeg')
-            print(f'{ffmpeg_path=}')
-            ver_str = subprocess.run(shlex.split(f'{ffmpeg_path} -version'), capture_output=True).stdout.splitlines()[0].decode()
-            print(f'{ver_str=}')
-            version = ver_str.split("sion")[-1].split("Copyright")[0]
-            # match = re.search(r'-([0-9]{8})', ver_str)
-            ffmpeg_version = f"{version}" if version else "-"
-            print(ffmpeg_version)
-        except Exception as e:
-            print(e)
+            ver_str = subprocess.run([ffmpeg_path, '-version'], capture_output=True).stdout.splitlines()[0].decode()
+            ffmpeg_version = ver_str.split("sion")[-1].split("Copyright")[0] or '-'
+        except Exception:
             ffmpeg_version = '-'
         return ffmpeg_version
 
