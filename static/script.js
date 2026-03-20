@@ -18,7 +18,7 @@ function keepalive()
         .then(response => response.text());
     setTimeout(() => {
         keepalive();
-    }, 300000);
+    }, 120000);
 }
 keepalive();
 
