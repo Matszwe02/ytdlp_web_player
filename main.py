@@ -224,7 +224,7 @@ def keepalive(data_dir):
 
 def get_url(req):
     url = req.args.get('v') or req.args.get('url') or None
-    if url is None: return None
+    if url is None or len(url) < 3: return None
 
     parsed_url = urlparse(url)
     query_params = parse_qs(parsed_url.query)
@@ -234,6 +234,10 @@ def get_url(req):
 
     if '.' not in url:
         url = 'https://youtube.com/watch?v=' + url
+    if '/watch?v=' in url:
+        yt_url = 'https://youtube.com/watch?v=' + url.split('/watch?v=')[1]
+        if get_meta(yt_url):
+            url = yt_url
     return url
 
 
