@@ -295,7 +295,7 @@ def after_request(response):
     return response
 
 
-def send_file_partial(path):
+def send_file_partial(path, download_name: str | None = None):
     """ 
         Simple wrapper around send_file which handles HTTP 206 Partial Content
         (byte ranges)
@@ -303,7 +303,7 @@ def send_file_partial(path):
         (if it has any)
     """
     range_header = request.headers.get('Range', None)
-    if not range_header: return send_file(path)
+    if not range_header: return send_file(path, download_name=download_name)
     
     size = os.path.getsize(path)    
     byte1, byte2 = 0, None
@@ -679,11 +679,14 @@ def download_file(url: str, media_type='video'):
         return check_media(url=url, media_type=media_type)
 
 
-def host_file(url: str, media_type='video'):
+def host_file(url: str, media_type='video', download_name: str | None = None):
     if not url: return jsonify({"error": "URL parameter is required"}), 400
     file = download_file(url, media_type)
     if file:
-        return send_file_partial(file)
+        if download_name:
+            if '-' in media_type: download_name += '-' + media_type.split('-', 1)[-1]
+            download_name += os.path.splitext(file)[1]
+        return send_file_partial(file, download_name=download_name)
     return jsonify({"error": f"Cannot gather {media_type}"}), 404
 
 
@@ -819,7 +822,10 @@ def download_media():
         if start_time > 0 or end_time > 0:
             media_type += f'_{start_time:.1f}-{end_time:.1f}'
 
-        return host_file(get_url(request), media_type)
+        url = get_url(request)
+        video_title = get_meta(url).get('title')
+        return host_file(url, media_type, download_name=video_title)
+
     except Exception as e:
         return pprint_exc(e)
 
