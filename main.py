@@ -68,6 +68,7 @@ def get_meta(url: str):
         print(f'downloading meta for {url}')
         ydl_opts = {'quiet': True, 'skip_download': True}
         ydl_opts.update(ydl_global_opts)
+        print(f'Running YT-DLP with opts: {ydl_opts}')
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.sanitize_info(ydl.extract_info(url, download=False))
             info['original_url'] = url
@@ -162,6 +163,7 @@ def search(query, search_engine='auto'):
     print(f'Searching for {query}')
     ydl_opts = {'quiet': True, 'skip_download': True, 'default_search': search_engine}
     ydl_opts.update(ydl_global_opts)
+    print(f'Running YT-DLP with opts: {ydl_opts}')
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.sanitize_info(ydl.extract_info(query, download=False))
     entries = info.get('entries', [{}])
@@ -414,7 +416,7 @@ def download_file(url: str, media_type='video'):
 
 
         def dwnl(url, ydl_opts):
-            print(f'YTDLP: downloading "{unquote(url)}" with options "{ydl_opts}"')
+            print(f'Running YT-DLP with opts: {ydl_opts}')
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download(unquote(url))
 
@@ -456,6 +458,7 @@ def download_file(url: str, media_type='video'):
             else:
                 ydl_opts.update({"playlistend": 10, 'quiet': True, 'skip_download': True})
                 del ydl_opts['noplaylist']
+                print(f'Running YT-DLP with opts: {ydl_opts}')
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     input_entries = ydl.sanitize_info(ydl.extract_info(url, download=False)).get('entries', {})
 
