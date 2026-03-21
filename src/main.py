@@ -342,6 +342,7 @@ def check_media(url: str, media_type: str):
         for i in os.listdir(data_dir):
             if i.endswith('.part'): continue
             if i.endswith('.temp'): continue
+            if i.count('_') != media_type.count('_'): continue
             if i.startswith(media_type):
                 path = os.path.join(data_dir, i)
                 print(f'Serving {path}')
@@ -403,6 +404,8 @@ def download_file(url: str, media_type='video'):
         meta = get_meta(url)
         if int(meta.get('duration', 0)) > max_video_duration: raise ValueError("Video too long for this app to handle")
         timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
+        start_time = None
+        end_time = None
         res = int((re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or str(default_quality)).removesuffix('p'))
         
         if timestamps:
@@ -478,19 +481,27 @@ def download_file(url: str, media_type='video'):
 
         elif media_type.startswith('video'):
             height_param = "" if media_type.startswith('video-best') else f'[height<={res}]'
-
-            ydl_opts.update({"format": f"bestvideo{height_param}/best", "outtmpl": os.path.join(data_dir, f'temp-{media_type}.%(ext)s')})
-            dwnl(url, ydl_opts)
-            audio_file = check_media(url, 'audio') or download_file(url, 'audio')
-            temp_video = check_media(url, f'temp-{media_type}')
-            ffmpeg_command = [ffmpeg, '-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]
-            print(f'Running FFMPEG: {ffmpeg_command}')
-            proc = subprocess.run(ffmpeg_command, capture_output=True)
-            os.remove(temp_video)
-            if proc.returncode != 0:
-                print(f'Falling back to standard video download due to FFMPEG error: {proc.stderr}')
-                ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(data_dir, f'{media_type}.%(ext)s')})
+            if timestamps:
+                if vid := check_media(url, media_type.split('_')[0]):
+                    ffmpeg_command = [ffmpeg, '-i', vid, "-ss", f'{start_time}', "-to", f'{end_time}', os.path.join(get_data_dir(url), media_type + '.mp4')]
+                    print(f'Running FFMPEG: {ffmpeg_command}')
+                    proc = subprocess.run(ffmpeg_command, capture_output=True)
+                else:
+                    ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(data_dir, f'{media_type}.%(ext)s')})
+                    dwnl(url, ydl_opts)
+            else:
+                ydl_opts.update({"format": f"bestvideo{height_param}/best", "outtmpl": os.path.join(data_dir, f'temp-{media_type}.%(ext)s')})
                 dwnl(url, ydl_opts)
+                audio_file = check_media(url, 'audio') or download_file(url, 'audio')
+                temp_video = check_media(url, f'temp-{media_type}')
+                ffmpeg_command = [ffmpeg, '-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]
+                print(f'Running FFMPEG: {ffmpeg_command}')
+                proc = subprocess.run(ffmpeg_command, capture_output=True)
+                os.remove(temp_video)
+                if proc.returncode != 0:
+                    print(f'Falling back to standard video download due to FFMPEG error: {proc.stderr}')
+                    ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(data_dir, f'{media_type}.%(ext)s')})
+                    dwnl(url, ydl_opts)
 
 
         elif media_type.startswith('hls'):
