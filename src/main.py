@@ -51,7 +51,9 @@ def run_ffmpeg(ffmpeg_command, popen=False):
     return subprocess.run(ffmpeg_command, capture_output=True)
 
 def pprint_exc(e, code = 500):
-    return (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e)))), code
+    error = (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))
+    print(error)
+    return error, code
 
 
 def gen_pathname(url: str):
