@@ -410,6 +410,7 @@ def download_file(url: str, media_type='video'):
         
         ydl_opts = {"outtmpl": output_path}
         ydl_opts.update(ydl_global_opts)
+        if cookies := check_media(url, 'cookies'): ydl_opts["cookiefile"] = cookies
         meta = get_meta(url)
         if int(meta.get('duration', 0)) > max_video_duration: raise ValueError("Video too long for this app to handle")
         timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
@@ -487,6 +488,7 @@ def download_file(url: str, media_type='video'):
 
 
         elif media_type.startswith('video'):
+            if cookies := check_media(url, 'cookies'): ydl_opts["mark_watched"] = True
             height_param = "" if media_type.startswith('video-best') else f'[height<={res}]'
             if timestamps:
                 if vid := check_media(url, media_type.split('_')[0]):
@@ -950,6 +952,21 @@ def serve_search():
 
         preload(final_url, meta)
         return final_url
+    except Exception as e:
+        return pprint_exc(e)
+
+
+@app.route('/cookies', methods=['POST'])
+def cookies_endpoint():
+    try:
+        url = get_url(request)
+        cookies = request.form.get('cookies')
+        if not cookies: return jsonify({"error": "cookies are required"}), 400
+        
+        with open(os.path.join(get_data_dir(url), 'cookies.txt'), 'w') as f:
+            f.write(cookies)
+        return "OK", 200
+
     except Exception as e:
         return pprint_exc(e)
 
