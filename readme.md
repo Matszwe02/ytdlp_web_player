@@ -55,6 +55,9 @@ App should be accessible at [http://localhost:5000](http://localhost:5000)
   ```
 - Modify `compose.yml`'s environment variables as needed
 - For automatic app updates, see `compose.yml`
+- To enable HTTPS, see `compose.yml`
+  - then you can access the app with `https://localhost:5001`
+  - your browser will warn you about not secure connection, you need to click on allow
 
 ## 2. Run locally
 
@@ -67,13 +70,9 @@ App should be accessible at [http://localhost:5000](http://localhost:5000)
 
 # Troubleshooting
 
-## I can't install PWA / application
+## I can't install PWA / embed it as an iframe / extension does not load
 
-You need HTTPS for this. You'll need to set up a proxy for that. A good temporary solution is to set up a vscode dev tunnel for port `5000`, which generates a temporary HTTPS link for your app.
-
-## I can't embed it as an iframe
-
-You also need HTTPS for this.
+You need HTTPS for this, see [Docker section](#1-docker-preferred)
 
 ## I can't play some videos
 

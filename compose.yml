@@ -18,8 +18,27 @@ services:
             - 5000:5000
 
 
-    # # For automatic updates, I recommend running `watchtower` container, example below. Uncomment it to enable daily updates.
-    # watchtower:
-    #     image: nickfedor/watchtower
-    #     volumes:
-    #         - /var/run/docker.sock:/var/run/docker.sock
+
+################################################################################
+#     # Uncomment this section to enable daily updates.
+#     watchtower:
+#         image: nickfedor/watchtower
+#         volumes:
+#             - /var/run/docker.sock:/var/run/docker.sock
+################################################################################
+
+
+
+################################################################################
+#     # Uncomment this section to open HTTPS under port 5001
+#     nginx:
+#         image: valian/docker-nginx-auto-ssl
+#         restart: on-failure
+#         ports:
+#             - 5001:443
+#         volumes:
+#             - ./.ssl:/etc/resty-auto-ssl
+#         environment:
+#             ALLOWED_DOMAINS: 'localhost'
+#             SITES: 'localhost=ytdlp_web_player:5000'
+################################################################################

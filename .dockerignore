@@ -6,3 +6,4 @@
 **/env*/
 **/download
 **/__pycache__/
+.ssl/

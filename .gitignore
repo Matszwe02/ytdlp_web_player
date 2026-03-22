@@ -8,3 +8,4 @@
 **/download
 **/__pycache__/
 **/version.txt
+.ssl/
