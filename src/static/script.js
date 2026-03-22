@@ -12,16 +12,6 @@ let repeatStartTime = 0;
 let repeatEndTime = 0;
 
 
-function keepalive()
-{
-    fetch(getVideoSource()[0])
-        .then(response => response.text());
-    setTimeout(() => {
-        keepalive();
-    }, 120000);
-}
-keepalive();
-
 
 function tryStopPropagation(event)
 {
@@ -1576,6 +1566,9 @@ function loadVideo()
                         }
                     });
             }
+
+            setInterval(()=>{ fetch(getVideoSource()[0]).then(response => response.ok); }, 120000); // Keepalive
+
         })
         .catch(error => {
             console.error('Error fetching video:', error);
