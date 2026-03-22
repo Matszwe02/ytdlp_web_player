@@ -18,4 +18,4 @@ COPY --from=builder /build/version.txt /app/
 COPY src/. /app
 EXPOSE 5000
 ENV FLASK_APP=main.py
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "900", "--graceful-timeout", "600", "main:app"]
+CMD ["python3", "main.py"]
