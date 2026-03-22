@@ -1425,6 +1425,16 @@ function loadVideo()
                         key: function (event) {return event.code == "KeyP";},
                         handler: function (player, options, event) {document.querySelector('.vjs-picture-in-picture-control').click();},
                     },
+                    preciseBackwardKey:
+                    {
+                        key: function (event) {return event.code == "Comma";},
+                        handler: function (player, options, event) {player.currentTime(player.currentTime() - 0.1);},
+                    },
+                    preciseForwardKey:
+                    {
+                        key: function (event) {return event.code == "Period";},
+                        handler: function (player, options, event) {player.currentTime(player.currentTime() + 0.1);},
+                    },
                 },
                 captureDocumentHotkeys: true,
                 documentHotkeysFocusElementFilter: e => e.tagName.toLowerCase() === 'body',
