@@ -1,12 +1,10 @@
 # Ignore Python virtual environment files
-venv/
-env/
-.venv/
-.venv*/
-env*/
-.env
-download
-__pycache__/
-yt-dlp*
-ff*
-version.txt
+**/venv/
+**/env/
+**/.venv/
+**/.venv*/
+**/env*/
+**/.env
+**/download
+**/__pycache__/
+**/version.txt

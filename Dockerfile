@@ -9,7 +9,7 @@ RUN python src/version.py
 
 FROM python:3.13-alpine
 
-RUN apk add --no-cache ffmpeg
+RUN apk add --no-cache ffmpeg deno
 WORKDIR /app
 COPY src/requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt && \

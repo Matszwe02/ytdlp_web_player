@@ -58,9 +58,10 @@ App should be accessible at [http://localhost:5000](http://localhost:5000)
 
 ## 2. Run locally
 
-- Create and activate a virtual environment and install `requirements.txt`
+- Create and activate a virtual environment in `src/` and install `requirements.txt`
 - Copy `example.env` to `.env`, modify as needed
-- Ensure you have `ffmpeg` in PATH (typing `ffmpeg` in console should display ffmpeg info)
+- Install and ensure you have `ffmpeg` in PATH (typing `ffmpeg` in console should display ffmpeg info)
+  - Install and ensure you have `deno` or `node` in PATH (optional)
 - run with `python3 main.py`
 
 

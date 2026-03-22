@@ -35,7 +35,8 @@ download_path = os.environ.get('DOWNLOAD_PATH', './download')
 
 os.makedirs(download_path, exist_ok=True)
 ffmpeg = shutil.which("ffmpeg")
-ydl_global_opts = {'ffmpeg-location': ffmpeg, "noplaylist": True}
+ydl_global_opts = {'ffmpeg-location': ffmpeg, "noplaylist": True, "remote_components": ["ejs:github"]}
+if not shutil.which('deno'): ydl_global_opts["js_runtimes"] = {"node": {}}
 
 
 
