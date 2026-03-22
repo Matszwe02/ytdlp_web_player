@@ -125,7 +125,7 @@ function runScript() {
             // Prevent recursion: do not run script on its own domain
 
             // --- Video Selection Logic ---
-            const allVideos = Array.from(document.querySelectorAll('video'));
+            const allVideos = Array.from(document.querySelectorAll('video')).concat(Array.from(document.querySelectorAll('.html5-video-player')));
             console.log(`Total videos found: ${allVideos.length}`);
 
             // Filter out videos with zero or negative dimensions.
