@@ -127,6 +127,8 @@ def get_video_sources(url):
         audio_name = ''
         if f.get('acodec', 'none') != 'none':
             audio_name = 'audio_drc' if 'drc' in f"{f.get('format_id')} {f.get('format_note')}".lower() else 'audio'
+        if 'audio' in (f.get('format_id') or '') or f.get('acodec', 'audio_presumed') == 'audio_presumed':
+            audio_name = 'audio_presumed'
         name = video_name + audio_name
         quality = float(f.get('quality') or 0)
         if not name: continue
@@ -534,7 +536,7 @@ def download_file(url: str, media_type='video'):
                         audio_source = audio_source or sources[res_str]
                     else:
                         video_url = sources[res_str]
-                        audio_source = audio_source or sources.get('audio_drc') or sources.get('audio') # Prefer audio_drc
+                        audio_source = audio_source or sources.get('audio_drc') or sources.get('audio') or sources.get('audio_presumed')
 
                 print(f'sources: {video_url}, {audio_source}')
                 if not video_url and not audio_source:
