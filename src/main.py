@@ -77,6 +77,7 @@ def get_meta(url: str):
         print(f'downloading meta for {url}')
         ydl_opts = {'quiet': True, 'skip_download': True}
         ydl_opts.update(ydl_global_opts)
+        if cookies := check_media(url, 'cookies'): ydl_opts["cookiefile"] = cookies
         print(f'Running YT-DLP with opts: {ydl_opts}')
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.sanitize_info(ydl.extract_info(url, download=False))
