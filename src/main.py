@@ -439,20 +439,27 @@ def download_file(url: str, media_type='video'):
 
         if media_type == 'thumb':
             thumb_url = meta['thumbnail']
-            download_media_file(thumb_url, os.path.join(data_dir, 'thumb_orig'))
+            video_width = meta.get('width')
+            video_height = meta.get('height')
             try:
-                video_width = meta.get('width')
-                video_height = meta.get('height')
-
+                download_media_file(thumb_url, os.path.join(data_dir, 'thumb_orig'))
+            except Exception:
+                pass
+            try:
                 if video_width and video_height:
                     thumb_file = check_media(url=url, media_type='thumb_orig')
+                    if not thumb_file:
+                        print('Direct thumbnail download did not succeed. Downloading using yt-dlp.')
+                        ydl_opts.update({'writethumbnail': True, 'skip_download': True})
+                        dwnl(url, ydl_opts)
+                        thumb_file = check_media(url=url, media_type='thumb_orig')
 
                     ffmpeg_command = [
                         ffmpeg,
                         '-y',
                         '-i', thumb_file,
                         '-vf', f'crop=w=min(iw\\,ih*({video_width}/{video_height})):h=min(ih\\,iw*({video_height}/{video_width})):x=(iw-ow)/2:y=(ih-oh)/2',
-                        thumb_file.replace('thumb_orig', 'thumb')
+                        os.path.join(data_dir, 'thumb.jpg')
                     ]
                     run_ffmpeg(ffmpeg_command)
                     print(f"Thumbnail cropped to video aspect ratio {video_width}:{video_height} using ffmpeg")
