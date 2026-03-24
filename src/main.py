@@ -627,18 +627,36 @@ def download_file(url: str, media_type='video'):
             lang = media_type.split('-')[1]
             print(f'downloading sub for {lang=}')
 
-            sub = {**meta.get('subtitles', {}), **meta.get('automatic_captions', {})}.get(lang, '')
-            for i in sub:
-                if i.get('ext') == 'srt':
-                    sub_url = i.get('url')
-                    if sub_url:
-                        download_media_file(sub_url, os.path.join(data_dir, media_type), 'srt')
-                        break
-            else:
-                raise FileNotFoundError('Selected subtitles not found')
-            
+            try:
+                sub = {**meta.get('subtitles', {}), **meta.get('automatic_captions', {})}.get(lang, '')
+                for i in sub:
+                    if i.get('ext') == 'srt':
+                        sub_url = i.get('url')
+                        if sub_url:
+                            download_media_file(sub_url, os.path.join(data_dir, media_type), 'srt')
+                            break
+                    if i.get('ext') == 'vtt':
+                        sub_url = i.get('url')
+                        if sub_url:
+                            download_media_file(sub_url, os.path.join(data_dir, media_type), 'vtt')
+                            break
+                else:
+                    raise FileNotFoundError('Selected subtitles not found')
+                file = check_media(url=url, media_type=media_type)
+                if not file:
+                    raise FileNotFoundError('Selected subtitles not found')
+                with open(file, 'r') as f:
+                    if '-->' not in f.read():
+                        raise TypeError('Downloaded subtitles are not valid')
+
+            except Exception:
+                print('Direct subtitle download did not succeed. Downloading using yt-dlp.')
+                os.remove(check_media(url=url, media_type=media_type))
+                ydl_opts.update({'writesubtitles': True, 'skip_download': True, 'subtitleslangs': [lang]})
+                dwnl(url, ydl_opts)
+
             file = check_media(url=url, media_type=media_type)
-            if file:
+            if file and file.endswith('srt'):
                 with open(file, 'r') as f:
                     data = f.read()
                 data = re.sub(r'(\d{2}:\d{2}:\d{2}),(\d{3})', r'\1.\2', data)
