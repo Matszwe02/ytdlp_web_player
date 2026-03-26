@@ -197,6 +197,7 @@ video
 {
     display: block !important;
     transition: scale .1s ease-out;
+    outline: none;
 }
 
 
@@ -458,7 +459,8 @@ video
     color: white;
     font-size: 1.5em;
     margin: 0;
-    text-shadow: 0px 0px 4px rgba(0, 0, 0, 0.9);
+    padding: 0 2px;
+    text-shadow: .02em .02em .1em rgba(0, 0, 0, 0.7), .02em -.02em .1em rgba(0, 0, 0, 0.7),-.02em .02em .1em rgba(0, 0, 0, 0.7), -.02em -.02em .1em rgba(0, 0, 0, 0.7);
     pointer-events: all !important;
     width: fit-content;
     display: -webkit-box;
@@ -470,10 +472,11 @@ video
 }
 
 .vjs-uploader-text {
-    color: rgb(235, 235, 235);
+    color: white;
     font-size: 1.2em;
     margin-top: 5px;
-    text-shadow: 0px 0px 2px rgba(0, 0, 0, 0.7);
+    padding: 0 2px;
+    text-shadow: .02em .02em .1em rgba(0, 0, 0, 0.7), .02em -.02em .1em rgba(0, 0, 0, 0.7),-.02em .02em .1em rgba(0, 0, 0, 0.7), -.02em -.02em .1em rgba(0, 0, 0, 0.7);
     pointer-events: all !important;
     width: fit-content;
 }
@@ -493,7 +496,7 @@ video
 .vjs-text-track-cue > div
 {
     background-color: transparent !important;
-    text-shadow: 0 0 4pt black;
+    text-shadow: 1px 1px .1em rgba(0, 0, 0, 0.9), 1px -1px .1em rgba(0, 0, 0, 0.9),-1px 1px .1em rgba(0, 0, 0, 0.9), -1px -1px .1em rgba(0, 0, 0, 0.9);
 }
 
 
