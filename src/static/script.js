@@ -252,27 +252,32 @@ function setVideoQuality(height = 0, button = null)
                 {
                     var segments = playlist.split('\n');
                     const segmentToDownload = String(Math.ceil((player.currentTime() + 5)/10)).padStart(4,'0') + ".ts";
-                    segments.forEach(segment => {
-                        if (segment.endsWith(segmentToDownload))
+                    var selectedSegment;
+                    for (let i = 0; i < segments.length; i++) {
+                        const segment = segments[i];
+                        if (segment.endsWith('.ts'))
                         {
-                            retryFetch(segment, {}, 1)
-                                .then(response => {
-                                    const switchTime = player.currentTime();
-                                    const isPlaying = !player.paused();
-                                    applyVideoQuality();
-                                    player.currentTime(switchTime);
-                                    if (isPlaying) player.play();
-                                    buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
-                                    button?.classList?.add('vjs-menu-option-selected');
-                                })
-                                .catch(error => {
-                                    console.log('HLS not ready. Retrying fetching...');
-                                    setTimeout(() => {
-                                        tryToFetchHLS();
-                                    }, 1000);
-                                });
+                            selectedSegment = segment;
+                            if (segment.endsWith(segmentToDownload))
+                                break;
                         }
-                    });
+                    }
+                    retryFetch(selectedSegment, {}, 1)
+                        .then(response => {
+                            const switchTime = player.currentTime();
+                            const isPlaying = !player.paused();
+                            applyVideoQuality();
+                            player.currentTime(switchTime);
+                            if (isPlaying) player.play();
+                            buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
+                            button?.classList?.add('vjs-menu-option-selected');
+                        })
+                        .catch(error => {
+                            console.log('HLS not ready. Retrying fetching...');
+                            setTimeout(() => {
+                                tryToFetchHLS();
+                            }, 1000);
+                        });
                 }
                 tryToFetchHLS();
         });
