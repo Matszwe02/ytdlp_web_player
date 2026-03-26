@@ -19,6 +19,7 @@ except:
 
 
 ffmpeg_version = '-'
+app_version = '-'
 
 class Downloader:
 
@@ -54,12 +55,21 @@ class Downloader:
 
     @staticmethod
     def get_app_version():
+        global app_version
+        if app_version != '-': return app_version
         try:
-            with open('version.txt', 'r') as f:
-                return f.read()
-        except:
-            pass
-        return '-'
+            if os.path.exists('version.txt'):
+                with open('version.txt', 'r') as f:
+                    app_version = f.read()
+            else:
+                import version
+                shutil.move('version.txt', 'version-dynamic.txt')
+                with open('version-dynamic.txt', 'r') as f:
+                    app_version = f.read()
+        except Exception as e:
+            print(e)
+            return '-'
+        return app_version
 
 
     @staticmethod

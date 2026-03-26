@@ -8,4 +8,5 @@
 **/download
 **/__pycache__/
 **/version.txt
+**/version-dynamic.txt
 .ssl/
