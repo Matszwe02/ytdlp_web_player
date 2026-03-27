@@ -353,6 +353,7 @@ def check_media(url: str, media_type: str):
     try:
         for i in os.listdir(data_dir):
             if i.endswith('.part'): continue
+            if i.endswith('.ytdl'): continue
             if i.endswith('.temp'): continue
             if i.count('_') != media_type.count('_'): continue
             if i.startswith(media_type):
