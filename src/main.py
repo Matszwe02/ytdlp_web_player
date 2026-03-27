@@ -156,8 +156,8 @@ def get_fastest_quality(url):
     formats = meta.get('formats', [])
     for f in formats:
         if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and f.get('protocol') == 'https':
-            return f.get('url'), f.get('ext')
-    return None, None
+            return f.get('url')
+    return None
 
 
 def get_good_quality(formats: list):
@@ -899,8 +899,7 @@ def download_ytdlp(filename):
 def resp_fastest_stream():
     try:
         url = get_url(request)
-        fastest_url, _ = get_fastest_quality(url)
-        if fastest_url:
+        if fastest_url := get_fastest_quality(url):
             return stream_media_file(fastest_url)
         return download_media()
     except Exception as e:
