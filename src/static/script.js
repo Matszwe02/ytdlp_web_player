@@ -494,7 +494,7 @@ class DownloadButton extends videojs.getComponent('Button')
     {
         super(player, options);
         this.addClass('menu-button');
-        this.controlText('Download Video');
+        this.controlText('Download');
         this.startTime = null;
         this.endTime = null;
         this.startBtn = null;
@@ -642,7 +642,7 @@ class RepeatButton extends videojs.getComponent('Button')
     {
         super(player, options);
         this.addClass('menu-button');
-        this.controlText('Toggle Repeat');
+        this.controlText('Repeat');
         this.el().innerHTML = '<i class="fa-solid fa-repeat"></i>';
         this.repeatActive = false;
         this.repeatStartTime = null;
@@ -771,7 +771,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
     {
         super(player, options);
         this.addClass('menu-button');
-        this.controlText('Select Resolution');
+        this.controlText('Resolution');
         this.el().innerHTML = '<i class="fa-solid fa-sliders"></i>';
         this.el().style.display = 'none';
         
