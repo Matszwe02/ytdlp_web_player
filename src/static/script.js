@@ -22,6 +22,7 @@ function tryStopPropagation(event)
         event.stopPropagation();
     }
     catch (error) {}
+    player.el().focus();
 }
 
 
@@ -1607,7 +1608,9 @@ function loadVideo()
                 player.on('timeupdate', checkSponsorTime);
             }
         });
-
+    document.addEventListener('click', (e) => {
+        player.el().focus();
+    });
 }
 
 
