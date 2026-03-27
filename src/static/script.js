@@ -166,6 +166,7 @@ function getVideoSource()
     const originalUrl = urlParams.get('v') || urlParams.get('url');
     var quality = urlParams.get('quality');
     if (quality == '') quality = null;
+    if (quality == 'null') quality = null;
     const hlsEnabled = quality != null && quality != 'audio'
     console.log(`Video quality: ${quality} ${hlsEnabled ? '(HLS)' : ''}`);
 
