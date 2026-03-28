@@ -1586,6 +1586,31 @@ function loadVideo()
 
             setInterval(()=>{ fetch(getVideoSource()[0]).then(response => response.ok); }, 120000); // Keepalive
 
+            if (meta.auto_bg_playback)
+            {
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'hidden')
+                    {
+                        if (!player.src().includes('&quality=audio')) // assume audio always works
+                        {
+                            const switchTime = player.currentTime();
+                            const isPlaying = !player.paused();
+                            player.src({ src: `/download?url=${encodeURIComponent(originalUrl)}&quality=audio`, type: 'audio/mpeg' });
+                            player.currentTime(switchTime);
+                            if (isPlaying) player.play();
+                        }
+                    }
+                    else
+                    {
+                        const urlParams = new URLSearchParams(window.location.search);
+                        if (urlParams.get('quality') != 'audio')
+                        {
+                            setVideoQuality();
+                        }
+                    }
+                });
+            }
+
         })
         .catch(error => {
             console.error('Error fetching video:', error);

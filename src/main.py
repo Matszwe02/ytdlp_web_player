@@ -31,6 +31,7 @@ default_quality = int(os.environ.get('DEFAULT_QUALITY', '720'))
 load_default_quality = (os.environ.get('LOAD_DEFAULT_QUALITY', 'True')).lower() == 'true'
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
 playlist_support = os.environ.get('PLAYLIST_SUPPORT', 'False').lower() == 'true'
+auto_bg_playback = os.environ.get('AUTO_BG_PLAYBACK', 'False').lower() == 'true'
 download_path = os.environ.get('DOWNLOAD_PATH', './download')
 disable_transcoding = os.environ.get('DISABLE_TRANSCODING', 'False').lower() == 'true'
 
@@ -213,6 +214,7 @@ def clean_meta(raw_meta: dict):
     meta['default_quality'] = get_good_quality(meta['formats'])
     meta['load_default_quality'] = load_default_quality
     meta['playlist_support'] = playlist_support
+    meta['auto_bg_playback'] = auto_bg_playback
     return meta
 
 
