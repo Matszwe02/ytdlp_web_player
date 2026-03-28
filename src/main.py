@@ -180,7 +180,7 @@ def search(query, search_engine='auto'):
         info = ydl.sanitize_info(ydl.extract_info(query, download=False))
     entries = info.get('entries', [{}])
     for entry in entries:
-        entry['original_url'] = append_query_to_url(entry['original_url'], query)
+        entry['original_url'] = normalize_url(append_query_to_url(entry['original_url'], query))
     return entries
 
 
@@ -236,10 +236,7 @@ def keepalive(data_dir):
         f.write(str(int(time.time())))
 
 
-def get_url(req):
-    url = req.args.get('v') or req.args.get('url') or None
-    if url is None or len(url) < 3: return None
-
+def normalize_url(url):
     parsed_url = urlparse(url)
     query_params = parse_qs(parsed_url.query)
 
@@ -253,6 +250,12 @@ def get_url(req):
         if get_meta(yt_url):
             url = yt_url
     return url
+
+
+def get_url(req):
+    url = req.args.get('v') or req.args.get('url') or None
+    if url is None or len(url) < 3: return None
+    return normalize_url(url)
 
 
 def append_query_to_url(url, query):
@@ -485,6 +488,7 @@ def download_file(url: str, media_type='video'):
                     input_entries = ydl.sanitize_info(ydl.extract_info(url, download=False)).get('entries', {})
 
             for entry in input_entries:
+                entry['original_url'] = normalize_url(entry['original_url'])
                 entries.append(clean_meta(entry))
             for entry in input_entries:
                 preload(meta=entry, playlist=entries)
