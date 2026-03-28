@@ -32,9 +32,17 @@ load_default_quality = (os.environ.get('LOAD_DEFAULT_QUALITY', 'True')).lower() 
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
 playlist_support = os.environ.get('PLAYLIST_SUPPORT', 'False').lower() == 'true'
 download_path = os.environ.get('DOWNLOAD_PATH', './download')
+disable_transcoding = os.environ.get('DISABLE_TRANSCODING', 'False').lower() == 'true'
+
 
 os.makedirs(download_path, exist_ok=True)
 ffmpeg = shutil.which("ffmpeg")
+if disable_transcoding:
+    ffmpeg = None
+    print("Running in no-transcoding mode. Resolution selection will not work, and some videos will fail to load!")
+elif not ffmpeg:
+    raise RuntimeError("FFMPEG can not be detected in your system. Install FFMPEG or disable transcoding.")
+
 ydl_global_opts = {'ffmpeg-location': ffmpeg, "noplaylist": True, "remote_components": ["ejs:github"]}
 if not shutil.which('deno'): ydl_global_opts["js_runtimes"] = {"node": {}}
 
