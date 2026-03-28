@@ -70,6 +70,9 @@ App should be accessible at [http://localhost:5000](http://localhost:5000)
 
 - Copy `src/example.env` to `src/.env`, modify as needed
 - If you want to add your own cookies, create `src/cookies.txt` file and enable in `compose.yml` if using docker
+    - Keep in mind that cookies work the same way as your account credentails - anyone having them may [mess up your account](youtu.beyGXaAWbzl5A).\
+    So I only recommend putting throwaway accounts here.\
+    Extension in current version also sends your cookies to the server, but they are deleted when video is cleaned up.
 
 
 # Troubleshooting
