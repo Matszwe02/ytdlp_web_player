@@ -861,7 +861,7 @@ def serve_sprite_by_path(url):
 
 @app.route('/sb')
 def get_sponsor_segments():
-    return get_sb(get_url(request)) or ("No sponsorblock data found for this video", 404)
+    return get_sb(get_url(request)) or []
 
 
 @app.route('/raw')
