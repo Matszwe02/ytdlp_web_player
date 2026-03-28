@@ -6,4 +6,5 @@
 **/env*/
 **/download
 **/__pycache__/
-.ssl/
+**/.ssl/
+**/cookies.txt

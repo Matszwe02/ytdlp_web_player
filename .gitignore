@@ -9,4 +9,5 @@
 **/__pycache__/
 **/version.txt
 **/version-dynamic.txt
-.ssl/
+**/.ssl/
+**/cookies.txt

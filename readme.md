@@ -53,7 +53,6 @@ App should be accessible at [http://localhost:5000](http://localhost:5000)
   ```sh
   docker compose up
   ```
-- Modify `compose.yml`'s environment variables as needed
 - For automatic app updates, see `compose.yml`
 - To enable HTTPS, see `compose.yml`
   - then you can access the app with `https://localhost:5001`
@@ -62,10 +61,15 @@ App should be accessible at [http://localhost:5000](http://localhost:5000)
 ## 2. Run locally
 
 - Create and activate a virtual environment in `src/` and install `requirements.txt`
-- Copy `example.env` to `.env`, modify as needed
 - Install and ensure you have `ffmpeg` in PATH (typing `ffmpeg` in console should display ffmpeg info)
   - Install and ensure you have `deno` or `node` in PATH (optional)
 - run with `python3 main.py`
+
+
+## Configure
+
+- Copy `src/example.env` to `src/.env`, modify as needed
+- If you want to add your own cookies, create `src/cookies.txt` file and enable in `compose.yml` if using docker
 
 
 # Troubleshooting

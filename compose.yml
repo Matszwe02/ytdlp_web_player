@@ -2,18 +2,11 @@ services:
     ytdlp_web_player:
         # build: .
         image: matszwe02/ytdlp_web_player
+        # volumes:
+        #     - ./src/cookies.txt:/app/cookies.txt
         restart: unless-stopped
-        environment:
-            - APP_TITLE=YT-DLP Player
-            - THEME_COLOR=#ff7300
-            - GENERATE_SPRITE_BELOW=1800 # video length in seconds
-            - AMOLED_BG=false
-            - MAX_VIDEO_AGE=3600 # video will be removed after inactivity, in seconds
-            - MAX_VIDEO_DURATION=36000
-            - DEFAULT_QUALITY=720
-            - LOAD_DEFAULT_QUALITY=true
-            - PLAYLIST_SUPPORT=false
-            - DOWNLOAD_PATH=./download
+        env_file:
+            - src/.env
         ports:
             - 5000:5000
 

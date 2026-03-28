@@ -66,6 +66,11 @@ def get_data_dir(url):
     return data_dir
 
 
+def get_global_cookies_file():
+    if os.path.exists('cookies.txt'): return 'cookies.txt'
+    return None
+
+
 def get_meta(url: str):
     with FileCachingLock(url, 'meta') as cache:
         print(cache)
@@ -77,7 +82,7 @@ def get_meta(url: str):
         print(f'downloading meta for {url}')
         ydl_opts = {'quiet': True, 'skip_download': True}
         ydl_opts.update(ydl_global_opts)
-        if cookies := check_media(url, 'cookies'): ydl_opts["cookiefile"] = cookies
+        if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["cookiefile"] = cookies
         print(f'Running YT-DLP with opts: {ydl_opts}')
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.sanitize_info(ydl.extract_info(url, download=False))
@@ -417,7 +422,7 @@ def download_file(url: str, media_type='video'):
         
         ydl_opts = {"outtmpl": output_path}
         ydl_opts.update(ydl_global_opts)
-        if cookies := check_media(url, 'cookies'): ydl_opts["cookiefile"] = cookies
+        if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["cookiefile"] = cookies
         meta = get_meta(url)
         if int(meta.get('duration', 0)) > max_video_duration: raise ValueError("Video too long for this app to handle")
         timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
@@ -503,7 +508,7 @@ def download_file(url: str, media_type='video'):
 
 
         elif media_type.startswith('video'):
-            if cookies := check_media(url, 'cookies'): ydl_opts["mark_watched"] = True
+            if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["mark_watched"] = True
             height_param = "" if media_type.startswith('video-best') else f'[height<={res}]'
             if timestamps:
                 if vid := check_media(url, media_type.split('_')[0]):
@@ -994,7 +999,9 @@ def cookies_endpoint():
         url = get_url(request)
         cookies = request.form.get('cookies')
         if not cookies: return jsonify({"error": "cookies are required"}), 400
-        
+        if file := get_global_cookies_file():
+            with open(file, 'r') as f:
+                cookies += '\n' + f.read()
         with open(os.path.join(get_data_dir(url), 'cookies.txt'), 'w') as f:
             f.write(cookies)
         return "OK", 200
