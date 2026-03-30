@@ -676,9 +676,10 @@ def download_file(url: str, media_type='video'):
                     if '-->' not in f.read():
                         raise TypeError('Downloaded subtitles are not valid')
 
-            except Exception:
-                print('Direct subtitle download did not succeed. Downloading using yt-dlp.')
-                os.remove(check_media(url=url, media_type=media_type))
+            except Exception as e:
+                print(f'Direct subtitle download did not succeed: {e}. Downloading using yt-dlp.')
+                if f := check_media(url=url, media_type=media_type):
+                    os.remove(f)
                 ydl_opts.update({'writesubtitles': True, 'skip_download': True, 'subtitleslangs': [lang]})
                 dwnl(url, ydl_opts)
 
