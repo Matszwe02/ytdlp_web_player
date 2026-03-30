@@ -262,8 +262,10 @@ def normalize_url(url):
         url = 'https://youtube.com/watch?v=' + url
     if '/watch?v=' in url:
         yt_url = 'https://youtube.com/watch?v=' + url.split('/watch?v=')[1]
-        if get_meta(yt_url):
-            url = yt_url
+        try:
+            if get_meta(yt_url):
+                url = yt_url
+        except: pass
     return url
 
 
