@@ -198,6 +198,34 @@ def search(query, search_engine='auto'):
     return entries
 
 
+def generate_chapters(desc: str):
+    try:
+        chapters = []
+        last_time = 0
+        def time_to_int(t: str):
+            parts = t.split(':')
+            secs = int(parts[-1])
+            if len(parts) >= 2: secs += int(parts[-2]) * 60
+            if len(parts) >= 3: secs += int(parts[-3]) * 3600
+            return secs
+
+        for line in desc.splitlines():
+            if line and line[0].isdigit():
+                line = line.strip()
+                lastchar = 0
+                for i in line:
+                    if i.isdigit() or i == ':':
+                        lastchar += 1
+                if lastchar < 3 or ':' not in line[0:lastchar]: continue
+                time = time_to_int(line[0:lastchar])
+                if time < last_time: break
+                last_time = time
+                chapters.append({'time': time, 'label': line[lastchar:].strip()})
+        return chapters if len(chapters) > 1 else []
+    except Exception:
+        return []
+
+
 def clean_meta(raw_meta: dict):
     meta = {}
     meta['title'] = raw_meta.get('title', '')
@@ -215,6 +243,7 @@ def clean_meta(raw_meta: dict):
     meta['load_default_quality'] = load_default_quality
     meta['playlist_support'] = playlist_support
     meta['auto_bg_playback'] = auto_bg_playback
+    meta['chapters'] = generate_chapters(raw_meta.get('description'))
     return meta
 
 
