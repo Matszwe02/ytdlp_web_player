@@ -206,7 +206,7 @@ def clean_meta(raw_meta: dict):
         meta['formats'] = get_video_formats(meta=raw_meta)
     except BaseException as e:
         meta['formats'] = jsonify({'error': (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))}), 403
-    meta['duration'] = f'{raw_meta["duration"]}'
+    meta['duration'] = f'{raw_meta.get("duration")}'
     meta['subtitles'] = get_subtitles(raw_meta)
     meta['width'] = raw_meta.get('width')
     meta['height'] = raw_meta.get('height')
