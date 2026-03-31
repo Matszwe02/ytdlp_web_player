@@ -1551,7 +1551,10 @@ function loadVideo()
                 if (spriteElement && !isNaN(spriteDuration) && videoLength < spriteDuration)
                 {
                     player.spriteThumbnails({ url: `/sprite?${urlParams.toString()}`, width: 160, height: 90, columns: 10, interval: 10 });
-                    retryFetch(`/sprite?${urlParams.toString()}`, { visible: false }).then(response => response.text());
+                    player.spriteThumbnails().setState({ready: false});
+                    retryFetch(`/sprite?${urlParams.toString()}`, { visible: false }).then(response => {
+                        player.spriteThumbnails().setState({ready: true});
+                    });
                 }
             }
             catch {}
