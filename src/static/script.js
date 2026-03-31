@@ -1228,7 +1228,7 @@ class PlaylistComponent extends Component
             }
 
             const link = videojs.dom.createEl('a', {
-                href: `/watch?url=${encodeURIComponent(item.url)}`
+                href: `${window.location.pathname}?url=${encodeURIComponent(item.url)}`
             });
 
             const thumbnail = videojs.dom.createEl('img', {
