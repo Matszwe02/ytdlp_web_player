@@ -923,7 +923,11 @@ def resp_fastest_stream():
         url = get_url(request)
         if fastest_url := get_fastest_quality(url):
             return stream_media_file(fastest_url)
-        return download_media()
+        if check_media(url, 'video'):
+            return host_file(url, 'video')
+        res = get_good_quality(get_video_formats(url)) 
+        media_type = f'hls-{res}'.removesuffix('-p')
+        return host_file(get_url(request), media_type)
     except Exception as e:
         return pprint_exc(e)
 
