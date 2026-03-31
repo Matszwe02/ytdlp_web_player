@@ -54,11 +54,39 @@ app_version = Downloader.get_app_version()
 
 
 
-def run_ffmpeg(ffmpeg_command, popen=False):
-    print(f'Running FFMPEG: {ffmpeg_command}')
-    if popen:
-        return subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return subprocess.run(ffmpeg_command, capture_output=True)
+class FFMPEG:
+    def __init__(self, ffmpeg_command=None):
+        """
+        Provide ffmpeg_command to run synchronously. Check with `success`
+        """
+        self._p = None
+        self.ffmpeg = ffmpeg
+        self.ff_id = sha1(f'{time.time()}'.encode()).hexdigest()[:6]
+        self.success = False
+        if ffmpeg_command and self.ffmpeg:
+            self.run(ffmpeg_command)
+
+    def kill(self):
+        if self._p is None: return
+        self._p.kill()
+        time.sleep(0.2)
+        print(f'[FFMPEG {self.ff_id}] Killed')
+
+    def run(self, ffmpeg_command):
+        """
+        Also runs synchronously, but can be placed in `Thread`
+        """
+        if not self.ffmpeg: return None
+        ffmpeg_command = [self.ffmpeg] + ffmpeg_command
+        
+        print(f'[FFMPEG {self.ff_id}] Executing {ffmpeg_command}')
+        self._p = subprocess.Popen(ffmpeg_command, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+        for line in self._p.stdout: print(f'[FFMPEG {self.ff_id}] {line.decode().strip()}')
+        self._p.wait()
+        print(f'[FFMPEG {self.ff_id}] Finished')
+        self.success = True
+
+
 
 def pprint_exc(e, code = 500):
     error = (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))
@@ -505,13 +533,12 @@ def download_file(url: str, media_type='video'):
                         thumb_file = check_media(url=url, media_type='thumb_orig')
 
                     ffmpeg_command = [
-                        ffmpeg,
                         '-y',
                         '-i', thumb_file,
                         '-vf', f'crop=w=min(iw\\,ih*({video_width}/{video_height})):h=min(ih\\,iw*({video_height}/{video_width})):x=(iw-ow)/2:y=(ih-oh)/2',
                         os.path.join(data_dir, 'thumb.jpg')
                     ]
-                    run_ffmpeg(ffmpeg_command)
+                    if not FFMPEG(ffmpeg_command).success: raise RuntimeError('FFMPEG failed to crop thumbnail')
                     print(f"Thumbnail cropped to video aspect ratio {video_width}:{video_height} using ffmpeg")
                     os.remove(thumb_file)
                 else:
@@ -553,19 +580,21 @@ def download_file(url: str, media_type='video'):
             height_param = "" if media_type.startswith('video-best') else f'[height<={res}]'
             if timestamps:
                 if vid := check_media(url, media_type.split('_')[0]):
-                    run_ffmpeg([ffmpeg, '-i', vid, "-ss", f'{start_time}', "-to", f'{end_time}', os.path.join(get_data_dir(url), media_type + '.mp4')])
+                    FFMPEG(['-i', vid, "-ss", f'{start_time}', "-to", f'{end_time}', os.path.join(get_data_dir(url), media_type + '.mp4')])
                 else:
                     ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(data_dir, f'{media_type}.%(ext)s')})
                     dwnl(url, ydl_opts)
             else:
-                ydl_opts.update({"format": f"bestvideo{height_param}/best", "outtmpl": os.path.join(data_dir, f'temp-{media_type}.%(ext)s')})
-                dwnl(url, ydl_opts)
-                audio_file = check_media(url, 'audio') or download_file(url, 'audio')
-                temp_video = check_media(url, f'temp-{media_type}')
-                proc = run_ffmpeg([ffmpeg, '-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')])
-                os.remove(temp_video)
-                if proc.returncode != 0:
-                    print(f'Falling back to standard video download due to FFMPEG error: {proc.stderr}')
+                try:
+                    ydl_opts.update({"format": f"bestvideo{height_param}/best", "outtmpl": os.path.join(data_dir, f'temp-{media_type}.%(ext)s')})
+                    dwnl(url, ydl_opts)
+                    audio_file = check_media(url, 'audio') or download_file(url, 'audio')
+                    temp_video = check_media(url, f'temp-{media_type}')
+                    success = FFMPEG(['-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]).success
+                finally:
+                    if temp_video: os.remove(temp_video)
+                if not success:
+                    print(f'Falling back to standard video download due to FFMPEG error')
                     ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(data_dir, f'{media_type}.%(ext)s')})
                     dwnl(url, ydl_opts)
 
@@ -585,9 +614,7 @@ def download_file(url: str, media_type='video'):
             audio_source = None
             video_file_path = check_media(url=url, media_type='video-' + res_str)
 
-            if video_file_path:
-                print(f'Generating HLS from {video_file_path}')
-            else:
+            if not video_file_path:
                 audio_source = check_media(url, 'audio')
                 if res_str in sources:
                     if res_str == 'audio' or res_str == 'audio_drc':
@@ -596,7 +623,6 @@ def download_file(url: str, media_type='video'):
                         video_url = sources[res_str]
                         audio_source = audio_source or sources.get('audio_drc') or sources.get('audio') or sources.get('audio_presumed')
 
-                print(f'sources: {video_url}, {audio_source}')
                 if not video_url and not audio_source:
                     print('Could not find any suitable streamable video format: Downloading the whole video')
                     video_file_path = download_file(url, f'video-{res}p')
@@ -622,8 +648,6 @@ def download_file(url: str, media_type='video'):
             if video_file_path:
                 ffmpeg_command = ['-i', video_file_path] + ffmpeg_command
 
-            ffmpeg_command = [ffmpeg] + ffmpeg_command
-
             seg_time = 0
             seg_num = 0
             duration = meta["duration"]
@@ -642,16 +666,15 @@ def download_file(url: str, media_type='video'):
                 nonlocal video_file_path
                 try:
                     if not video_file_path:
-                        proc = run_ffmpeg(ffmpeg_command, popen=True)
+                        ff = FFMPEG()
+                        Thread(target=ff.run, args=[ffmpeg_command]).start()
                         time.sleep(10)
                         video_file_path = download_file(url, f'video-{res}p')
                         if not video_file_path: raise RuntimeError('Could not download video')
-                        proc.kill()
+                        ff.kill()
                         os.rename(m3u8_path, temp_m3u8_path)
                         download_file(url, media_type)
-                        return
-                    proc = run_ffmpeg(ffmpeg_command)
-                    if proc.returncode == 0:
+                    elif FFMPEG(ffmpeg_command).success:
                         print(f"FFMPEG Finished HLS Conversion!")
                         with open(temp_m3u8_path, 'r') as f:
                             contents = f.read()
@@ -659,7 +682,7 @@ def download_file(url: str, media_type='video'):
                             f.write(contents.replace('segment', seg_path + 'segment'))
                         os.remove(temp_m3u8_path)
                     else:
-                        print(f"An unexpected FFMPEG error occurred during HLS conversion: {proc.stderr}")
+                        print(f"An FFMPEG error occurred during HLS conversion")
                 except Exception as e:
                     print(f"An unexpected error occurred during HLS conversion: {e}")
 
@@ -668,7 +691,6 @@ def download_file(url: str, media_type='video'):
 
         elif media_type.startswith('low'):
             ffmpeg_command = [
-                ffmpeg,
                 '-i', download_file(url, 'video'),
                 '-c:v', 'libx265',
                 '-crf', '38',
@@ -678,7 +700,7 @@ def download_file(url: str, media_type='video'):
                 '-preset', 'veryfast',
                 os.path.join(get_data_dir(get_url(request)), 'low.mp4')
             ]
-            run_ffmpeg(ffmpeg_command).check_returncode()
+            FFMPEG(ffmpeg_command)
 
 
         elif media_type.startswith('sub'):
@@ -739,15 +761,13 @@ def download_file(url: str, media_type='video'):
                 frames_per_row = 10
 
                 ffmpeg_command = [
-                    ffmpeg,
                     '-i', video_path,
                     '-vf', f'fps={1/frame_interval},scale={frame_width}:{frame_height}',
                     os.path.join(sprite_dir, 'frame_%04d.jpg')
                 ]
 
                 try:
-                    run_ffmpeg(ffmpeg_command)
-                    # Create sprite image
+                    if not FFMPEG(ffmpeg_command).success: raise RuntimeError('FFMPEG failed to extract sprite')
                     frame_files = sorted(os.listdir(sprite_dir))
                     num_frames = len(frame_files)
                     num_rows = math.ceil(num_frames / frames_per_row)
