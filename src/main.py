@@ -898,7 +898,7 @@ def download_media():
 @app.route('/low')
 def download_low_quality():
     try:
-        host_file(get_url(request), 'low')
+        return host_file(get_url(request), 'low')
     except Exception as e:
         return pprint_exc(e)
 
