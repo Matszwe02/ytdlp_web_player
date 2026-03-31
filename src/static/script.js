@@ -1586,9 +1586,10 @@ function loadVideo()
 
             setInterval(()=>{ fetch(getVideoSource()[0]).then(response => response.ok); }, 120000); // Keepalive
 
-            if (meta.auto_bg_playback)
+            if (meta.auto_bg_playback && navigator.userAgentData.mobile)
             {
                 document.addEventListener('visibilitychange', () => {
+                    if (player.isInPictureInPicture()) return;
                     if (document.visibilityState === 'hidden')
                     {
                         if (!player.src().includes('&quality=audio')) // assume audio always works
