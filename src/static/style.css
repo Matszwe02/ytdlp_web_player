@@ -667,6 +667,20 @@ video
     font-size: 1.5em !important;
 }
 
+.vjs-marker
+{
+    position: absolute;
+    background: rgba(255, 255, 255, 0.7);
+    width: 2px;
+    height: calc(100% + 6px);
+    top: -3px;
+    z-index: 1;
+    margin-left: -1px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    padding: 1px;
+}
+
 @media only screen and (max-width: 900px)
 {
     .vjs-playlist-item

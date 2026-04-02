@@ -160,6 +160,94 @@ screen.orientation.addEventListener("change", (event) => {
 });
 
 
+function loadChapters()
+{
+    var duration = player.duration();
+    var progressEl = player.controlBar.progressControl.children_[0].el_;
+    var timeToolip = progressEl.querySelector('.vjs-time-tooltip');
+    var chapterHoverTooltip = document.createElement('div');
+    chapterHoverTooltip.className = 'vjs-time-tooltip chapter-tooltip';
+    chapterHoverTooltip.style.display = "none";
+    progressEl.querySelector('.vjs-mouse-display').appendChild(chapterHoverTooltip);
+
+    let isHoveringProgressBar = false;
+
+    function turnOnChapterLabel(label)
+    {
+        chapterHoverTooltip.style.display = "block";
+        chapterHoverTooltip.style.right = timeToolip.style.right;
+        chapterHoverTooltip.textContent = label;
+        chapterHoverTooltip.style.transform = 'translateY(-100%)';
+    }
+
+    function turnOffChapterLabel()
+    {
+        chapterHoverTooltip.style.display = "none";
+    }
+
+    function updateChapterVisibility(currentTime)
+    {
+        const progressControlWidth = progressEl.clientWidth;
+        const scale = duration / progressControlWidth;
+        const margin = 4; // px
+        let chapterFound = false;
+        for (let i = 0; i < meta.chapters.length; i++)
+        {
+            const chapter = meta.chapters[i];
+            const diff = currentTime - chapter.time;
+            if (diff > (-margin * scale) && diff < (margin * scale))
+            {
+                turnOnChapterLabel(chapter.label);
+                chapterFound = true;
+                break;
+            }
+        }
+        if (!chapterFound)
+        {
+            turnOffChapterLabel();
+        }
+    }
+
+    function onProgressBarMove(event)
+    {
+        isHoveringProgressBar = true;
+        const progressControlWidth = progressEl.clientWidth;
+        const rect = progressEl.getBoundingClientRect();
+        const mouseX = (event.touches && event.touches[0] ? event.touches[0].clientX : event.clientX) - rect.left;
+
+        updateChapterVisibility((mouseX / progressControlWidth) * duration);
+    }
+
+    function onProgressBarLeave()
+    {
+        isHoveringProgressBar = false;
+        turnOffChapterLabel();
+    }
+
+    function updateChapterTooltipOnPlayback()
+    {
+        if (isHoveringProgressBar) return;
+        updateChapterVisibility(player.currentTime());
+    }
+
+    player.controlBar.progressControl.on(['mousemove', 'touchmove'], onProgressBarMove);
+    player.controlBar.progressControl.on(['mouseout', 'touchend'], onProgressBarLeave);
+    player.on('timeupdate', updateChapterTooltipOnPlayback);
+
+
+    for(let i=0; i<meta.chapters.length; i++)
+    {
+        var el = document.createElement('div');
+        el.className = 'vjs-marker';
+        el.style.left = `${(meta.chapters[i].time / duration * 100)}%`;
+        let label = meta.chapters[i].label;
+        el.addEventListener('mouseover', ()=>{turnOnChapterLabel(label);});
+        el.addEventListener('mouseout', turnOffChapterLabel);
+        progressEl.appendChild(el);
+    }
+}
+
+
 function getVideoSource()
 {
     const urlParams = new URLSearchParams(window.location.search);
@@ -1501,6 +1589,9 @@ function loadVideo()
         errorDisplay.classList.remove('spinner-parent');
         errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
         playerContainer.querySelector('.vjs-control-bar').classList.add('display-flex');
+
+        if (meta.chapters.length > 0)
+            loadChapters();
     });
     retryFetch(`/meta?${urlParams.toString()}`)
         .then(response => response.json())
