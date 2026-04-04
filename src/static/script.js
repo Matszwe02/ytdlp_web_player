@@ -13,6 +13,37 @@ let repeatEndTime = 0;
 
 
 
+class PlayerState
+{
+    constructor()
+    {
+        this.switchTime = 0;
+        this.isPlaying = false;
+        this.tracks = null;
+    }
+    save()
+    {
+        this.switchTime = player.currentTime();
+        this.isPlaying = !player.paused();
+        this.tracks = JSON.parse(JSON.stringify(player.textTracks()));
+        console.log(this.tracks);
+    }
+    apply()
+    {
+        player.currentTime(this.switchTime);
+        if (this.isPlaying) player.play();
+        console.log(this.tracks);
+        for (let i = 0; i < this.tracks.length; i++)
+        {
+            const track = this.tracks[i];
+            if (track.kind == 'subtitles') player.addRemoteTextTrack(track);
+        }
+        console.log(this.tracks);
+    }
+}
+let ps = new PlayerState();
+
+
 function tryStopPropagation(event)
 {
     try
@@ -284,7 +315,9 @@ function applyVideoQuality()
 
     const videoEl = player.el().querySelector('video');
     const posterEl = player.el().querySelector('.vjs-poster');
+    ps.save();
     player.src({ src: videoSource[0], type: videoSource[1] });
+    ps.apply();
 
     if (quality === 'audio')
     {
@@ -354,11 +387,7 @@ function setVideoQuality(height = 0, button = null)
                     }
                     retryFetch(selectedSegment, {}, 1)
                         .then(response => {
-                            const switchTime = player.currentTime();
-                            const isPlaying = !player.paused();
                             applyVideoQuality();
-                            player.currentTime(switchTime);
-                            if (isPlaying) player.play();
                             buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
                             button?.classList?.add('vjs-menu-option-selected');
                         })
@@ -376,11 +405,7 @@ function setVideoQuality(height = 0, button = null)
     {
         retryFetch(getVideoSource()[0], { signal })
             .then(response => {
-                const switchTime = player.currentTime();
-                const isPlaying = !player.paused();
                 applyVideoQuality();
-                player.currentTime(switchTime);
-                if (isPlaying) player.play();
                 buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
                 button?.classList?.add('vjs-menu-option-selected');
 
@@ -1688,11 +1713,9 @@ function loadVideo()
                     {
                         if (!player.src().includes('&quality=audio')) // assume audio always works
                         {
-                            const switchTime = player.currentTime();
-                            const isPlaying = !player.paused();
+                            ps.save();
                             player.src({ src: `/download?url=${encodeURIComponent(originalUrl)}&quality=audio`, type: 'audio/mpeg' });
-                            player.currentTime(switchTime);
-                            if (isPlaying) player.play();
+                            ps.apply();
                         }
                     }
                     else
