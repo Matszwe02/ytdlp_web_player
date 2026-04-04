@@ -55,6 +55,28 @@ app_version = Downloader.get_app_version()
 
 
 
+class YTDLP:
+    @staticmethod
+    def download(url, opts):
+        print(f'Running YT-DLP download with opts: {opts}')
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            try:
+                ydl.download_with_info_file(check_media(url, 'meta'))
+            except Exception as e:
+                pprint_exc(e)
+                print('An error occured when downloading with meta. Downloading without meta...')
+                ydl.download(unquote(url))
+
+
+    @staticmethod
+    def get_info(url, opts):
+        print(f'Running YT-DLP extract_info with opts: {opts}')
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.sanitize_info(ydl.extract_info(url, download=False))
+        return info
+
+
+
 class FFMPEG:
     def __init__(self, ffmpeg_command=None):
         """
@@ -121,13 +143,11 @@ def get_meta(url: str):
         ydl_opts = {'quiet': True, 'skip_download': True}
         ydl_opts.update(ydl_global_opts)
         if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["cookiefile"] = cookies
-        print(f'Running YT-DLP with opts: {ydl_opts}')
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.sanitize_info(ydl.extract_info(url, download=False))
-            info['original_url'] = url
-            with open(os.path.join(get_data_dir(url), 'meta.json'), 'w') as f:
-                json.dump(info, f)
-                return info
+        info = YTDLP.get_info(url, ydl_opts)
+        info['original_url'] = url
+        with open(os.path.join(get_data_dir(url), 'meta.json'), 'w') as f:
+            json.dump(info, f)
+            return info
     return None
 
 
@@ -224,9 +244,7 @@ def search(query, search_engine='auto'):
     print(f'Searching for {query}')
     ydl_opts = {'quiet': True, 'skip_download': True, 'default_search': search_engine}
     ydl_opts.update(ydl_global_opts)
-    print(f'Running YT-DLP with opts: {ydl_opts}')
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.sanitize_info(ydl.extract_info(query, download=False))
+    info = YTDLP.get_info(query, ydl_opts)
     entries = info.get('entries', [{}])
     for entry in entries:
         entry['original_url'] = normalize_url(append_query_to_url(entry['original_url'], query))
@@ -517,17 +535,6 @@ def download_file(url: str, media_type='video'):
                 print("Error parsing start/end times from media_type")
 
 
-        def dwnl(ydl_opts):
-            print(f'Running YT-DLP with opts: {ydl_opts}')
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                try:
-                    ydl.download_with_info_file(check_media(url, 'meta'))
-                except Exception as e:
-                    pprint_exc(e)
-                    print('An error occured when downloading with meta. Downloading without meta...')
-                    ydl.download(unquote(url))
-
-
         if media_type == 'thumb':
             thumb_url = meta['thumbnail']
             video_width = meta.get('width')
@@ -542,7 +549,7 @@ def download_file(url: str, media_type='video'):
                     if not thumb_file:
                         print('Direct thumbnail download did not succeed. Downloading using yt-dlp.')
                         ydl_opts.update({'writethumbnail': True, 'skip_download': True})
-                        dwnl(ydl_opts)
+                        YTDLP.download(url, ydl_opts)
                         thumb_file = check_media(url=url, media_type='thumb_orig')
 
                     ffmpeg_command = [
@@ -570,8 +577,7 @@ def download_file(url: str, media_type='video'):
                 ydl_opts.update({"playlistend": 10, 'quiet': True, 'skip_download': True})
                 del ydl_opts['noplaylist']
                 print(f'Running YT-DLP with opts: {ydl_opts}')
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    input_entries = ydl.sanitize_info(ydl.extract_info(url, download=False)).get('entries', {})
+                input_entries = YTDLP.get_info(url, ydl_opts).get('entries', {})
 
             for entry in input_entries:
                 entry['original_url'] = normalize_url(entry['original_url'])
@@ -585,7 +591,7 @@ def download_file(url: str, media_type='video'):
 
         elif media_type.startswith('audio'):
             ydl_opts.update({"format": "bestaudio/best", "extract_audio": True, "outtmpl": os.path.join(data_dir, f'{media_type}.mp3')})
-            dwnl(ydl_opts)
+            YTDLP.download(url, ydl_opts)
 
 
         elif media_type.startswith('video'):
@@ -596,14 +602,14 @@ def download_file(url: str, media_type='video'):
                     FFMPEG(['-i', vid, "-ss", f'{start_time}', "-to", f'{end_time}', '-vf', f'scale=-2:{res}', os.path.join(get_data_dir(url), media_type + '.mp4')])
                 else:
                     ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(data_dir, f'{media_type}.%(ext)s')})
-                    dwnl(ydl_opts)
+                    YTDLP.download(url, ydl_opts)
             else:
                 if vid := check_res_at_least(url, res):
                     FFMPEG(['-i', vid, '-vf', f'scale=-2:{res}', os.path.join(get_data_dir(url), media_type + '.mp4')])
                 else:
                     try:
                         ydl_opts.update({"format": f"bestvideo{height_param}/best", "outtmpl": os.path.join(data_dir, f'temp-{media_type}.%(ext)s')})
-                        dwnl(ydl_opts)
+                        YTDLP.download(url, ydl_opts)
                         audio_file = check_media(url, 'audio') or download_file(url, 'audio')
                         temp_video = check_media(url, f'temp-{media_type}')
                         success = FFMPEG(['-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]).success
@@ -612,7 +618,7 @@ def download_file(url: str, media_type='video'):
                     if not success:
                         print(f'Falling back to standard video download due to FFMPEG error')
                         ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(data_dir, f'{media_type}.%(ext)s')})
-                        dwnl(ydl_opts)
+                        YTDLP.download(url, ydl_opts)
 
 
         elif media_type.startswith('hls'):
@@ -751,7 +757,7 @@ def download_file(url: str, media_type='video'):
                 if f := check_media(url=url, media_type=media_type):
                     os.remove(f)
                 ydl_opts.update({'writesubtitles': True, 'skip_download': True, 'subtitleslangs': [lang]})
-                dwnl(ydl_opts)
+                YTDLP.download(url, ydl_opts)
 
             file = check_media(url=url, media_type=media_type)
             if file and file.endswith('srt'):
