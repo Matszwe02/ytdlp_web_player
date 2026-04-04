@@ -521,10 +521,10 @@ def download_file(url: str, media_type='video'):
             print(f'Running YT-DLP with opts: {ydl_opts}')
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 try:
-                    ydl.download_with_info_file(meta)
+                    ydl.download_with_info_file(check_media(url, 'meta'))
                 except Exception as e:
-                    print('An error occured when downloading with meta. Downloading without meta...')
                     pprint_exc(e)
+                    print('An error occured when downloading with meta. Downloading without meta...')
                     ydl.download(unquote(url))
 
 
