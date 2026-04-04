@@ -44,7 +44,7 @@ if disable_transcoding:
 elif not ffmpeg:
     raise RuntimeError("FFMPEG can not be detected in your system. Install FFMPEG or disable transcoding.")
 
-ydl_global_opts = {'ffmpeg-location': ffmpeg, "noplaylist": True, "remote_components": ["ejs:github"]}
+ydl_global_opts = {'ffmpeg-location': ffmpeg, "noplaylist": True, "remote_components": ["ejs:github"], "concurrent_fragment_downloads": 4}
 if not shutil.which('deno'): ydl_global_opts["js_runtimes"] = {"node": {}}
 
 
@@ -515,10 +515,15 @@ def download_file(url: str, media_type='video'):
                 print("Error parsing start/end times from media_type")
 
 
-        def dwnl(url, ydl_opts):
+        def dwnl(ydl_opts):
             print(f'Running YT-DLP with opts: {ydl_opts}')
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download(unquote(url))
+                try:
+                    ydl.download_with_info_file(meta)
+                except Exception as e:
+                    print('An error occured when downloading with meta. Downloading without meta...')
+                    pprint_exc(e)
+                    ydl.download(unquote(url))
 
 
         if media_type == 'thumb':
@@ -535,7 +540,7 @@ def download_file(url: str, media_type='video'):
                     if not thumb_file:
                         print('Direct thumbnail download did not succeed. Downloading using yt-dlp.')
                         ydl_opts.update({'writethumbnail': True, 'skip_download': True})
-                        dwnl(url, ydl_opts)
+                        dwnl(ydl_opts)
                         thumb_file = check_media(url=url, media_type='thumb_orig')
 
                     ffmpeg_command = [
@@ -578,7 +583,7 @@ def download_file(url: str, media_type='video'):
 
         elif media_type.startswith('audio'):
             ydl_opts.update({"format": "bestaudio/best", "extract_audio": True, "outtmpl": os.path.join(data_dir, f'{media_type}.mp3')})
-            dwnl(url, ydl_opts)
+            dwnl(ydl_opts)
 
 
         elif media_type.startswith('video'):
@@ -589,14 +594,14 @@ def download_file(url: str, media_type='video'):
                     FFMPEG(['-i', vid, "-ss", f'{start_time}', "-to", f'{end_time}', '-vf', f'scale=-2:{res}', os.path.join(get_data_dir(url), media_type + '.mp4')])
                 else:
                     ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(data_dir, f'{media_type}.%(ext)s')})
-                    dwnl(url, ydl_opts)
+                    dwnl(ydl_opts)
             else:
                 if vid := check_res_at_least(url, res):
                     FFMPEG(['-i', vid, '-vf', f'scale=-2:{res}', os.path.join(get_data_dir(url), media_type + '.mp4')])
                 else:
                     try:
                         ydl_opts.update({"format": f"bestvideo{height_param}/best", "outtmpl": os.path.join(data_dir, f'temp-{media_type}.%(ext)s')})
-                        dwnl(url, ydl_opts)
+                        dwnl(ydl_opts)
                         audio_file = check_media(url, 'audio') or download_file(url, 'audio')
                         temp_video = check_media(url, f'temp-{media_type}')
                         success = FFMPEG(['-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]).success
@@ -605,7 +610,7 @@ def download_file(url: str, media_type='video'):
                     if not success:
                         print(f'Falling back to standard video download due to FFMPEG error')
                         ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(data_dir, f'{media_type}.%(ext)s')})
-                        dwnl(url, ydl_opts)
+                        dwnl(ydl_opts)
 
 
         elif media_type.startswith('hls'):
@@ -744,7 +749,7 @@ def download_file(url: str, media_type='video'):
                 if f := check_media(url=url, media_type=media_type):
                     os.remove(f)
                 ydl_opts.update({'writesubtitles': True, 'skip_download': True, 'subtitleslangs': [lang]})
-                dwnl(url, ydl_opts)
+                dwnl(ydl_opts)
 
             file = check_media(url=url, media_type=media_type)
             if file and file.endswith('srt'):
