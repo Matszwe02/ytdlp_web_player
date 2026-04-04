@@ -183,6 +183,12 @@ def get_video_sources(url):
     return sources
 
 
+def check_res_at_least(url:str, res: int):
+    for f in sorted(get_video_formats(url)):
+        if type(f) == int and f >= res:
+            if file := check_media(url, f'video-{f}'):
+                return file
+
 
 def get_subtitles(meta: dict):
     subs = {**meta.get('subtitles', {}), **meta.get('automatic_captions', {})}
@@ -579,24 +585,27 @@ def download_file(url: str, media_type='video'):
             if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["mark_watched"] = True
             height_param = "" if media_type.startswith('video-best') else f'[height<={res}]'
             if timestamps:
-                if vid := check_media(url, media_type.split('_')[0]):
-                    FFMPEG(['-i', vid, "-ss", f'{start_time}', "-to", f'{end_time}', os.path.join(get_data_dir(url), media_type + '.mp4')])
+                if vid := check_res_at_least(url, res):
+                    FFMPEG(['-i', vid, "-ss", f'{start_time}', "-to", f'{end_time}', '-vf', f'scale=-2:{res}', os.path.join(get_data_dir(url), media_type + '.mp4')])
                 else:
                     ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(data_dir, f'{media_type}.%(ext)s')})
                     dwnl(url, ydl_opts)
             else:
-                try:
-                    ydl_opts.update({"format": f"bestvideo{height_param}/best", "outtmpl": os.path.join(data_dir, f'temp-{media_type}.%(ext)s')})
-                    dwnl(url, ydl_opts)
-                    audio_file = check_media(url, 'audio') or download_file(url, 'audio')
-                    temp_video = check_media(url, f'temp-{media_type}')
-                    success = FFMPEG(['-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]).success
-                finally:
-                    if temp_video: os.remove(temp_video)
-                if not success:
-                    print(f'Falling back to standard video download due to FFMPEG error')
-                    ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(data_dir, f'{media_type}.%(ext)s')})
-                    dwnl(url, ydl_opts)
+                if vid := check_res_at_least(url, res):
+                    FFMPEG(['-i', vid, '-vf', f'scale=-2:{res}', os.path.join(get_data_dir(url), media_type + '.mp4')])
+                else:
+                    try:
+                        ydl_opts.update({"format": f"bestvideo{height_param}/best", "outtmpl": os.path.join(data_dir, f'temp-{media_type}.%(ext)s')})
+                        dwnl(url, ydl_opts)
+                        audio_file = check_media(url, 'audio') or download_file(url, 'audio')
+                        temp_video = check_media(url, f'temp-{media_type}')
+                        success = FFMPEG(['-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]).success
+                    finally:
+                        if temp_video: os.remove(temp_video)
+                    if not success:
+                        print(f'Falling back to standard video download due to FFMPEG error')
+                        ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(data_dir, f'{media_type}.%(ext)s')})
+                        dwnl(url, ydl_opts)
 
 
         elif media_type.startswith('hls'):
@@ -612,7 +621,7 @@ def download_file(url: str, media_type='video'):
             sources = get_video_sources(url)
             video_url = None
             audio_source = None
-            video_file_path = check_media(url=url, media_type='video-' + res_str)
+            video_file_path = check_res_at_least(url, res)
 
             if not video_file_path:
                 audio_source = check_media(url, 'audio')
@@ -634,6 +643,7 @@ def download_file(url: str, media_type='video'):
                 '-c:a', 'aac',
                 '-ar', '44100',
                 '-f', 'hls',
+                '-vf', f'scale=-2:{res}',
                 '-force_key_frames', f'expr:gte(t,n_forced*{hls_duration})',
                 '-hls_time', f'{hls_duration}',
                 '-hls_playlist_type', 'vod',
