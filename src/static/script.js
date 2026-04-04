@@ -1,5 +1,3 @@
-const videoSource = document.getElementById('videoSource');
-const videoPlayer = document.getElementById('videoPlayer');
 let player;
 let playerContainer;
 let skipSegment;
@@ -10,6 +8,8 @@ let abortController = null; // AbortController for cancelling fetches
 let repeatMode = false;
 let repeatStartTime = 0;
 let repeatEndTime = 0;
+let audioContext = null;
+let audioSource = null;
 
 
 
@@ -42,6 +42,17 @@ class PlayerState
     }
 }
 let ps = new PlayerState();
+
+
+function setUpAudioContext()
+{
+    if (audioContext == null)
+    {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        audioSource = audioContext.createMediaElementSource(player.el().querySelector('video'));
+        audioSource.connect(audioContext.destination);
+    }
+}
 
 
 function tryStopPropagation(event)
@@ -491,10 +502,10 @@ class OverAmplificationButton extends videojs.getComponent('Button')
         {
             if (this.gainNode === null)
             {
-                const context = new (window.AudioContext || window.webkitAudioContext)();
-                const source = context.createMediaElementSource(player.el().querySelector('video'));
-                this.gainNode = new GainNode(context);
-                source.connect(this.gainNode).connect(context.destination);
+                setUpAudioContext();
+                this.gainNode = new GainNode(audioContext);
+                audioSource.disconnect(audioContext.destination);
+                audioSource.connect(this.gainNode).connect(audioContext.destination);
             }
             this.el().classList.add('vjs-active');
             this.gainNode.gain.value = 2;
