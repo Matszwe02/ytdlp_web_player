@@ -32,6 +32,7 @@ load_default_quality = (os.environ.get('LOAD_DEFAULT_QUALITY', 'True')).lower() 
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
 playlist_support = os.environ.get('PLAYLIST_SUPPORT', 'False').lower() == 'true'
 auto_bg_playback = os.environ.get('AUTO_BG_PLAYBACK', 'False').lower() == 'true'
+audio_visualizer = os.environ.get('AUDIO_VISUALIZER', 'False').lower() == 'true'
 download_path = os.environ.get('DOWNLOAD_PATH', './download')
 disable_transcoding = os.environ.get('DISABLE_TRANSCODING', 'False').lower() == 'true'
 
@@ -273,10 +274,11 @@ def clean_meta(raw_meta: dict):
     meta['width'] = raw_meta.get('width')
     meta['height'] = raw_meta.get('height')
     meta['url'] = raw_meta.get('original_url')
-    meta['default_quality'] = get_good_quality(meta['formats'])
+    meta['default_quality'] = 'audio' if 'Music' in (raw_meta.get('categories') or []) and audio_visualizer else get_good_quality(meta['formats'])
     meta['load_default_quality'] = load_default_quality
     meta['playlist_support'] = playlist_support
     meta['auto_bg_playback'] = auto_bg_playback
+    meta['audio_visualizer'] = audio_visualizer
     meta['chapters'] = generate_chapters(raw_meta.get('description'))
     return meta
 

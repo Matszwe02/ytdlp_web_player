@@ -681,6 +681,71 @@ video
     padding: 1px;
 }
 
+
+.vis-container
+{
+    width: 100%;
+    height: 100%;
+    background: black;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    filter: blur(.2vw) contrast(50);
+    mix-blend-mode: screen;
+}
+.vis-container>div
+{
+    position: relative;
+    width: 135px;
+    height: 135px;
+    border-radius: 50%;
+    background: #fff;
+}
+.vis-container>div>span
+{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: inline-block;
+    width: 25px;
+    height: 25px;
+    border-radius: 5px;
+    border-top: 20px solid #fff;
+    border-right: 10px solid transparent;
+    border-left: 10px solid transparent;
+    transform-origin: top left;
+}
+.vis-overlay
+{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    z-index: 10;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.vis-overlay>div
+{
+    position: absolute;
+    width: 125px;
+    height: 125px;
+    background: black;
+    border-radius: 50%;
+    z-index: 10;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.vis-overlay>div>img
+{
+    width: 60%;
+}
+
+
 @media only screen and (max-width: 900px)
 {
     .vjs-playlist-item

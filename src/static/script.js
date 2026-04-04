@@ -340,10 +340,12 @@ function applyVideoQuality()
             posterEl.style.backgroundSize = 'cover';
             posterEl.style.backgroundRepeat = 'no-repeat';
             posterEl.style.backgroundPosition = 'center';
+            if (meta.audio_visualizer) enableVisualizer(player);
         }
     }
     else
     {
+        if (meta.audio_visualizer) disableVisualizer(player);
         if (videoEl) videoEl.style.display = 'block';
         if (posterEl)
         {
@@ -1716,9 +1718,14 @@ function loadVideo()
 
             setInterval(()=>{ fetch(getVideoSource()[0]).then(response => response.ok); }, 120000); // Keepalive
 
-            if (meta.auto_bg_playback && navigator.userAgentData.mobile)
+            if (meta.auto_bg_playback && navigator?.userAgentData?.mobile)
             {
                 document.addEventListener('visibilitychange', () => {
+                    if (meta.audio_visualizer)
+                    {
+                        if (document.visibilityState === 'hidden') pauseVisualizer();
+                        else resumeVisualizer();
+                    }
                     if (player.isInPictureInPicture()) return;
                     if (document.visibilityState === 'hidden')
                     {
