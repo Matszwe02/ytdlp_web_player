@@ -109,6 +109,7 @@ class FFMPEG:
         self.ffmpeg = ffmpeg
         self.ff_id = sha1(f'{time.time()}'.encode()).hexdigest()[:6]
         self.success = False
+        self.start_time = time.time()
         if ffmpeg_command and self.ffmpeg:
             self.run(ffmpeg_command)
 
@@ -127,7 +128,12 @@ class FFMPEG:
         
         print(f'[FFMPEG {self.ff_id}] Executing {ffmpeg_command}')
         self._p = subprocess.Popen(ffmpeg_command, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
-        for line in self._p.stdout: print(f'[FFMPEG {self.ff_id}] {line.decode().strip()}')
+        for line in self._p.stdout:
+            print(f'[FFMPEG {self.ff_id}] {line.decode().strip()}')
+            if time.time() - self.start_time > 3600:
+                self.kill()
+                self.success = False
+                raise TimeoutError()
         self._p.wait()
         print(f'[FFMPEG {self.ff_id}] Finished')
         self.success = True
@@ -505,7 +511,7 @@ class FileCachingLock:
             if not os.path.exists(os.path.join(self.data_dir, f'{self.media_type}.temp')):
                 break
             time.sleep(1)
-            print(f'Waiting for download of {self.media_type}')
+            print(f'Waiting for download of {self.media_type} for {self.data_dir.split("/")[-1]}')
         
         if cached_media := check_media(url=self.url, media_type=self.media_type):
             print(f'Cache hit for {self.media_type}!')
@@ -544,6 +550,7 @@ def download_file(url: str, media_type='video'):
         if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["cookiefile"] = cookies
         meta = get_meta(url)
         if int(meta.get('duration', 0)) > max_video_duration: raise ValueError("Video too long for this app to handle")
+        if meta.get('duration', 0) is None or meta.get('is_live'): raise NotImplementedError('Livestreams are not supported yet')
         timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
         start_time = None
         end_time = None
@@ -740,7 +747,7 @@ def download_file(url: str, media_type='video'):
             ffmpeg_command = [
                 '-i', download_file(url, 'video'),
                 '-c:v', 'libx265',
-                '-crf', '38',
+                '-crf', '34',
                 '-c:a', 'aac',
                 '-r', '30',
                 '-vf', 'scale=-2:240',
@@ -845,7 +852,8 @@ def host_file(url: str, media_type='video', download_name: str | None = None):
     file = download_file(url, media_type)
     if file:
         if download_name:
-            download_name += '-' + media_type.removeprefix('audio').removeprefix('video').lstrip('-_') + os.path.splitext(file)[1]
+            if '-' in media_type: download_name += '-' + media_type.split('-', 1)[-1]
+            download_name += os.path.splitext(file)[1]
         return send_file_partial(file, download_name=download_name)
     return jsonify({"error": f"Cannot gather {media_type}"}), 404
 
