@@ -69,11 +69,20 @@ App should be accessible at [http://localhost:5000](http://localhost:5000)
 ## Configure
 
 - Copy `src/example.env` to `src/.env`, modify as needed
-- If you want to add your own cookies, create `src/cookies.txt` file and enable in `compose.yml` if using docker
-    - Keep in mind that cookies work the same way as your account credentails - anyone having them may [mess up your account](https://youtu.be/yGXaAWbzl5A).\
-    So I only recommend putting throwaway accounts here.\
-    Extension in current version also sends your cookies to the server, but they are deleted when video is cleaned up.
+- See `compose.yml` for additional configuration mentioned in [Docker section](#1-docker-preferred)
 
+### Cookies (optional)
+---
+
+Some videos need cookies to work. With cookies you will be logged in to the video streaming's website while using the app.
+
+- Create `src/cookies.txt` file and enable in `compose.yml` (if using docker)
+- Paste relevant cookies into that file (I suggest using an extension for that, which exports cookies in netscape format)
+    - yt-dlp created a nice [guide](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp) about providing the cookies
+
+**Keep in mind that cookies work the same way as your account credentails - anyone having them may [mess up your account](https://youtu.be/yGXaAWbzl5A).**
+    
+I do not guarantee that cookies file is completly secure from accessing it through the player. Additionally yt-dlp uses them when playing videos on behalf of the provided account. So I only recommend putting throwaway accounts here.
 
 # Troubleshooting
 
