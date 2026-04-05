@@ -1717,7 +1717,7 @@ function loadVideo()
             });
             loadMediaPlayer();
 
-            if (meta.playlist_support == true)
+            if (meta.playlist_support == true && window.location.pathname != '/iframe')
             {
                 retryFetch(`/playlist?url=${encodeURIComponent(urlParams.get('v') || urlParams.get('url'))}`)
                     .then(response => response.json())
