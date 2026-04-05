@@ -29,6 +29,7 @@ max_video_age = int(os.environ.get('MAX_VIDEO_AGE', '3600'))
 max_video_duration = int(os.environ.get('MAX_VIDEO_DURATION', '36000'))
 default_quality = int(os.environ.get('DEFAULT_QUALITY', '720'))
 load_default_quality = (os.environ.get('LOAD_DEFAULT_QUALITY', 'True')).lower() == 'true'
+cookies_only_on_failure = (os.environ.get('COOKIES_ONLY_ON_FAILURE', 'True')).lower() == 'true'
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
 playlist_support = os.environ.get('PLAYLIST_SUPPORT', 'False').lower() == 'true'
 auto_bg_playback = os.environ.get('AUTO_BG_PLAYBACK', 'False').lower() == 'true'
@@ -59,22 +60,44 @@ class YTDLP:
     @staticmethod
     def download(url, opts):
         print(f'Running YT-DLP download with opts: {opts}')
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            try:
-                ydl.download_with_info_file(check_media(url, 'meta'))
-            except Exception as e:
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                try:
+                    ydl.download_with_info_file(check_media(url, 'meta'))
+                except Exception as e:
+                    pprint_exc(e)
+                    print('An error occured when downloading with meta. Downloading without meta...')
+                    ydl.download(unquote(url))
+        except Exception as e:
+            if (cookies := get_global_cookies_file(True)):
                 pprint_exc(e)
-                print('An error occured when downloading with meta. Downloading without meta...')
-                ydl.download(unquote(url))
+                print('An error occured when downloading. Downloading with cookies...')
+                opts["cookiefile"] = cookies
+                print(f'Running YT-DLP download with opts: {opts}')
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    ydl.download(unquote(url))
+            else:
+                print('An error occured when downloading. Providing cookies may help with this issue.')
+                raise e
 
 
     @staticmethod
     def get_info(url, opts):
         print(f'Running YT-DLP extract_info with opts: {opts}')
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.sanitize_info(ydl.extract_info(url, download=False))
-        return info
-
+        try:
+            with yt_dlp.YoutubeDL(json.loads(json.dumps(opts))) as ydl:
+                return ydl.sanitize_info(ydl.extract_info(url, download=False))
+        except Exception as e:
+            if (cookies := get_global_cookies_file(True)):
+                pprint_exc(e)
+                print('An error occured when downloading. Downloading with cookies...')
+                opts["cookiefile"] = cookies
+                print(f'Running YT-DLP extract_info with opts: {opts}')
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    return ydl.sanitize_info(ydl.extract_info(url, download=False))
+            else:
+                print('An error occured when downloading. Providing cookies may help with this issue.')
+                raise e
 
 
 class FFMPEG:
@@ -126,7 +149,8 @@ def get_data_dir(url):
     return data_dir
 
 
-def get_global_cookies_file():
+def get_global_cookies_file(force = False):
+    if cookies_only_on_failure and not force: return None
     if os.path.exists('cookies.txt'): return 'cookies.txt'
     return None
 
