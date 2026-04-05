@@ -25,7 +25,19 @@ class PlayerState
     {
         this.switchTime = player.currentTime();
         this.isPlaying = !player.paused();
-        this.tracks = JSON.parse(JSON.stringify(player.textTracks()));
+        this.tracks = [];
+        const textTracks = player.textTracks();
+        for (let i = 0; i < textTracks.length; i++)
+        {
+            const track = textTracks[i];
+            if (!track.src || track.kind != 'subtitles') continue;
+            this.tracks.push({
+                kind: track.kind,
+                src: track.src,
+                srclang: track.srclang,
+                label: track.label
+            });
+        }
         console.log(this.tracks);
     }
     apply()
