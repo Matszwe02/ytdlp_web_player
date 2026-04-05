@@ -121,11 +121,12 @@ function removeFetch()
 }
 
 
-async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible = true)
+async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible = true, head = false)
 {
     if (visible) addFetch();
     try
     {
+        const fetchOptions = { method: (head ? 'HEAD' : 'GET'), ...options };
         const error = new Error();
         const stack = error.stack.split('\n');
         let callerInfo = 'unknown';
@@ -140,8 +141,8 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible 
             }
         }
         if (player != null) {
-            console.log(`Fetching "${url}" called from ${callerInfo}`);
-            const response = await fetch(url, options);
+            console.log(`Fetching ${fetchOptions.method} "${url}" called from ${callerInfo}`);
+            const response = await fetch(url, fetchOptions);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             return response;
         }
@@ -157,7 +158,7 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible 
         if (retries > 0)
         {
             await new Promise(resolve => setTimeout(resolve, delay));
-            return retryFetch(url, options, retries - 1, delay);
+            return retryFetch(url, options, retries - 1, delay, visible, head);
         }
         else
         {
@@ -410,7 +411,7 @@ function setVideoQuality(height = 0, button = null)
                                 break;
                         }
                     }
-                    retryFetch(selectedSegment, {}, 1)
+                    retryFetch(selectedSegment, {}, undefined, undefined, undefined, true)
                         .then(response => {
                             applyVideoQuality();
                             buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
@@ -428,7 +429,7 @@ function setVideoQuality(height = 0, button = null)
     }
     else
     {
-        retryFetch(getVideoSource()[0], { signal })
+        retryFetch(getVideoSource()[0], { signal }, undefined, undefined, undefined, true)
             .then(response => {
                 applyVideoQuality();
                 buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
@@ -1728,7 +1729,7 @@ function loadVideo()
                     });
             }
 
-            setInterval(()=>{ fetch(getVideoSource()[0]).then(response => response.ok); }, 120000); // Keepalive
+            setInterval(()=>{ retryFetch(getVideoSource()[0], {}, 0, undefined, false, true).then(response => response.ok); }, 120000); // Keepalive
 
             if (meta.auto_bg_playback && navigator?.userAgentData?.mobile)
             {
