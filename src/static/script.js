@@ -17,12 +17,19 @@ class PlayerState
 {
     constructor()
     {
+        this.ongoing = false;
         this.switchTime = 0;
         this.isPlaying = false;
         this.tracks = null;
     }
     save()
     {
+        if (this.ongoing && player.currentTime() == 0)
+        {
+            console.warn('Preventing saving unknown player state');
+            return;
+        }
+        this.ongoing = false;
         this.switchTime = player.currentTime();
         this.isPlaying = !player.paused();
         this.tracks = [];
@@ -38,19 +45,17 @@ class PlayerState
                 label: track.label
             });
         }
-        console.log(this.tracks);
     }
     apply()
     {
         player.currentTime(this.switchTime);
         if (this.isPlaying) player.play();
-        console.log(this.tracks);
         for (let i = 0; i < this.tracks.length; i++)
         {
             const track = this.tracks[i];
             if (track.kind == 'subtitles') player.addRemoteTextTrack(track);
         }
-        console.log(this.tracks);
+        this.ongoing = true;
     }
 }
 let ps = new PlayerState();
