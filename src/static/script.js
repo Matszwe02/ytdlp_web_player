@@ -1736,8 +1736,8 @@ function loadVideo()
                 document.addEventListener('visibilitychange', () => {
                     if (meta.audio_visualizer)
                     {
-                        if (document.visibilityState === 'hidden') pauseVisualizer();
-                        else resumeVisualizer();
+                        if (document.visibilityState === 'hidden') pauseVisualizer(player);
+                        else resumeVisualizer(player);
                     }
                     if (player.isInPictureInPicture()) return;
                     if (document.visibilityState === 'hidden')
