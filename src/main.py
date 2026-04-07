@@ -198,19 +198,20 @@ def get_sb(url: str):
 
 
 
-def get_video_formats(url = None, meta = None):
+def get_video_formats(url = None, meta = None, protocol = None):
     resolutions = []
     if not meta:
         meta = get_meta(url)
     formats = meta.get('formats', [])
     for f in formats:
         if f.get('vcodec') != 'none' and f.get('height') and f.get('height') not in resolutions:
+            if protocol and protocol != f.get('protocol'): continue
             resolutions.append(f['height'])
     return resolutions
 
 
 
-def get_video_sources(url):
+def get_video_sources(url, protocol = None):
     sources = {}
     best_audio = 0
     meta = get_meta(url)
@@ -225,6 +226,7 @@ def get_video_sources(url):
         name = video_name + audio_name
         quality = float(f.get('quality') or 0)
         if not name: continue
+        if protocol and protocol != f.get('protocol'): continue
 
         if name.startswith('audio') and quality < best_audio:
             best_audio = quality
@@ -256,6 +258,24 @@ def get_fastest_quality(url):
     for f in formats:
         if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and f.get('protocol') == 'https':
             return f.get('url')
+    sources = get_video_sources(url, protocol='m3u8_native')
+    q = get_good_quality(get_video_formats(url, protocol='m3u8_native'))
+    vid_src = None
+    audio_src = None
+    for s in sources.keys():
+        if not audio_src and 'audio' in s: audio_src = s
+        if not vid_src and str(q) in s: vid_src = s
+    if vid_src and audio_src:
+        hls_data = [
+            '#EXTM3U',
+            '#EXT-X-VERSION:3',
+            f'#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio_grp",NAME="English",DEFAULT=YES,AUTOSELECT=YES,URI="{sources[audio_src]}"',
+            '#EXT-X-STREAM-INF:BANDWIDTH=1500000,AUDIO="audio_grp"',
+            f'{sources[vid_src]}'
+        ]
+        with open(os.path.join(get_data_dir(url), 'fastest.m3u8'), 'w') as f:
+            f.write('\n'.join(hls_data))
+        return True
     return None
 
 
@@ -1024,8 +1044,12 @@ def download_ytdlp(filename):
 def resp_fastest_stream():
     try:
         url = get_url(request)
-        if fastest_url := get_fastest_quality(url):
-            return stream_media_file(fastest_url)
+        if check_media(url, 'fastest'):
+            return host_file(url, 'fastest')
+        if fastest_quality := get_fastest_quality(url):
+            if fastest_quality is True:
+                return host_file(url, 'fastest')
+            return stream_media_file(fastest_quality)
         if check_media(url, 'video'):
             return host_file(url, 'video')
         res = get_good_quality(get_video_formats(url)) 
