@@ -1,5 +1,4 @@
 let player;
-let playerContainer;
 let skipSegment;
 let skipTime = 0;
 let meta = null;
@@ -66,7 +65,7 @@ function setUpAudioContext()
     if (audioContext == null)
     {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        audioSource = audioContext.createMediaElementSource(player.el().querySelector('video'));
+        audioSource = audioContext.createMediaElementSource(player.el_.querySelector('video'));
         audioSource.connect(audioContext.destination);
     }
 }
@@ -81,7 +80,7 @@ function tryStopPropagation(event)
         event.stopPropagation();
     }
     catch (error) {}
-    player.el().focus();
+    player.el_.focus();
 }
 
 
@@ -342,8 +341,8 @@ function applyVideoQuality()
     if (meta['height'] == null && meta['width'] == null) quality = 'audio';
     const videoSource = getVideoSource();
 
-    const videoEl = player.el().querySelector('video');
-    const posterEl = player.el().querySelector('.vjs-poster');
+    const videoEl = player.el_.querySelector('video');
+    const posterEl = player.el_.querySelector('.vjs-poster');
     ps.save();
     player.src({ src: videoSource[0], type: videoSource[1] });
     ps.apply();
@@ -473,7 +472,7 @@ class ZoomToFillToggle extends videojs.getComponent('Button')
     
     handleClick(event, state = null)
     {
-        const video = player.el().querySelector('video');
+        const video = player.el_.querySelector('video');
         var newState = video.style.objectFit == 'contain';
         if (state === false || state === true)
         {
@@ -1418,7 +1417,7 @@ function skipclick()
 
 function adjustVideoSize()
 {
-    const videoElement = playerContainer.querySelector('video');
+    const videoElement = player.el_.querySelector('video');
 
     const width = videoElement.videoWidth || parseInt(meta['width']) || 720;
     const height = videoElement.videoHeight || parseInt(meta['height']) || 480;
@@ -1431,8 +1430,8 @@ function adjustVideoSize()
     
     const scaling = Math.min(min_width / width, min_height / height);
     
-    playerContainer.style.width = width * scaling + 'px';
-    playerContainer.style.height = height * scaling + 'px';
+    player.el_.style.width = width * scaling + 'px';
+    player.el_.style.height = height * scaling + 'px';
 }
 
 
@@ -1594,16 +1593,14 @@ function loadVideo()
         },
     });
     player.doubleTapFF();
-    playerContainer = player.el();
-    
     player.controlBar.ZoomToFillToggle.handleClick(null, state = false);
     
     const spacer = document.createElement('div');
-    playerContainer.querySelector('.vjs-control-bar').appendChild(spacer);
+    player.el_.querySelector('.vjs-control-bar').appendChild(spacer);
     spacer.style="flex: auto;order: 3;";
     
     skipSegment = document.createElement('div');
-    playerContainer.appendChild(skipSegment);
+    player.el_.appendChild(skipSegment);
     skipSegment.id = "skipsegment";
     skipSegment.onclick = function() {skipclick();};
 
@@ -1617,34 +1614,34 @@ function loadVideo()
         }
     });
 
-    const errorDisplay = playerContainer.querySelector('.vjs-error-display');
+    const errorDisplay = player.el_.querySelector('.vjs-error-display');
     errorDisplay.classList.add('spinner-parent');
     errorDisplay.querySelector('.vjs-modal-dialog-content').classList.add('spinner-body');
     
     const spinnerBody = document.createElement('div');
-    const spinnerParent = playerContainer.querySelector('.vjs-loading-spinner')
+    const spinnerParent = player.el_.querySelector('.vjs-loading-spinner')
     spinnerParent.appendChild(spinnerBody);
     spinnerBody.classList.add('spinner-body');
     spinnerParent.classList.add('spinner-parent');
     
     document.getElementById('video').style.filter = 'brightness(1)';
 
-    playerContainer.querySelector('.vjs-poster').style.filter = '';
+    player.el_.querySelector('.vjs-poster').style.filter = '';
 
     const originalUrl = urlParams.get('v') || urlParams.get('url');
     player.src({ src: `/fastest?url=${encodeURIComponent(originalUrl)}`, type: 'video/mp4' });
 
     // When video is loaded
     player.on('loadeddata', () => {
-        playerContainer.style.transitionDuration = '1s';
-        playerContainer.querySelector('img').classList.add('loaded-img');
+        player.el_.style.transitionDuration = '1s';
+        player.el_.querySelector('img').classList.add('loaded-img');
         adjustVideoSize();
         window.addEventListener('resize', adjustVideoSize);
-        setTimeout(() => {playerContainer.style.transitionDuration = '0s';}, 1000);
+        setTimeout(() => {player.el_.style.transitionDuration = '0s';}, 1000);
         player.controls(true);
         errorDisplay.classList.remove('spinner-parent');
         errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
-        playerContainer.querySelector('.vjs-control-bar').classList.add('display-flex');
+        player.el_.querySelector('.vjs-control-bar').classList.add('display-flex');
 
         if (meta.chapters.length > 0)
             loadChapters();
@@ -1655,7 +1652,7 @@ function loadVideo()
             meta = metaData;
             if (meta["error"] !== undefined)
             {
-                const errorDisplay = playerContainer.querySelector('.vjs-error-display');
+                const errorDisplay = player.el_.querySelector('.vjs-error-display');
                 errorDisplay.innerHTML = meta['error'];
                 errorDisplay.classList.remove('spinner-parent');
                 errorDisplay.classList.remove('vjs-hidden');
@@ -1768,7 +1765,7 @@ function loadVideo()
         })
         .catch(error => {
             console.error('Error fetching video:', error);
-            const errorDisplay = playerContainer.querySelector('.vjs-error-display');
+            const errorDisplay = player.el_.querySelector('.vjs-error-display');
             errorDisplay.innerHTML = `${error.message}`;
             errorDisplay.classList.remove('spinner-parent');
             errorDisplay.classList.remove('vjs-hidden');
@@ -1789,7 +1786,7 @@ function loadVideo()
             }
         });
     document.addEventListener('click', (e) => {
-        player.el().focus();
+        player.el_.focus();
     });
 }
 
