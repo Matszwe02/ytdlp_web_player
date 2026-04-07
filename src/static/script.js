@@ -394,7 +394,7 @@ function setVideoQuality(height = 0, button = null)
         });
     }
     history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
-    const hlsEnabled = height != '' && height != 'audio';
+    const hlsEnabled = height != '' && height != 'null' && height != 'audio';
     if (hlsEnabled)
     {
         console.log('HLS ENABLED');
@@ -1708,7 +1708,7 @@ function loadVideo()
                 const error = player.error();
                 if (error && error.code === 4)
                 {
-                    if (player.src().includes('/fastest'))
+                    if (player.src().includes('/fastest') && meta.formats.length > 1)
                     {
                         setTimeout(() => {
                             console.warn("Changing video quality due to unsupported format...");
