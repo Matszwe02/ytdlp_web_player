@@ -51,10 +51,10 @@ function enableVisualizer(player)
         analyser.getByteFrequencyData(dataArray);
         let scale = Math.max((dataArray[0] + dataArray[1] + dataArray[2] + dataArray[3] + dataArray[4]) / 5, 150) - 150;
         let scale1 = 1 + scale * 0.001;
-        let scale2 = 1.005 + scale * 0.0001;
+        let scale2 = 1.01 + scale * 0.0001;
         scale1 *= poster.clientWidth / 500;
-        visContainer.style.scale = scale1;
-        visOverlay.style.scale = scale1;
+        visContainer.style.zoom = scale1;
+        visOverlay.style.zoom = scale1;
         poster.style.scale = scale2;
         for (let i = 0; i < bufferLength; i++)
         {
@@ -75,7 +75,7 @@ function disableVisualizer(player)
     visualizerActive = false;
     player.el_.querySelector('.vis-container').remove();
     player.el_.querySelector('.vis-overlay').remove();
-    player.el_.querySelector('.vjs-poster').style.scale = 1.005;
+    player.el_.querySelector('.vjs-poster').style.scale = 1.01;
 }
 
 

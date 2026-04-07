@@ -169,10 +169,10 @@ body
 }
 
 
-.vjs-poster
+div.vjs-poster
 {
     pointer-events: none;
-    scale: 1.005;
+    scale: 1.01;
 }
 
 .vjs-poster>img
