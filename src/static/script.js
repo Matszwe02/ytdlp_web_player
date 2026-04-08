@@ -1730,7 +1730,11 @@ function loadVideo()
                     }
                 }
             });
-            loadMediaPlayer();
+            try
+            {
+                loadMediaPlayer();
+            }
+            catch {}
 
             if (meta.playlist_support == true && window.location.pathname != '/iframe')
             {
