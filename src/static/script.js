@@ -144,9 +144,11 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible 
                 else if (match.length === 4) callerInfo = `(${match[1]}:${match[2]})`;
             }
         }
-        if (player != null) {
+        if (player != null)
+        {
             console.log(`Fetching ${fetchOptions.method} "${url}" called from ${callerInfo}`);
             const response = await fetch(url, fetchOptions);
+            if (response.status >= 500) throw new Error(`Server error: ${await response.text()}`);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             return response;
         }
@@ -156,6 +158,10 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible 
         if (error.name === 'AbortError')
         {
             console.log(`Fetch for "${url}" aborted.`);
+            throw error;
+        }
+        if (error.message.startsWith('Server error:'))
+        {
             throw error;
         }
         console.error(`Fetch failed, retrying in ${delay / 1000} seconds...`, error);
@@ -217,6 +223,19 @@ function fullscreenOnRotate()
 screen.orientation.addEventListener("change", (event) => {
     fullscreenOnRotate();
 });
+
+
+function displayPlayerError(message)
+{
+    console.error(message);
+    if (!player) return;
+    const errorDisplay = player.el_.querySelector('.vjs-error-display');
+    errorDisplay.innerHTML = message;
+    errorDisplay.classList.remove('spinner-parent');
+    errorDisplay.classList.remove('vjs-hidden');
+    player.src({ src: 'null', type: 'null' });
+    player = null;
+}
 
 
 function loadChapters()
@@ -1652,13 +1671,7 @@ function loadVideo()
             meta = metaData;
             if (meta["error"] !== undefined)
             {
-                const errorDisplay = player.el_.querySelector('.vjs-error-display');
-                errorDisplay.innerHTML = meta['error'];
-                errorDisplay.classList.remove('spinner-parent');
-                errorDisplay.classList.remove('vjs-hidden');
-                console.error(meta['error']);
-                player.src({ src: 'null', type: 'null' });
-                player = null;
+                displayPlayerError(meta['error']);
                 return;
             }
             if (player.controlBar && player.controlBar.SettingsButton)
@@ -1764,13 +1777,7 @@ function loadVideo()
 
         })
         .catch(error => {
-            console.error('Error fetching video:', error);
-            const errorDisplay = player.el_.querySelector('.vjs-error-display');
-            errorDisplay.innerHTML = `${error.message}`;
-            errorDisplay.classList.remove('spinner-parent');
-            errorDisplay.classList.remove('vjs-hidden');
-            player.src({ src: 'null', type: 'null' });
-            player = null;
+            displayPlayerError(`Error: ${error.message}`);
         });
 
         
