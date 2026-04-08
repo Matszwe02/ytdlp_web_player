@@ -394,7 +394,7 @@ function setVideoQuality(height = 0, button = null)
         });
     }
     history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
-    const hlsEnabled = height != '' && height != 'null' && height != 'audio';
+    const hlsEnabled = height != null && height != '' && height != 'null' && height != 'audio';
     if (hlsEnabled)
     {
         console.log('HLS ENABLED');
