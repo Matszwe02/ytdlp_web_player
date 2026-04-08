@@ -340,7 +340,7 @@ def clean_meta(raw_meta: dict):
         meta['formats'] = get_video_formats(meta=raw_meta)
     except BaseException as e:
         meta['formats'] = jsonify({'error': (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))}), 403
-    meta['duration'] = f'{raw_meta.get("duration")}'
+    meta['duration'] = f'{raw_meta.get("duration") or 0}'
     meta['subtitles'] = get_subtitles(raw_meta)
     meta['width'] = raw_meta.get('width')
     meta['height'] = raw_meta.get('height')
@@ -351,6 +351,11 @@ def clean_meta(raw_meta: dict):
     meta['auto_bg_playback'] = auto_bg_playback
     meta['audio_visualizer'] = audio_visualizer
     meta['chapters'] = generate_chapters(raw_meta.get('description'))
+    if raw_meta.get('is_live'):
+        meta['formats'] = []
+        meta['load_default_quality'] = False
+        meta['subtitles'] = []
+        meta['duration'] = '0'
     return meta
 
 
@@ -573,7 +578,6 @@ def download_file(url: str, media_type='video'):
         if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["cookiefile"] = cookies
         meta = get_meta(url)
         if int(meta.get('duration', 0)) > max_video_duration: raise ValueError("Video too long for this app to handle")
-        if meta.get('duration', 0) is None or meta.get('is_live'): raise NotImplementedError('Livestreams are not supported yet')
         timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
         start_time = None
         end_time = None
@@ -644,11 +648,13 @@ def download_file(url: str, media_type='video'):
 
 
         elif media_type.startswith('audio'):
+            if meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
             ydl_opts.update({"format": "bestaudio/best", "extract_audio": True, "outtmpl": os.path.join(data_dir, f'{media_type}.mp3')})
             YTDLP.download(url, ydl_opts)
 
 
         elif media_type.startswith('video'):
+            if meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
             if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["mark_watched"] = True
             height_param = "" if media_type.startswith('video-best') else f'[height<={res}]'
             if timestamps:
@@ -676,6 +682,7 @@ def download_file(url: str, media_type='video'):
 
 
         elif media_type.startswith('hls'):
+            if meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
             hls_url_dir = os.path.join(gen_pathname(url), f"hls_playlist-{res}")
             hls_output_dir = os.path.join(download_path, hls_url_dir)
             os.makedirs(hls_output_dir, exist_ok=True)
@@ -767,6 +774,7 @@ def download_file(url: str, media_type='video'):
 
 
         elif media_type.startswith('low'):
+            if meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
             ffmpeg_command = [
                 '-i', download_file(url, 'video'),
                 '-c:v', 'libx265',
@@ -823,6 +831,7 @@ def download_file(url: str, media_type='video'):
 
 
         elif media_type.startswith('sprite'):
+            if meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
             if meta["duration"] > generate_sprite_below: raise ValueError(f"Video too long to generate sprite! ({meta["duration"]}s)")
             if not meta.get('height') and not meta.get('width'): raise TypeError('Sprite not available on non-video media!')
             video_path = check_media(url=url, media_type='video')

@@ -12,6 +12,7 @@
 - PWA support with "share with" target for Android
 - video searching
 - clean UI, configurable themes
+- basic livestream support
 - browser extension to allow including this player everywhere (experimental)
   - note that this extension in the current version is vibe-coded (I do not guarantee that no LLMs were harmed in the process)
   - uses player embedding using `/iframe` endpoint
@@ -29,7 +30,6 @@
 **Daily auto update of yt-dlp to immediately support new yt-dlp codecs and sites**
 
 ## Planned
-- livestream support
 - more QoL features
 - video quality changing without interrupts
 
