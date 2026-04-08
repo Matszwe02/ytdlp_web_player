@@ -346,7 +346,7 @@ function getVideoSource()
     }
     else
     {
-        downloadUrl = quality ? `/download?url=${encodeURIComponent(originalUrl)}&quality=${quality}` : `/fastest?url=${encodeURIComponent(originalUrl)}`;
+        downloadUrl = quality ? `/download?url=${encodeURIComponent(originalUrl)}&quality=${quality}` : `/direct?url=${encodeURIComponent(originalUrl)}`;
         videoType = 'video/mp4';
     }
     return [downloadUrl, videoType];
@@ -1648,7 +1648,7 @@ function loadVideo()
     player.el_.querySelector('.vjs-poster').style.filter = '';
 
     const originalUrl = urlParams.get('v') || urlParams.get('url');
-    player.src({ src: `/fastest?url=${encodeURIComponent(originalUrl)}`, type: 'video/mp4' });
+    player.src({ src: `/direct?url=${encodeURIComponent(originalUrl)}`, type: 'video/mp4' });
 
     // When video is loaded
     player.on('loadeddata', () => {
@@ -1721,7 +1721,7 @@ function loadVideo()
                 const error = player.error();
                 if (error && error.code === 4)
                 {
-                    if (player.src().includes('/fastest') && meta.formats.length > 1)
+                    if (player.src().includes('/direct') && meta.formats.length > 1)
                     {
                         setTimeout(() => {
                             console.warn("Changing video quality due to unsupported format...");

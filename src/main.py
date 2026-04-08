@@ -252,7 +252,7 @@ def get_subtitles(meta: dict):
     return all_subtitles
 
 
-def get_fastest_quality(url):
+def get_direct_quality(url):
     sources = get_video_sources(url, protocol='https')
     for s in sources:
         if 'audio' in s and not s.startswith('audio'):
@@ -275,7 +275,7 @@ def get_fastest_quality(url):
             f'#EXT-X-STREAM-INF:BANDWIDTH=1500000{",AUDIO=\"audio_grp\"" if audio_src else ""}',
             f'{sources[vid_src]}'
         ]
-        with open(os.path.join(get_data_dir(url), 'fastest.m3u8'), 'w') as f:
+        with open(os.path.join(get_data_dir(url), 'direct.m3u8'), 'w') as f:
             f.write('\n'.join(hls_data))
         return True
     return None
@@ -1051,18 +1051,20 @@ def download_ytdlp(filename):
         return pprint_exc(e)
 
 
-@app.route('/fastest')
-def resp_fastest_stream():
+@app.route('/direct')
+def resp_direct_stream():
     try:
         url = get_url(request)
-        if check_media(url, 'fastest'):
-            return host_file(url, 'fastest')
-        if fastest_quality := get_fastest_quality(url):
-            if fastest_quality is True:
-                return host_file(url, 'fastest')
-            return stream_media_file(fastest_quality)
+
         if check_media(url, 'video'):
             return host_file(url, 'video')
+        if check_media(url, 'direct'):
+            return host_file(url, 'direct')
+        if direct_quality := get_direct_quality(url):
+            if direct_quality is True:
+                return host_file(url, 'direct')
+            return stream_media_file(direct_quality)
+
         res = get_good_quality(get_video_formats(url)) 
         media_type = f'hls-{res}'.removesuffix('-p')
         return host_file(get_url(request), media_type)
