@@ -215,13 +215,13 @@ def get_video_sources(url, protocol = None):
     sources = {}
     best_audio = 0
     meta = get_meta(url)
-    formats = meta.get('formats', [])
+    formats = meta.get('formats') or []
     for f in formats:
-        video_name = f"{(f.get('height', ''))}" if f.get('vcodec', 'none').lower() != 'none' else ''
+        video_name = f"{(f.get('height') or '')}" if (f.get('vcodec') or 'none').lower() != 'none' else ''
         audio_name = ''
         if f.get('acodec', 'none') != 'none':
             audio_name = 'audio_drc' if 'drc' in f"{f.get('format_id')} {f.get('format_note')}".lower() else 'audio'
-        if 'audio' in (f.get('format_id') or '') or f.get('acodec', 'audio_presumed') == 'audio_presumed':
+        if 'audio' in (f.get('format_id') or '') or (f.get('acodec') or 'audio_presumed') == 'audio_presumed':
             audio_name = 'audio_presumed'
         name = video_name + audio_name
         quality = float(f.get('quality') or 0)
@@ -244,7 +244,7 @@ def check_res_at_least(url:str, res: int):
 
 
 def get_subtitles(meta: dict):
-    subs = {**meta.get('subtitles', {}), **meta.get('automatic_captions', {})}
+    subs = {**(meta.get('subtitles') or {}), **(meta.get('automatic_captions') or {})}
     all_subtitles = []
     for lang, subs in subs.items():
         if subs:
@@ -298,7 +298,7 @@ def search(query, search_engine='auto'):
     ydl_opts = {'quiet': True, 'skip_download': True, 'default_search': search_engine}
     ydl_opts.update(ydl_global_opts)
     info = YTDLP.get_info(query, ydl_opts)
-    entries = info.get('entries', [{}])
+    entries = info.get('entries') or [{}]
     for entry in entries:
         entry['original_url'] = normalize_url(append_query_to_url(entry['original_url'], query))
     return entries
@@ -334,8 +334,8 @@ def generate_chapters(desc: str):
 
 def clean_meta(raw_meta: dict):
     meta = {}
-    meta['title'] = raw_meta.get('title', '')
-    meta['uploader'] = raw_meta.get('uploader', '')
+    meta['title'] = raw_meta.get('title') or ''
+    meta['uploader'] = raw_meta.get('uploader') or ''
     try:
         meta['formats'] = get_video_formats(meta=raw_meta)
     except BaseException as e:
@@ -477,7 +477,7 @@ def send_file_partial(path, download_name: str | None = None):
         TODO: handle all send_file args, mirror send_file's error handling
         (if it has any)
     """
-    range_header = request.headers.get('Range', None)
+    range_header = request.headers.get('Range')
     if not range_header: return send_file(path, download_name=download_name)
     
     size = os.path.getsize(path)    
@@ -577,7 +577,7 @@ def download_file(url: str, media_type='video'):
         ydl_opts.update(ydl_global_opts)
         if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["cookiefile"] = cookies
         meta = get_meta(url)
-        if int(meta.get('duration', 0)) > max_video_duration: raise ValueError("Video too long for this app to handle")
+        if int(meta.get('duration') or 0) > max_video_duration: raise ValueError("Video too long for this app to handle")
         timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
         start_time = None
         end_time = None
@@ -635,7 +635,7 @@ def download_file(url: str, media_type='video'):
                 ydl_opts.update({"playlistend": 10, 'quiet': True, 'skip_download': True})
                 del ydl_opts['noplaylist']
                 print(f'Running YT-DLP with opts: {ydl_opts}')
-                input_entries = YTDLP.get_info(url, ydl_opts).get('entries', {})
+                input_entries = YTDLP.get_info(url, ydl_opts).get('entries') or {}
 
             for entry in input_entries:
                 entry['original_url'] = normalize_url(entry['original_url'])
@@ -793,7 +793,7 @@ def download_file(url: str, media_type='video'):
             print(f'downloading sub for {lang=}')
 
             try:
-                sub = {**meta.get('subtitles', {}), **meta.get('automatic_captions', {})}.get(lang, '')
+                sub = {**(meta.get('subtitles') or {}), **(meta.get('automatic_captions') or {})}.get(lang) or ''
                 for i in sub:
                     if i.get('ext') == 'srt':
                         sub_url = i.get('url')
@@ -914,9 +914,9 @@ def watch():
 
     if check_media(url, 'meta'):
         meta = get_meta(url)
-        video_width = meta.get('width', video_width)
-        video_height = meta.get('height', video_height)
-        video_title = meta.get('title', app_title)
+        video_width = meta.get('width') or video_width
+        video_height = meta.get('height') or video_height
+        video_title = meta.get('title') or app_title
     preload(url)
 
     print('Stopped serving watch')
@@ -944,7 +944,7 @@ def iframe():
 @app.route('/preload')
 def preload(url = None, meta = None, playlist = None):
     try:
-        url = url or (meta.get('original_url', '') if meta else get_url(request))
+        url = url or ((meta.get('original_url') or '') if meta else get_url(request))
         print('Running preload')
 
         if meta:
@@ -1140,7 +1140,7 @@ def serve_search():
     try:
         query = request.args.get('q')
         meta = search(query)[0]
-        url = meta.get('original_url', '')
+        url = meta.get('original_url') or ''
         final_url = append_query_to_url(url, query)
 
         preload(final_url, meta)
