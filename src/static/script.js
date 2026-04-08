@@ -409,7 +409,7 @@ function setVideoQuality(height = 0, button = null)
     if (button == null)
     {
         buttons.forEach(b => {
-            if ((b.textContent.toLowerCase().includes(height)) || (b.textContent == 'Default' && height == '')) button = b;
+            if ((b.textContent.toLowerCase().includes(height)) || (b.textContent == 'Direct' && height == '')) button = b;
         });
     }
     history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
@@ -981,14 +981,14 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
         
         resolutions.sort((a, b) => (b.height || b) - (a.height || a)); // Sort descending
         if (!resolutions.includes('audio')) resolutions.push('audio');
-        if (!resolutions.includes('default')) resolutions.push('default');
+        if (!resolutions.includes('direct')) resolutions.push('direct');
         
         resolutions.forEach(resItem => {
-            const height = resItem === 'audio' ? 'audio' : resItem === 'default' ? '' : (resItem.height || resItem);
+            const height = resItem === 'audio' ? 'audio' : resItem === 'direct' ? '' : (resItem.height || resItem);
             if (typeof height !== 'number' && height !== 'audio' && height !== '') return;
             
             const button = document.createElement('button');
-            button.textContent = height === 'audio' ? 'Audio' : height === '' ? 'Default' : `${height}p`;
+            button.textContent = height === 'audio' ? 'Audio' : height === '' ? 'Direct' : `${height}p`;
             button.classList.add('vjs-resolution-option');
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('quality') == height || (urlParams.get('quality') == null && height == ''))
