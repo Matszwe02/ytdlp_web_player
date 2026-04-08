@@ -253,11 +253,10 @@ def get_subtitles(meta: dict):
 
 
 def get_fastest_quality(url):
-    meta = get_meta(url)
-    formats = meta.get('formats', [])
-    for f in formats:
-        if f.get('vcodec') != 'none' and f.get('acodec') != 'none' and f.get('protocol') == 'https':
-            return f.get('url')
+    sources = get_video_sources(url, protocol='https')
+    for s in sources:
+        if 'audio' in s and not s.startswith('audio'):
+            return sources[s]
     sources = get_video_sources(url, protocol='m3u8_native')
     q = get_good_quality(get_video_formats(url, protocol='m3u8_native'))
     vid_src = None
