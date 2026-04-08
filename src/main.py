@@ -264,13 +264,16 @@ def get_fastest_quality(url):
     audio_src = None
     for s in sources.keys():
         if not audio_src and 'audio' in s: audio_src = s
-        if not vid_src and str(q) in s: vid_src = s
+        if not vid_src and str(q) in s:
+            vid_src = s
+            if 'audio' in s: audio_src = s
     if vid_src and audio_src:
+        if audio_src == vid_src: audio_src = None
         hls_data = [
             '#EXTM3U',
             '#EXT-X-VERSION:3',
-            f'#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio_grp",NAME="English",DEFAULT=YES,AUTOSELECT=YES,URI="{sources[audio_src]}"',
-            '#EXT-X-STREAM-INF:BANDWIDTH=1500000,AUDIO="audio_grp"',
+            f'#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio_grp",NAME="English",DEFAULT=YES,AUTOSELECT=YES,URI="{sources[audio_src]}"' if audio_src else "",
+            f'#EXT-X-STREAM-INF:BANDWIDTH=1500000{",AUDIO=\"audio_grp\"" if audio_src else ""}',
             f'{sources[vid_src]}'
         ]
         with open(os.path.join(get_data_dir(url), 'fastest.m3u8'), 'w') as f:
