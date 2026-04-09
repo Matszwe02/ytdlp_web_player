@@ -403,12 +403,10 @@ def normalize_url(url):
 
     if '.' not in url:
         url = 'https://youtube.com/watch?v=' + url
-    if '/watch?v=' in url:
+    if '/watch?v=' in url and not 'youtube.' in url.split('/watch?v=')[0]:
         yt_url = 'https://youtube.com/watch?v=' + url.split('/watch?v=')[1]
         try:
-            if 'youtube.' in url.split('/watch?v=')[0]:
-                url = yt_url
-            elif get_meta(yt_url):
+            if get_meta(yt_url):
                 url = yt_url
         except: pass
     return url
