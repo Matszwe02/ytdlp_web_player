@@ -18,10 +18,13 @@ import math
 import mimetypes
 import json
 from dotenv import load_dotenv
+from starlette.middleware.wsgi import WSGIMiddleware
 
 
 load_dotenv()
 app = Flask(__name__)
+wsgi = WSGIMiddleware(app)
+
 app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
 theme_color = os.environ.get('THEME_COLOR', '#ff7300')
 generate_sprite_below = int(os.environ.get('GENERATE_SPRITE_BELOW', '1800'))
@@ -1170,12 +1173,13 @@ def cookies_endpoint():
 
 
 
-thread = Thread(target=delete_old_files)
-downloader_thread = Thread(target=ytdlp_download)
+thread = Thread(target=delete_old_files, daemon=True)
+downloader_thread = Thread(target=ytdlp_download, daemon=True)
 thread.start()
 downloader_thread.start()
 
 
 
 if __name__ == '__main__':
-    app.run(threaded=True, host='0.0.0.0')
+    import uvicorn
+    uvicorn.run("main:wsgi", host='0.0.0.0', port=5000, workers=8)
