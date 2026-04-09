@@ -514,48 +514,22 @@ class ZoomToFillToggle extends videojs.getComponent('Button')
 videojs.registerComponent('ZoomToFillToggle', ZoomToFillToggle);
 
 
-class OverAmplificationButton extends videojs.getComponent('Button')
+class PlayerButton extends videojs.getComponent('Button')
 {
     constructor(player, options)
     {
         super(player, options);
-        const urlParams = new URLSearchParams(window.location.search);
-        this.addClass('menu-button');
-        this.el().innerHTML = '<i class="fa-solid fa-bullhorn"></i>';
-        this.enabled = false;
-        this.gainNode = null;
-        this.controlText('Over-Amplification');
+        this.addClass('vjs-player-button');
+        this.el().innerHTML = `<img src="/favicon.svg" width="50%">`;
+        this.controlText(`Watch in ${document.querySelector('meta[property="og:site_name"]').getAttribute('content')}`);
     }
 
     handleClick(event, state = null)
     {
-        setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
-        this.enabled = state != null ? state : !this.enabled;
-        this.setUpGain(this.enabled);
-    }
-
-    setUpGain()
-    {
-        if (this.enabled)
-        {
-            if (this.gainNode === null)
-            {
-                setUpAudioContext();
-                this.gainNode = new GainNode(audioContext);
-                audioSource.disconnect(audioContext.destination);
-                audioSource.connect(this.gainNode).connect(audioContext.destination);
-            }
-            this.el().classList.add('vjs-active');
-            this.gainNode.gain.value = 2;
-        }
-        else
-        {
-            this.el().classList.remove('vjs-active');
-            this.gainNode.gain.value = 1;
-        }
+        window.open(window.location.href.replace('iframe', 'watch'), '_blank');
     }
 }
-videojs.registerComponent('OverAmplificationButton', OverAmplificationButton);
+videojs.registerComponent('PlayerButton', PlayerButton);
 
 
 class SettingsButton extends videojs.getComponent('Button')
@@ -648,6 +622,50 @@ class SettingsButton extends videojs.getComponent('Button')
     }
 }
 videojs.registerComponent('SettingsButton', SettingsButton);
+
+
+class OverAmplificationButton extends videojs.getComponent('Button')
+{
+    constructor(player, options)
+    {
+        super(player, options);
+        const urlParams = new URLSearchParams(window.location.search);
+        this.addClass('menu-button');
+        this.el().innerHTML = '<i class="fa-solid fa-bullhorn"></i>';
+        this.enabled = false;
+        this.gainNode = null;
+        this.controlText('Over-Amplification');
+    }
+
+    handleClick(event, state = null)
+    {
+        setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
+        this.enabled = state != null ? state : !this.enabled;
+        this.setUpGain(this.enabled);
+    }
+
+    setUpGain()
+    {
+        if (this.enabled)
+        {
+            if (this.gainNode === null)
+            {
+                setUpAudioContext();
+                this.gainNode = new GainNode(audioContext);
+                audioSource.disconnect(audioContext.destination);
+                audioSource.connect(this.gainNode).connect(audioContext.destination);
+            }
+            this.el().classList.add('vjs-active');
+            this.gainNode.gain.value = 2;
+        }
+        else
+        {
+            this.el().classList.remove('vjs-active');
+            this.gainNode.gain.value = 1;
+        }
+    }
+}
+videojs.registerComponent('OverAmplificationButton', OverAmplificationButton);
 
 
 class DownloadButton extends videojs.getComponent('Button')
@@ -1613,6 +1631,7 @@ function loadVideo()
     });
     player.doubleTapFF();
     player.controlBar.ZoomToFillToggle.handleClick(null, state = false);
+    if (window.location.href.includes('/iframe?')) player.controlBar.addChild('PlayerButton');
     
     const spacer = document.createElement('div');
     player.el_.querySelector('.vjs-control-bar').appendChild(spacer);
