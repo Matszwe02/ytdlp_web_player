@@ -693,7 +693,7 @@ def download_file(url: str, media_type='video'):
 
             temp_m3u8_path = os.path.join(data_dir, f'{media_type}.m3u8.temp')
             m3u8_path = os.path.join(data_dir, f'{media_type}.m3u8')
-            hls_duration = 10
+            hls_duration = 5
             res_str = str(res)
 
             sources = get_video_sources(url)
