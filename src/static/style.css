@@ -690,7 +690,7 @@ video
     display: flex;
     justify-content: center;
     align-items: center;
-    filter: blur(.2vw) contrast(50);
+    filter: blur(5px) contrast(50);
     mix-blend-mode: screen;
 }
 .vis-container>div
