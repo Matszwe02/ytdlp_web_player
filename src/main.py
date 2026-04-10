@@ -71,4 +71,4 @@ if __name__ == '__main__':
     Thread(target=delete_old_files, daemon=True).start()
     Thread(target=ytdlp_download, daemon=True).start()
     import uvicorn
-    uvicorn.run("app:wsgi", host='0.0.0.0', port=5000, workers=8)
+    uvicorn.run("app:wsgi", host='0.0.0.0', port=5000, workers=4)
