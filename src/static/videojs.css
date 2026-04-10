@@ -169,22 +169,22 @@
   font-size: 1.2em;
 }
 
-.vjs-player-button {
+.vjs-settings-button {
     order: 6;
+    cursor: pointer;
+}
+.vjs-settings-button > i {
+    scale: 1.3;
+}
+
+.vjs-player-button {
+    order: 7;
     cursor: pointer;
 }
 .vjs-player-button > img {
     filter: grayscale(1) brightness(5) contrast(10) blur(0.2px);
     mix-blend-mode: screen;
     height: stretch;
-}
-
-.vjs-settings-button {
-    order: 7;
-    cursor: pointer;
-}
-.vjs-settings-button > i {
-    scale: 1.3;
 }
 
 .vjs-theme-custom .vjs-picture-in-picture-control {
