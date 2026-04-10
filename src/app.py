@@ -1114,6 +1114,7 @@ def cookies_endpoint():
         if file := get_global_cookies_file():
             with open(file, 'r') as f:
                 cookies += '\n' + f.read()
+        os.makedirs(get_data_dir(url), exist_ok=True)
         with open(os.path.join(get_data_dir(url), 'cookies.txt'), 'w') as f:
             f.write(cookies)
         return "OK", 200
