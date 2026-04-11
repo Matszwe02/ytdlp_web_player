@@ -1,14 +1,8 @@
-document.addEventListener('DOMContentLoaded', restoreOptions);
-document.getElementById('addCurrentDomainButton').addEventListener('click', addCurrentDomain);
 
-// Auto-save on input changes
-document.getElementById('iframeBaseUrl').addEventListener('input', saveOptions);
-document.getElementById('allowedDomains').addEventListener('input', saveOptions);
-
-// Helper function to render the list of allowed domains
-function renderAllowedDomains(domainsArray) {
+function renderAllowedDomains(domainsArray)
+{
     const allowedDomainsList = document.getElementById('allowedDomainsList');
-    allowedDomainsList.innerHTML = ''; // Clear current list
+    allowedDomainsList.innerHTML = '';
     domainsArray.forEach((domain, index) => {
         const li = document.createElement('li');
         const span = document.createElement('span');
@@ -18,75 +12,73 @@ function renderAllowedDomains(domainsArray) {
         const deleteButton = document.createElement('button');
         deleteButton.textContent = 'Remove';
         deleteButton.onclick = () => {
-            const currentDomains = getDomainsArray();
-            const newDomains = currentDomains.filter((_, i) => i !== index);
-            updateDomains(newDomains);
+            updateDomains(getDomainsArray().filter((_, i) => i !== index));
         };
         li.appendChild(deleteButton);
         allowedDomainsList.appendChild(li);
     });
 }
 
-// Helper function to get domains as an array from the input or storage
-function getDomainsArray() {
+function getDomainsArray()
+{
     const domainsInput = document.getElementById('allowedDomains').value;
     if (!domainsInput) return [];
     return domainsInput.split(',').map(domain => domain.trim()).filter(domain => domain.length > 0);
 }
 
-// Helper function to update both the input field and the displayed list
-function updateDomains(newDomainsArray) {
-    const domainsString = newDomainsArray.join(',');
-    document.getElementById('allowedDomains').value = domainsString;
+function updateDomains(newDomainsArray)
+{
+    document.getElementById('allowedDomains').value = newDomainsArray.join(',');
     renderAllowedDomains(newDomainsArray);
-    saveOptions(); // Auto-save after updating domains
+    saveOptions();
 }
 
-function saveOptions() {
+function saveOptions()
+{
     const iframeBaseUrl = document.getElementById('iframeBaseUrl').value;
-    const allowedDomainsString = document.getElementById('allowedDomains').value; // Get the comma-separated string
-    
-    chrome.storage.sync.set({ iframeBaseUrl: iframeBaseUrl, allowedDomains: allowedDomainsString }, () => {
-        const status = document.getElementById('status');
-        status.textContent = 'Options saved.';
-        setTimeout(() => {
-            status.textContent = '';
-        }, 750);
-    });
+    const allowedDomainsString = document.getElementById('allowedDomains').value;
+    chrome.storage.sync.set({ iframeBaseUrl: iframeBaseUrl, allowedDomains: allowedDomainsString }, () => {});
 }
 
-function restoreOptions() {
-    // Retrieve both settings
+function restoreOptions()
+{
     chrome.storage.sync.get({ iframeBaseUrl: '', allowedDomains: '' }, (items) => {
         document.getElementById('iframeBaseUrl').value = items.iframeBaseUrl;
-        document.getElementById('allowedDomains').value = items.allowedDomains; // Restore the input value
-
-        // Render the domains list
-        const domainsArray = items.allowedDomains.split(',').map(domain => domain.trim()).filter(domain => domain.length > 0);
-        renderAllowedDomains(domainsArray);
+        document.getElementById('allowedDomains').value = items.allowedDomains;
+        renderAllowedDomains(items.allowedDomains.split(',').map(domain => domain.trim()).filter(domain => domain.length > 0));
     });
 }
 
-async function addCurrentDomain() {
-    // Get the current tab URL
+async function addCurrentDomain()
+{
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab && tab.url) {
-        try {
-            const url = new URL(tab.url);
-            const domain = url.hostname; // e.g., "www.example.com"
-            
-            const currentDomainsArray = getDomainsArray();
-            if (!currentDomainsArray.includes(domain)) {
-                currentDomainsArray.push(domain);
-                updateDomains(currentDomainsArray);
-            } else {
-                alert('Domain already in the list.');
-            }
-        } catch (e) {
-            console.error("Could not parse URL or add domain:", e);
-            alert("Could not extract domain from the current URL.");
+    if (!tab || !tab.url)
+    {
+        alert("Could not get current tab information");
+        return;
+    }
+    try
+    {
+        const url = new URL(tab.url);
+        const domain = url.hostname;
+        
+        const currentDomainsArray = getDomainsArray();
+        if (currentDomainsArray.includes(domain))
+        {
+            alert('Domain already in the list');
+            return;
         }
-    } else {
-        alert("Could not get current tab information.");
+        currentDomainsArray.push(domain);
+        updateDomains(currentDomainsArray);
+    }
+    catch (e)
+    {
+        alert("Could not parse URL or add domain");
     }
 }
+
+
+document.addEventListener('DOMContentLoaded', restoreOptions);
+document.getElementById('addCurrentDomainButton').addEventListener('click', addCurrentDomain);
+document.getElementById('iframeBaseUrl').addEventListener('input', saveOptions);
+document.getElementById('allowedDomains').addEventListener('input', saveOptions);

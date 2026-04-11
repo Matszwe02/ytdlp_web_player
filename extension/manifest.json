@@ -26,7 +26,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["replacer_script.js"],
+      "js": ["extension.js"],
       "run_at": "document_start"
     }
   ],

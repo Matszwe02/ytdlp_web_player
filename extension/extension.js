@@ -1,0 +1,274 @@
+// ==UserScript==
+// @name         YT-DLP Web Player
+// @namespace    https://github.com/Matszwe02/ytdlp_web_player
+// @downloadURL  https://github.com/Matszwe02/ytdlp_web_player
+// @updateURL    https://github.com/Matszwe02/ytdlp_web_player
+// @homepageURL  https://github.com/Matszwe02/ytdlp_web_player
+// @supportURL   https://github.com/Matszwe02/ytdlp_web_player
+// @version      1.0.0
+// @description  Replaces videos with YT-DLP Player
+// @author       matszwe02
+// @match        *://*.youtube.com/*
+// @icon         https://github.com/Matszwe02/ytdlp_web_player/raw/main/src/static/favicon.svg
+// @grant        none
+// @run-at       document-start
+// ==/UserScript==
+
+
+// if running this script in standalone mode (tampermonkey), fill in playerUrl with your YT-DLP Player instance
+
+let playerUrl = '';
+
+let audioContext = null;
+let iframe = null;
+let iframeContainer = null;
+
+
+function blockVideos()
+{
+    if (audioContext == null)
+    {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    for (let media of document.querySelectorAll('video, audio'))
+    {
+        try
+        {
+            audioSource = audioContext.createMediaElementSource(media);
+            console.log(`Blocking ${media}`);
+            
+            const stopMedia = (e = null) => {
+                if (e !== null)
+                {
+                    e.stopImmediatePropagation();
+                    e.preventDefault();
+                }
+                media.removeAttribute('autoplay');
+                media.muted = true;
+                media.volume = 0;
+                media.pause();
+            };
+            ['play', 'playing', 'loadeddata', 'loadedmetadata', 'timeupdate']
+                .forEach(e => media.addEventListener(e, stopMedia, true));
+            stopMedia();
+        }
+        catch (e)
+        {
+            if (e.name != 'InvalidStateError') console.warn(e);
+        };
+    }
+}
+
+
+function getIframeContainer()
+{
+    const allVideos = Array.from(document.querySelectorAll('video, .html5-video-player'));
+    console.log(`Total videos found: ${allVideos.length}`);
+
+
+    let maxArea = 0;
+    allVideos.forEach(video => {
+        const rect = video.getBoundingClientRect();
+        const area = rect.width * rect.height;
+        console.log(`  - top:${rect.top}, left:${rect.left}, w:${rect.width}, h:${rect.height}`);
+        if (area > maxArea) maxArea = area;
+    });
+
+    if (maxArea === 0)
+    {
+        if (iframeContainer) videoResizeObserver.unobserve(iframeContainer);
+        iframe.src = null;
+        return;
+    }
+
+    const potentialCandidates = allVideos.filter(video => {
+        const rect = video.getBoundingClientRect();
+        const area = rect.width * rect.height;
+        return area >= maxArea * 0.80;
+    });
+    console.log(`Potential candidates: ${potentialCandidates.length}`);
+
+    let bestVideo = null;
+    let maxVisibilityScore = -Infinity;
+
+    potentialCandidates.forEach(video => {
+        const rect = video.getBoundingClientRect();
+        const closeX = Math.min(rect.left - 0, window.innerWidth - rect.right);
+        const closeY = Math.min(rect.top - 0, window.innerHeight - rect.bottom);
+        const visibilityScore = Math.min(closeX, closeY);
+
+        console.log(`  - Visibility ${visibilityScore.toFixed(0)}, top:${rect.top}, left:${rect.left}, w:${rect.width}, h:${rect.height}`);
+
+        if (visibilityScore >= maxVisibilityScore)
+        {
+            maxVisibilityScore = visibilityScore;
+            bestVideo = video;
+        }
+    });
+    if (bestVideo)
+    {
+        const rect = bestVideo.getBoundingClientRect();
+        while (bestVideo.parentElement !== document.body)
+        {
+            const parentRect = bestVideo.parentElement.getBoundingClientRect();
+            if (parentRect.width > (rect.width * 1.02) || parentRect.height > (rect.height * 1.02)) break;
+            bestVideo = bestVideo.parentElement;
+        }
+    }
+    console.log(bestVideo);
+    return bestVideo;
+}
+
+
+function createIframe(src='')
+{
+    if (iframe = document.getElementById('ytdlp-player')) return;
+    console.log(`Creating iframe`);
+    iframe = document.createElement('iframe');
+    iframe.id = 'ytdlp-player';
+    iframe.style.border = 'none';
+    iframe.style.position = 'fixed';
+    iframe.style.zIndex = '9999';
+    iframe.style.top = '0px';
+    iframe.style.left = '0px';
+    iframe.allowFullscreen = true;
+    iframe.src = src;
+    document.body.appendChild(iframe);
+    try
+    {
+        chrome.runtime.sendMessage({
+            action: 'postCookies',
+            playerUrl: playerUrl,
+            documentCookies: document.cookie,
+            currentWebsiteUrl: window.top.location.href
+        });
+        
+    }
+    catch (error)
+    {
+        console.warn(error);
+    }
+}
+
+
+function updateIframeGeometry()
+{
+    const rect = iframeContainer?.getBoundingClientRect();
+    const vidRect = iframeContainer?.querySelector('video')?.getBoundingClientRect();
+
+    iframe.style.width = `${Math.max(rect?.width || 0, vidRect?.width || 0)}px`;
+    iframe.style.height = `${Math.max(rect?.height || 0, vidRect?.height || 0)}px`;
+    iframe.style.transform = `translate(${rect?.left || 0}px, ${rect?.top || 0}px)`;
+}
+
+
+function updateIframe(updateContainer = false)
+{
+    let src = window.top.location.href;
+    let srcUrl = new URL(src);
+    let iframeEnabled = srcUrl.pathname != '/' || srcUrl.search;
+    let iframeSrc = `${playerUrl}/iframe?url=${encodeURIComponent(src)}`;
+    if (iframe === null || !document.getElementById('ytdlp-player')) createIframe(iframeSrc);
+    if ((iframe.src != iframeSrc && iframeEnabled))
+    {
+        console.log(`Chaning iframe src from ${iframe.src} to ${iframeSrc}`);
+        iframe.remove();
+        createIframe(iframeSrc);
+    }
+    if (updateContainer)
+    {
+        if (iframeContainer)
+        {
+            iframeContainer.style.opacity = '';
+            iframeContainer.style.pointerEvents = '';
+        }
+        iframeContainer = getIframeContainer();
+        iframeContainer.style.opacity = '0';
+        iframeContainer.style.pointerEvents = 'none';
+    }
+    if (!iframeEnabled && iframeContainer)
+    {
+        iframeContainer.style.opacity = '';
+        iframeContainer.style.pointerEvents = '';
+        iframeContainer = null;
+    }
+    updateIframeGeometry();
+}
+
+
+function start()
+{
+    window.addEventListener('scroll', updateIframeGeometry, { passive: true });
+    window.addEventListener('popstate', updateIframe);
+
+    if (window.navigation)
+    {
+        window.navigation.addEventListener('navigate', () => {
+            setTimeout(updateIframe, 100); 
+        });
+    }
+
+    let applyLogicTimeout = null;
+    const observer = new MutationObserver(() => {
+        updateIframe();
+        blockVideos();
+        clearTimeout(applyLogicTimeout);
+        applyLogicTimeout = setTimeout(()=>{updateIframe(true);}, 100);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    setInterval(updateIframe, 500);
+
+    videoResizeObserver = new ResizeObserver(() => {
+        updateIframe();
+    });
+    updateIframe(true);
+    blockVideos();
+}
+
+
+function tryStart()
+{
+    if (!playerUrl)
+    {
+        chrome.storage.sync.get({ playerUrl: '' }, (items) => {
+            playerUrl = items.playerUrl;
+            tryStart();
+        });
+        return;
+    }
+    if (!document.body)
+    {
+        setTimeout(() => {
+            tryStart();
+        }, 100);
+        return;
+    }
+    try
+    {
+        start();
+    }
+    catch (error)
+    {
+        console.warn(error);
+        setTimeout(() => {
+            tryStart();
+        }, 1000);
+    }
+}
+
+
+if (playerUrl) tryStart();
+else
+{
+    chrome.storage.sync.get({ allowedDomains: '' }, (items) => {
+        if (!items.allowedDomains) return;
+    
+        const currentUrl = new URL(window.top.location.href);
+        const hostname = currentUrl.hostname;
+    
+        const allowedDomains = items.allowedDomains.split(',').map(domain => domain.trim());
+        if (!allowedDomains.some(allowedDomain => { return hostname === allowedDomain || hostname.endsWith(`.${allowedDomain}`); })) return;
+    
+        tryStart();
+    });
+}

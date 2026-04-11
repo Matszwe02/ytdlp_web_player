@@ -1,45 +1,31 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Replacer Extension Options</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; }
+        body { font-family: sans-serif; padding: 20px; background-color: #222; color: #eee; max-width: 440px; margin: auto; padding: 20px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input[type="text"], input[type="url"] { width: 400px; padding: 8px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; }
-        button { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:hover { background-color: #0056b3; }
-        #status { margin-top: 15px; color: green; }
-        .domain-list { margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;}
-        .domain-list h3 { margin-top: 0; }
-        .domain-list ul { list-style: none; padding: 0; }
-        .domain-list li { margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center;}
-        .domain-list li span { flex-grow: 1; margin-right: 10px; }
-        .domain-list li button { padding: 5px 10px; background-color: #dc3545; font-size: 0.8em;}
-        .domain-list li button:hover { background-color: #c82333; }
-        #addCurrentDomainButton { margin-top: 10px; background-color: #28a745; }
-        #addCurrentDomainButton:hover { background-color: #218838; }
+        input { width: 400px; padding: 8px; border: 1px solid #444; border-radius: 4px; background-color: #111; color: #eee; }
+        .domain-list { margin-top: 20px; border-top: 1px solid #444; padding-top: 15px; }
+        ul { list-style: none; padding: 0; }
+        li { margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
+        li span { flex-grow: 1; margin-right: 10px; }
+        button { color: #fff; cursor: pointer; border: none; padding: 5px 8px; border-radius: 2px; }
+        li button { background-color: #a00; font-size: 0.8em; }
+        li button:hover { background-color: #970000; }
+        #addCurrentDomainButton { background-color: #080; width: 418px; }
+        #addCurrentDomainButton:hover { background-color: #007700; }
     </style>
 </head>
 <body>
-    <h1>Replacer Extension Options</h1>
     <label for="iframeBaseUrl">YT-DLP Player URL:</label>
     <input type="url" id="iframeBaseUrl" placeholder="https://example.com">
 
-    <hr> <!-- Separator for clarity -->
-
-    <label for="allowedDomains">Allowed Domains (comma-separated):</label>
-    <input type="text" id="allowedDomains" placeholder="e.g., youtube.com, example.org">
-    
-    <button id="addCurrentDomainButton">Add Current Domain</button>
     <div id="domainListContainer" class="domain-list">
-        <h3>Current Allowed Domains:</h3>
+        <button id="addCurrentDomainButton">Add Current Domain</button>
         <ul id="allowedDomainsList">
-            <!-- Domains will be listed here by JavaScript -->
         </ul>
+        <input type="text" id="allowedDomains" placeholder="Click on Add Current Domain">
     </div>
-
-    <!-- Removed Save button as requested -->
-    <div id="status"></div>
 
     <script src="options.js"></script>
 </body>
