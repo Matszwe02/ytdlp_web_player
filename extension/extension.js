@@ -77,7 +77,6 @@ function getIframeContainer()
     if (maxArea === 0)
     {
         if (iframeContainer) videoResizeObserver.unobserve(iframeContainer);
-        iframe.src = null;
         return;
     }
 
@@ -183,8 +182,11 @@ function updateIframe(updateContainer = false)
             iframeContainer.style.pointerEvents = '';
         }
         iframeContainer = getIframeContainer();
-        iframeContainer.style.opacity = '0';
-        iframeContainer.style.pointerEvents = 'none';
+        if (iframeContainer)
+        {
+            iframeContainer.style.opacity = '0';
+            iframeContainer.style.pointerEvents = 'none';
+        }
     }
     if (!iframeEnabled && iframeContainer)
     {
