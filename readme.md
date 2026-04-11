@@ -4,14 +4,17 @@
 
 # YT-DLP Web Player
 
-### Arbitraty internet video player powered by yt-dlp
+### Internet video player powered by yt-dlp
 
 ## Features
-- video resolution selection, closed captions selection, video aspect ratio adjustement
-- video download option, video repeat option
-- PWA support with "share with" target for Android
-- video searching
-- clean UI, configurable themes
+- everything you would expect a modern player to have
+- fast loading speed (most videos load within 4s)
+- paste video URL / type search query / auto pasting from clipboard
+- zoom to fill for all devices
+- download, repeat videos
+- audio visualizer for music
+- PWA support with "share with" target for Android and IOS
+- clean UI, configurable theme color
 - basic livestream support
 - browser extension to allow including this player on every website, which also adds `Open link in YT-DLP Player` browser-wide context menu
 
@@ -25,6 +28,7 @@ some of these features are off by default and need to be turned on in `.env`
 - ffmpeg for better format support
 - sponsorblock for supported sites (currently YouTube)
 - Media Session API integration for system playback controls
+- Audio Context API for audio over-amplification and audio visualizer
 
 
 **Daily auto update of yt-dlp to immediately support new yt-dlp codecs and sites**
@@ -120,4 +124,4 @@ If it appears to be supported, fill in a bug report with app logs.
 
 ## Other issues
 
-Please fill in a bug report. Attach browser and app logs if relevant.
+Please fill in a bug report. Attach browser and app logs if relevant, app version, browser name, etc.
