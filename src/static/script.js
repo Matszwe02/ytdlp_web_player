@@ -148,7 +148,7 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible 
         {
             console.log(`Fetching ${fetchOptions.method} "${url}" called from ${callerInfo}`);
             const response = await fetch(url, fetchOptions);
-            if (response.status >= 500) throw new Error(`Server error: ${await response.text()}`);
+            if (response.status == 500) throw new Error(`Server error: ${await response.text()}`);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             return response;
         }
