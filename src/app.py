@@ -48,6 +48,7 @@ class YTDLP:
             else:
                 print('An error occured when downloading. Providing cookies may help with this issue.')
                 raise e
+        print(f'Finished YT-DLP download with opts: {opts}')
 
 
     @staticmethod
@@ -68,6 +69,8 @@ class YTDLP:
             else:
                 print('An error occured when downloading. Providing cookies may help with this issue.')
                 raise e
+        finally:
+            print(f'Finished YT-DLP extract_info with opts: {opts}')
 
 
 
