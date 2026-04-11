@@ -41,6 +41,7 @@ class YTDLP:
                 pprint_exc(e)
                 print('An error occured when downloading. Downloading with cookies...')
                 opts["cookiefile"] = cookies
+                opts["mark_watched"] = False
                 print(f'Running YT-DLP download with opts: {opts}')
                 with yt_dlp.YoutubeDL(opts) as ydl:
                     ydl.download(unquote(url))
@@ -60,6 +61,7 @@ class YTDLP:
                 pprint_exc(e)
                 print('An error occured when downloading. Downloading with cookies...')
                 opts["cookiefile"] = cookies
+                opts["mark_watched"] = False
                 print(f'Running YT-DLP extract_info with opts: {opts}')
                 with yt_dlp.YoutubeDL(opts) as ydl:
                     return ydl.sanitize_info(ydl.extract_info(url, download=False))
