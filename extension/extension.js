@@ -17,24 +17,29 @@
 
 // if running this script in standalone mode (tampermonkey), fill in playerUrl with your YT-DLP Player instance
 
-let playerUrl = '';
+var playerUrl = '';
 
-let audioContext = null;
-let iframe = null;
-let iframeContainer = null;
+var audioContext = null;
+var iframe = null;
+var iframeContainer = null;
 
 
 function blockVideos()
 {
     if (audioContext == null)
     {
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        try
+        {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        catch {}
     }
     for (let media of document.querySelectorAll('video, audio'))
     {
         try
         {
-            audioSource = audioContext.createMediaElementSource(media);
+            if (media.muted && media.volume == 0 && media.paused && !media.autoplay) continue;
+            audioSource = audioContext?.createMediaElementSource(media);
             console.log(`Blocking ${media}`);
             
             const stopMedia = (e = null) => {
