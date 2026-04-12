@@ -12,8 +12,7 @@ FROM python:3.13-alpine
 RUN apk add --no-cache ffmpeg deno
 WORKDIR /app
 COPY src/requirements.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir gunicorn
+RUN pip install --no-cache-dir -r requirements.txt
 COPY --from=builder /build/version.txt /app/
 COPY src/. /app
 EXPOSE 5000
