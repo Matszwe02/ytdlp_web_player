@@ -1728,7 +1728,7 @@ function loadVideo()
                 {
                     player.spriteThumbnails({ url: `/sprite?${urlParams.toString()}`, width: 160, height: 90, columns: 10, interval: 10 });
                     player.spriteThumbnails().setState({ready: false});
-                    retryFetch(`/sprite?${urlParams.toString()}`, { visible: false }).then(response => {
+                    retryFetch(`/sprite?${urlParams.toString()}`, undefined, undefined, undefined, false).then(response => {
                         player.spriteThumbnails().setState({ready: true});
                     });
                 }
