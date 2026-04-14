@@ -632,6 +632,8 @@ def download_file(url: str, media_type='video'):
                         audio_file = check_media(url, 'audio') or download_file(url, 'audio')
                         temp_video = check_media(url, f'temp-{media_type}')
                         success = FFMPEG(['-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]).success
+                    except Exception as e:
+                        pprint_exc(e)
                     finally:
                         if temp_video: os.remove(temp_video)
                     if not success:
