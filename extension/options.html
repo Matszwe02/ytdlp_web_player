@@ -2,9 +2,10 @@
 <html>
 <head>
     <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #222; color: #eee; max-width: 440px; margin: auto; padding: 20px; }
+        body { font-family: sans-serif; padding: 20px; background-color: #222; color: #eee; max-width: 418px; min-width: 418px; margin: auto; padding: 20px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input { width: 400px; padding: 8px; border: 1px solid #444; border-radius: 4px; background-color: #111; color: #eee; }
+        input { width: 400px; padding: 8px; margin-bottom: 20px; border: 1px solid #444; border-radius: 4px; background-color: #111; color: #eee; }
+        #cookies { margin-left: 9px; margin-right: 9px; }
         .domain-list { margin-top: 20px; border-top: 1px solid #444; padding-top: 15px; }
         ul { list-style: none; padding: 0; }
         li { margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
@@ -19,6 +20,8 @@
 <body>
     <label for="iframeBaseUrl">YT-DLP Player URL:</label>
     <input type="url" id="iframeBaseUrl" placeholder="https://example.com">
+    <label for="cookies">Send cookies with requests:</label>
+    <input type="checkbox" id="cookies">
 
     <div id="domainListContainer" class="domain-list">
         <button id="addCurrentDomainButton">Add Current Domain</button>

@@ -22,6 +22,7 @@ var playerUrl = '';
 var audioContext = null;
 var iframe = null;
 var iframeContainer = null;
+var cookies = false;
 
 
 function blockVideos()
@@ -138,19 +139,22 @@ function createIframe(src='')
     iframe.allowFullscreen = true;
     iframe.src = src;
     document.body.appendChild(iframe);
-    try
+    if (cookies)
     {
-        chrome.runtime.sendMessage({
-            action: 'postCookies',
-            playerUrl: playerUrl,
-            documentCookies: document.cookie,
-            currentWebsiteUrl: window.top.location.href
-        });
-        
-    }
-    catch (error)
-    {
-        console.warn(error);
+        try
+        {
+            chrome.runtime.sendMessage({
+                action: 'postCookies',
+                playerUrl: playerUrl,
+                documentCookies: document.cookie,
+                currentWebsiteUrl: window.top.location.href
+            });
+            
+        }
+        catch (error)
+        {
+            console.warn(error);
+        }
     }
 }
 
@@ -237,8 +241,9 @@ function tryStart()
 {
     if (!playerUrl)
     {
-        chrome.storage.sync.get({ playerUrl: '' }, (items) => {
+        chrome.storage.sync.get({ playerUrl: '', cookies: false }, (items) => {
             playerUrl = items.playerUrl;
+            cookies = items.cookies;
             tryStart();
         });
         return;
