@@ -20,6 +20,7 @@
 
 some of these features are off by default and need to be turned on in `.env`
 
+**Daily auto update of yt-dlp to immediately support new yt-dlp codecs and sites**
 
 ## Technologies used
 - HLS for shorter load times and better performance
@@ -30,19 +31,35 @@ some of these features are off by default and need to be turned on in `.env`
 - Media Session API integration for system playback controls
 - Audio Context API for audio over-amplification and audio visualizer
 
-
-**Daily auto update of yt-dlp to immediately support new yt-dlp codecs and sites**
-
 ## Planned
 - more QoL features
 - video quality changing without interrupts
 
+
+## Limitations
+- only YT-DLP supported videos work
+- video loading times and fallbacks:
+    - most videos load in less than 4 seconds, skipping transcoding until it starts ("Direct" in resolution seleciton)
+    - if it fails, most of remaining videos load in ~10s, when transcoding starts
+    - if it also fails, the whole video is getting downloaded until it becomes available
+- all videos are being transcoded to HLS in realtime, so you need a machine that could handle that
+    - transcoding works from start of the videos, so you need to wait for later parts to buffer. For now the only alternative is to switch to "Direct" in resolution selection
+- project is under heavy development - you may expect bugs and issues
+
+
+
 ## Images
 
-![image](.github/images/image.png)
-![loading screen](.github/images/image2.png)
-![main page - PWA](.github/images/image3.png)
-![vertical](.github/images/image4.png)
+### Main Page
+![image](.github/images/main.png)
+### Vertical Video Support
+![vertical](.github/images/vert.png)
+### Obligatory Big Buck Bunny
+![big buck bunny](.github/images/bbb.png)
+### Browser Extension
+![Extension](.github/images/ext.png)
+### Phone App
+![PWA](.github/images/app.png)
 
 
 # How to run
@@ -75,8 +92,7 @@ App should be accessible at [http://localhost:5000](http://localhost:5000)
 - Copy `src/example.env` to `src/.env`, modify as needed
 - See `compose.yml` for additional configuration mentioned in [Docker section](#1-docker-preferred)
 
-### Cookies (optional)
----
+### Cookies
 
 Some videos need cookies to work. With cookies you will be logged in to the video streaming's website while using the app.
 
@@ -103,7 +119,7 @@ I do not guarantee that cookies file is completly secure from accessing it throu
     - it's by design, so keep in mind that no playback will be possible while the extension is active
 - It will spawn iframe directly in `<body>` and search for the best container to hover that iframe above it
     - it is designed like that so DOM won't be significantly altered
-    - it sends your website's cookies to the server with each request, then tries to mark video as watched
+    - it sends your website's cookies to the server with each request, then tries to mark video as watched (if enabled)
 - That container gets opacity:0 and pointer-events:none so it can't be interacted with
 - It will watch for any change to update iframe's position or container
 
