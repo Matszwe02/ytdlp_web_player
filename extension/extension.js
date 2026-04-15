@@ -234,6 +234,12 @@ function start()
     });
     updateIframe(true);
     blockVideos();
+    document.addEventListener('click', (e) => {
+        if (iframe !== null)
+        {
+            iframe.focus();
+        }
+    });
 }
 
 
