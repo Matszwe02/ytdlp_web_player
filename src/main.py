@@ -22,6 +22,7 @@ auto_bg_playback = os.environ.get('AUTO_BG_PLAYBACK', 'False').lower() == 'true'
 audio_visualizer = os.environ.get('AUDIO_VISUALIZER', 'False').lower() == 'true'
 download_path = os.environ.get('DOWNLOAD_PATH', './download')
 disable_transcoding = os.environ.get('DISABLE_TRANSCODING', 'False').lower() == 'true'
+port = int(os.environ.get('PORT', '5000'))
 
 hls_duration = 5
 
@@ -73,4 +74,4 @@ if __name__ == '__main__':
     Thread(target=delete_old_files, daemon=True).start()
     Thread(target=ytdlp_download, daemon=True).start()
     import uvicorn
-    uvicorn.run("app:wsgi", host='0.0.0.0', port=5000, workers=4)
+    uvicorn.run("app:wsgi", host='0.0.0.0', port=port, workers=4)
