@@ -423,7 +423,7 @@ function setVideoQuality(height = 0, button = null)
                 function tryToFetchHLS()
                 {
                     var segments = playlist.split('\n');
-                    const segmentToDownload = String(Math.ceil((player.currentTime() + 5)/10)).padStart(4,'0') + ".ts";
+                    const segmentToDownload = String(Math.ceil((player.currentTime() + meta.hls_duration / 2)/10)).padStart(4,'0') + ".ts";
                     var selectedSegment;
                     for (let i = 0; i < segments.length; i++) {
                         const segment = segments[i];
@@ -436,9 +436,13 @@ function setVideoQuality(height = 0, button = null)
                     }
                     retryFetch(selectedSegment, {}, undefined, undefined, undefined, true)
                         .then(response => {
-                            applyVideoQuality();
-                            buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
-                            button?.classList?.add('vjs-menu-option-selected');
+                            let timeout = meta.hls_duration + 1 - player.currentTime() % meta.hls_duration;
+                            if (timeout > meta.hls_duration / 2) timeout = 0;
+                            setTimeout(() => {
+                                applyVideoQuality();
+                                buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
+                                button?.classList?.add('vjs-menu-option-selected');
+                            }, timeout * 1000);
                         })
                         .catch(error => {
                             console.log('HLS not ready. Retrying fetching...');

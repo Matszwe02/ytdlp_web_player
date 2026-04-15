@@ -23,6 +23,8 @@ audio_visualizer = os.environ.get('AUDIO_VISUALIZER', 'False').lower() == 'true'
 download_path = os.environ.get('DOWNLOAD_PATH', './download')
 disable_transcoding = os.environ.get('DISABLE_TRANSCODING', 'False').lower() == 'true'
 
+hls_duration = 5
+
 
 os.makedirs(download_path, exist_ok=True)
 ffmpeg = shutil.which("ffmpeg")

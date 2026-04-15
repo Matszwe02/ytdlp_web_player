@@ -402,6 +402,7 @@ def clean_meta(raw_meta: dict):
     meta['url'] = raw_meta.get('original_url')
     meta['default_quality'] = 'audio' if 'Music' in (raw_meta.get('categories') or []) and audio_visualizer else get_good_quality(meta['formats'])
     meta['load_default_quality'] = load_default_quality
+    meta['hls_duration'] = hls_duration
     meta['playlist_support'] = playlist_support
     meta['auto_bg_playback'] = auto_bg_playback
     meta['audio_visualizer'] = audio_visualizer
@@ -677,7 +678,6 @@ def download_file(url: str, media_type='video'):
 
             temp_m3u8_path = os.path.join(data_dir, f'{media_type}.m3u8.temp')
             m3u8_path = os.path.join(data_dir, f'{media_type}.m3u8')
-            hls_duration = 5
             res_str = str(res)
 
             sources = get_video_sources(url)
