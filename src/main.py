@@ -32,7 +32,7 @@ if disable_transcoding:
 elif not ffmpeg:
     raise RuntimeError("FFMPEG can not be detected in your system. Install FFMPEG or disable transcoding.")
 
-ydl_global_opts = {'ffmpeg-location': ffmpeg, "noplaylist": True, "remote_components": ["ejs:github"], "concurrent_fragment_downloads": 4}
+ydl_global_opts = {'ffmpeg-location': ffmpeg, "noplaylist": True, "remote_components": ["ejs:github"], "concurrent_fragment_downloads": 2}
 if not shutil.which('deno'): ydl_global_opts["js_runtimes"] = {"node": {}}
 
 app_version = Downloader.get_app_version()

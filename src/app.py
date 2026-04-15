@@ -25,52 +25,77 @@ wsgi = WSGIMiddleware(app)
 
 
 class YTDLP:
+
+    class Logger:
+        def __init__(self, url, opts, method):
+            self.yt_id = sha1(f'{time.time()}'.encode()).hexdigest()[:6]
+            self.start(url, opts, method)
+
+        def start(self, url, opts, method):
+            print(f'[YT-DLP {self.yt_id}] Running YT-DLP {method} with opts: {opts} for url: {url}')
+
+        def debug(self, msg):
+            print(f'[YT-DLP {self.yt_id}] {msg}')
+
+        def info(self, msg):
+            print(f'[YT-DLP {self.yt_id}] {msg}')
+
+        def warning(self, msg):
+            print(f'[YT-DLP {self.yt_id}] WARNING {msg}')
+
+        def error(self, msg):
+            print(f'[YT-DLP {self.yt_id}] ERROR {msg}')
+        
+        def finish(self):
+            print(f'[YT-DLP {self.yt_id}] Finished')
+
+
     @staticmethod
     def download(url, opts):
-        print(f'Running YT-DLP download with opts: {opts}')
+        logger = YTDLP.Logger(url, opts, 'download')
         try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
+            with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
                 try:
                     ydl.download_with_info_file(check_media(url, 'meta'))
                 except Exception as e:
                     pprint_exc(e)
-                    print('An error occured when downloading with meta. Downloading without meta...')
+                    logger.error('An error occured when downloading with meta. Downloading without meta...')
                     ydl.download(unquote(url))
         except Exception as e:
             if (cookies := get_global_cookies_file(True)):
                 pprint_exc(e)
-                print('An error occured when downloading. Downloading with cookies...')
+                logger.error('An error occured when downloading. Downloading with cookies...')
                 opts["cookiefile"] = cookies
                 opts["mark_watched"] = False
-                print(f'Running YT-DLP download with opts: {opts}')
-                with yt_dlp.YoutubeDL(opts) as ydl:
+                logger.start(url, opts, 'download')
+                with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
                     ydl.download(unquote(url))
             else:
-                print('An error occured when downloading. Providing cookies may help with this issue.')
+                logger.error('An error occured when downloading. Providing cookies may help with this issue.')
                 raise e
-        print(f'Finished YT-DLP download with opts: {opts}')
+        logger.finish()
 
 
     @staticmethod
     def get_info(url, opts):
-        print(f'Running YT-DLP extract_info with opts: {opts}')
+        logger = YTDLP.Logger(url, opts, 'extract_info')
         try:
-            with yt_dlp.YoutubeDL(json.loads(json.dumps(opts))) as ydl:
+            with yt_dlp.YoutubeDL(json.loads(json.dumps(opts)) | {'logger': logger}) as ydl:
                 return ydl.sanitize_info(ydl.extract_info(url, download=False))
         except Exception as e:
             if (cookies := get_global_cookies_file(True)):
                 pprint_exc(e)
-                print('An error occured when downloading. Downloading with cookies...')
+                logger.error('An error occured when downloading. Downloading with cookies...')
                 opts["cookiefile"] = cookies
                 opts["mark_watched"] = False
-                print(f'Running YT-DLP extract_info with opts: {opts}')
-                with yt_dlp.YoutubeDL(opts) as ydl:
+                logger.start(url, opts, 'extract_info')
+                with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
                     return ydl.sanitize_info(ydl.extract_info(url, download=False))
             else:
-                print('An error occured when downloading. Providing cookies may help with this issue.')
+                logger.error('An error occured when downloading. Providing cookies may help with this issue.')
                 raise e
         finally:
-            print(f'Finished YT-DLP extract_info with opts: {opts}')
+            logger.finish()
 
 
 
@@ -201,7 +226,7 @@ def get_meta(url: str):
             except:
                 print('Meta file invalid - Regenerating...')
         print(f'downloading meta for {url}')
-        ydl_opts = {'quiet': True, 'skip_download': True}
+        ydl_opts = {'skip_download': True}
         ydl_opts.update(ydl_global_opts)
         if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["cookiefile"] = cookies
         info = YTDLP.get_info(url, ydl_opts)
@@ -614,7 +639,9 @@ def download_file(url: str, media_type='video'):
 
         elif media_type.startswith('video'):
             if meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
-            if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["mark_watched"] = True
+            if cookies := check_media(url, 'cookies') or get_global_cookies_file():
+                mark_watched = lambda: YTDLP.get_info(url, ydl_global_opts | {'mark_watched': True, 'cookiefile': cookies})
+                Thread(target=mark_watched).start()
             height_param = "" if media_type.startswith('video-best') else f'[height<={res}]'
             if timestamps:
                 if vid := check_res_at_least(url, res):
