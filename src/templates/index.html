@@ -111,6 +111,8 @@
                         window.location.href = '/watch?url=' + encodeURIComponent(url);
                     })
             }
+            if (typeof navigator.serviceWorker !== 'undefined')
+                navigator.serviceWorker.register("/sw.js", { scope: '/' })
         </script>
     </body>
 </html>

@@ -961,15 +961,6 @@ def preload(url = None, meta = None, playlist = None):
 def serve_thumbnail():
     try:
         url = get_url(request)
-        return serve_thumbnail_by_path(url)
-    except Exception as e:
-        return pprint_exc(e)
-
-
-
-@app.route('/thumb/<path:url>')
-def serve_thumbnail_by_path(url):
-    try:
         return host_file(url, 'thumb')
     except Exception as e:
         return pprint_exc(e)
@@ -978,12 +969,6 @@ def serve_thumbnail_by_path(url):
 @app.route('/sprite')
 def serve_sprite():
     url = get_url(request)
-    return serve_sprite_by_path(url)
-
-
-@app.route('/sprite/<path:url>')
-def serve_sprite_by_path(url):
-
     return host_file(url, 'sprite')
 
 
@@ -1022,20 +1007,6 @@ def download_media():
 def download_low_quality():
     try:
         return host_file(get_url(request), 'low')
-    except Exception as e:
-        return pprint_exc(e)
-
-
-@app.route('/download/<path:filename>')
-def download_ytdlp(filename):
-    try:
-        print('Started serving download/path')
-        print(filename)
-        path = (os.path.join('download', filename))
-        print(f'Serving {path}')
-        os.utime(path)
-        print('Stopped serving download/path')
-        return send_from_directory(os.path.dirname(path), os.path.basename(path))
     except Exception as e:
         return pprint_exc(e)
 
@@ -1095,6 +1066,13 @@ def serve_favicon():
         favicon = f.read()
     favicon = favicon.replace('#ff7300', theme_color)
     return Response(favicon, mimetype='image/svg+xml')
+
+
+@app.route('/sw.js')
+def serve_sw():
+    with open('static/sw.js', 'r') as f:
+        sw = f.read()
+    return Response(sw, mimetype='text/javascript')
 
 
 @app.route('/hls')

@@ -1,24 +1,57 @@
 {
-  "name": "{{ app_title }}",
-  "short_name": "{{ app_title }}",
-  "description": "Arbitraty internet video player powered by yt-dlp",
-  "start_url": "/",
-  "display": "standalone",
-  "theme_color": "{{ theme_color }}",
-  "background_color": "{{ '#000' if amoled_bg else '#222' }}",
-  "icons": [
-    {
-      "src": "favicon.svg",
-      "sizes": "480x480",
-      "type": "image/svg+xml"
+    "id": "ytdlp_web_player",
+    "name": "{{ app_title }}",
+    "short_name": "{{ app_title }}",
+    "description": "Internet video player powered by yt-dlp",
+    "start_url": "/",
+    "display": "standalone",
+    "orientation": "any",
+    "lang": "en",
+    "theme_color": "{{ theme_color }}",
+    "background_color": "{{ '#000' if amoled_bg else '#222' }}",
+    "icons": [
+        {
+            "src": "favicon.svg",
+            "sizes": "480x480",
+            "type": "image/svg+xml"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "https://github.com/Matszwe02/ytdlp_web_player/raw/main/.github/images/app.png",
+            "sizes": "1280x720",
+            "type": "image/png",
+            "platform": "wide",
+            "label": "Phone App"
+        },
+        {
+            "src": "https://github.com/Matszwe02/ytdlp_web_player/raw/main/.github/images/main.png",
+            "sizes": "1280x720",
+            "type": "image/png",
+            "platform": "wide",
+            "label": "Main Page"
+        },
+        {
+            "src": "https://github.com/Matszwe02/ytdlp_web_player/raw/main/.github/images/vert.png",
+            "sizes": "1280x720",
+            "type": "image/png",
+            "platform": "wide",
+            "label": "Vertical Video"
+        },
+        {
+            "src": "https://github.com/Matszwe02/ytdlp_web_player/raw/main/.github/images/bbb.png",
+            "sizes": "1280x720",
+            "type": "image/png",
+            "platform": "wide",
+            "label": "Big Buck Bunny"
+        }
+    ],
+    "share_target": {
+        "action": "/watch",
+        "method": "GET",
+        "enctype": "application/x-www-form-urlencoded",
+        "params": {
+            "text": "url"
+        }
     }
-  ],
-  "share_target": {
-    "action": "/watch",
-    "method": "GET",
-    "enctype": "application/x-www-form-urlencoded",
-    "params": {
-      "text": "url"
-    }
-  }
 }
