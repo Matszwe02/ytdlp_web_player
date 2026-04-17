@@ -35,16 +35,16 @@ function updateDomains(newDomainsArray)
 
 function saveOptions()
 {
-    const iframeBaseUrl = document.getElementById('iframeBaseUrl').value;
+    const playerUrl = document.getElementById('playerUrl').value;
     const cookies = document.getElementById('cookies').checked;
     const allowedDomainsString = document.getElementById('allowedDomains').value;
-    chrome.storage.sync.set({ iframeBaseUrl: iframeBaseUrl, cookies: cookies, allowedDomains: allowedDomainsString }, () => {});
+    chrome.storage.sync.set({ playerUrl: playerUrl, cookies: cookies, allowedDomains: allowedDomainsString }, () => {});
 }
 
 function restoreOptions()
 {
-    chrome.storage.sync.get({ iframeBaseUrl: '', cookies: false, allowedDomains: '' }, (items) => {
-        document.getElementById('iframeBaseUrl').value = items.iframeBaseUrl;
+    chrome.storage.sync.get({ playerUrl: '', cookies: false, allowedDomains: '' }, (items) => {
+        document.getElementById('playerUrl').value = items.playerUrl;
         document.getElementById('cookies').checked = items.cookies;
         document.getElementById('allowedDomains').value = items.allowedDomains;
         renderAllowedDomains(items.allowedDomains.split(',').map(domain => domain.trim()).filter(domain => domain.length > 0));
@@ -82,6 +82,6 @@ async function addCurrentDomain()
 
 document.addEventListener('DOMContentLoaded', restoreOptions);
 document.getElementById('addCurrentDomainButton').addEventListener('click', addCurrentDomain);
-document.getElementById('iframeBaseUrl').addEventListener('input', saveOptions);
+document.getElementById('playerUrl').addEventListener('input', saveOptions);
 document.getElementById('cookies').addEventListener('input', saveOptions);
 document.getElementById('allowedDomains').addEventListener('input', saveOptions);
