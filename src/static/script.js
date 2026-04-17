@@ -1675,11 +1675,11 @@ function loadVideo()
 
     // When video is loaded
     player.on('loadeddata', () => {
-        player.el_.style.transitionDuration = '1s';
+        player.el_.style.transitionDuration = '0.5s';
         player.el_.querySelector('img').classList.add('loaded-img');
         adjustVideoSize();
         window.addEventListener('resize', adjustVideoSize);
-        setTimeout(() => {player.el_.style.transitionDuration = '0s';}, 1000);
+        setTimeout(() => {player.el_.style.transitionDuration = '0s';}, 10);
         player.controls(true);
         errorDisplay.classList.remove('spinner-parent');
         errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
