@@ -64,7 +64,7 @@ some of these features are off by default and need to be turned on in `.env`
 
 # How to run
 
-### **There are no official instances of this app due to anti-bot policies of popular video sharing platforms**
+### **There are no official public instances of this app due to anti-bot policies of popular video sharing platforms**
 
 App should be accessible at [http://localhost:5000](http://localhost:5000)
 
@@ -141,3 +141,13 @@ If it appears to be supported, fill in a bug report with app logs.
 ## Other issues
 
 Please fill in a bug report. Attach browser and app logs if relevant, app version, browser name, etc.
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=Matszwe02%2Fytdlp_web_player&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Matszwe02/ytdlp_web_player&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Matszwe02/ytdlp_web_player&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Matszwe02/ytdlp_web_player&type=date&legend=top-left" />
+ </picture>
+</a>
