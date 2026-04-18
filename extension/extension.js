@@ -23,6 +23,8 @@ var audioContext = null;
 var iframe = null;
 var iframeContainer = null;
 var cookies = false;
+var isPosFixed = false;
+var posUpdatesInRow = 0;
 
 
 function blockVideos()
@@ -132,7 +134,7 @@ function createIframe(src='')
     iframe = document.createElement('iframe');
     iframe.id = 'ytdlp-player';
     iframe.style.border = 'none';
-    iframe.style.position = 'fixed';
+    iframe.style.position = 'absolute';
     iframe.style.zIndex = '9999';
     iframe.style.top = '0px';
     iframe.style.left = '0px';
@@ -163,9 +165,9 @@ function updateIframeGeometry(forceZero = false)
 {
     const rect = iframeContainer?.getBoundingClientRect();
     const vidRect = iframeContainer?.querySelector('video')?.getBoundingClientRect();
+    const iframeRect = iframe.getBoundingClientRect();
     const width = Math.max(rect?.width || 0, vidRect?.width || 0);
     const height = Math.max(rect?.height || 0, vidRect?.height || 0);
-    const transform = `translate(${rect?.left || 0}px, ${rect?.top || 0}px)`;
 
     if ((width == 0 || height == 0) && iframe.style.width && iframe.style.height && !forceZero)
     {
@@ -174,7 +176,27 @@ function updateIframeGeometry(forceZero = false)
 
     iframe.style.width = `${width}px`;
     iframe.style.height = `${height}px`;
-    iframe.style.transform = transform;
+
+    if (isPosFixed)
+    {
+        iframe.style.top = `${rect?.top || 0}px`;
+        iframe.style.left = `${rect?.left || 0}px`;
+    }
+    else
+    {
+        const top = (rect?.top || 0) - iframeRect.top + parseFloat(iframe.style.top || 0);
+        const left = (rect?.left || 0) - iframeRect.left + parseFloat(iframe.style.left || 0);
+        if (iframe.style.top != `${top}px` || iframe.style.left != `${left}px`) posUpdatesInRow ++;
+        else posUpdatesInRow = 0;
+        if (posUpdatesInRow > 20)
+        {
+            isPosFixed = true;
+            iframe.style.position = 'fixed';
+            console.warn(`Could not stabilize iframe in position absolute. Changing to position fixed.`);
+        }
+        iframe.style.top = `${top}px`;
+        iframe.style.left = `${left}px`;
+    }
 }
 
 
