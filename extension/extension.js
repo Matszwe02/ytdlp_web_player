@@ -140,6 +140,7 @@ function createIframe(src='')
     iframe.style.left = '0px';
     iframe.allowFullscreen = true;
     iframe.src = src;
+    isPosFixed = false;
     document.body.appendChild(iframe);
     if (cookies)
     {
