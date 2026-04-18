@@ -6,6 +6,22 @@
 
 ### Internet video player powered by yt-dlp
 
+
+<div align="center">
+
+<br>
+
+[![GitHub license](https://badgen.net/github/license/Matszwe02/ytdlp_web_player)](https://github.com/Matszwe02/ytdlp_web_player/blob/main/LICENSE)
+[![GitHub commits](https://badgen.net/github/commits/Matszwe02/ytdlp_web_player)](https://GitHub.com/Matszwe02/ytdlp_web_player/commit/)
+[![GitHub latest commit](https://badgen.net/github/last-commit/Matszwe02/ytdlp_web_player)](https://GitHub.com/Matszwe02/ytdlp_web_player/commit/)
+
+[![GitHub stars](https://badgen.net/github/stars/Matszwe02/ytdlp_web_player)](https://GitHub.com/Matszwe02/ytdlp_web_player/stargazers/)
+[![Docker Pulls](https://badgen.net/docker/pulls/matszwe02/ytdlp_web_player?icon=docker&label=pulls)](https://hub.docker.com/r/matszwe02/ytdlp_web_player/)
+[![GitHub issues](https://img.shields.io/github/issues/Matszwe02/ytdlp_web_player.svg)](https://GitHub.com/Matszwe02/ytdlp_web_player/issues/)
+
+</div>
+
+
 ## Features
 - everything you would expect a modern player to have
 - fast loading speed (most videos load within 4s)
