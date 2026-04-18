@@ -35,7 +35,7 @@ function updateDomains(newDomainsArray)
 
 function saveOptions()
 {
-    const playerUrl = document.getElementById('playerUrl').value;
+    const playerUrl = document.getElementById('playerUrl').value.replace(/\/$/, '');
     const cookies = document.getElementById('cookies').checked;
     const allowedDomainsString = document.getElementById('allowedDomains').value;
     chrome.storage.sync.set({ playerUrl: playerUrl, cookies: cookies, allowedDomains: allowedDomainsString }, () => {});
