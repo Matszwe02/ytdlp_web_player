@@ -13,7 +13,6 @@
 
 [![GitHub license](https://badgen.net/github/license/Matszwe02/ytdlp_web_player)](https://github.com/Matszwe02/ytdlp_web_player/blob/main/LICENSE)
 [![GitHub commits](https://badgen.net/github/commits/Matszwe02/ytdlp_web_player)](https://GitHub.com/Matszwe02/ytdlp_web_player/commit/)
-[![GitHub latest commit](https://badgen.net/github/last-commit/Matszwe02/ytdlp_web_player)](https://GitHub.com/Matszwe02/ytdlp_web_player/commit/)
 
 [![GitHub stars](https://badgen.net/github/stars/Matszwe02/ytdlp_web_player)](https://GitHub.com/Matszwe02/ytdlp_web_player/stargazers/)
 [![Docker Pulls](https://badgen.net/docker/pulls/matszwe02/ytdlp_web_player?icon=docker&label=pulls)](https://hub.docker.com/r/matszwe02/ytdlp_web_player/)
@@ -78,13 +77,13 @@ some of these features are off by default and need to be turned on in `.env`
 ![PWA](.github/images/app.png)
 
 
-# How to run
+## How to run
 
-### **There are no official public instances of this app due to anti-bot policies of popular video sharing platforms**
+**There are no official public instances of this app due to anti-bot policies of popular video sharing platforms**
 
 App should be accessible at [http://localhost:5000](http://localhost:5000)
 
-## 1. Docker (preferred)
+### 1. Docker (preferred)
 
 - Run
   ```sh
@@ -95,7 +94,7 @@ App should be accessible at [http://localhost:5000](http://localhost:5000)
   - then you can access the app with `https://localhost:5001`
   - your browser will warn you about not secure connection, you need to click on allow
 
-## 2. Run locally
+### 2. Run locally
 
 - Create and activate a virtual environment in `src/` and install `requirements.txt`
 - Install and ensure you have `ffmpeg` in PATH (typing `ffmpeg` in console should display ffmpeg info)
@@ -115,6 +114,7 @@ Some videos need cookies to work. With cookies you will be logged in to the vide
 - Create `src/cookies.txt` file and enable in `compose.yml` (if using docker)
 - Paste relevant cookies into that file (I suggest using an extension for that, which exports cookies in netscape format)
     - yt-dlp created a nice [guide](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp) about providing the cookies
+- If using extension, you can enable automatic sending of browser cookies for individual videos in extension settings
 
 **Keep in mind that cookies work the same way as your account credentails - anyone having them may [mess up your account](https://youtu.be/yGXaAWbzl5A).**
     
@@ -122,6 +122,12 @@ I do not guarantee that cookies file is completly secure from accessing it throu
 
 
 ## Browser Extension
+
+### What it does
+
+1. Adds `Open in YT-DLP Player` context menu for all links. So you can right-click any supported link and it is opened in YT-DLP Player directly.
+
+2. Replaces every video in allowed (in extension settings) domains with YT-DLP Player. That results with all of the default video players to be seamlessly replaced with YT-DLP Player.
 
 ### Installation
 
@@ -140,13 +146,13 @@ I do not guarantee that cookies file is completly secure from accessing it throu
 - It will watch for any change to update iframe's position or container
 
 
-# Troubleshooting
+## Troubleshooting
 
-## I can't install PWA / embed it as an iframe / extension does not load
+### I can't install PWA / embed it as an iframe / extension does not load
 
 You need HTTPS for this, see [Docker section](#1-docker-preferred)
 
-## I can't play some videos
+### I can't play some videos
 
 Please check if it's supported by yt-dlp [here](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
@@ -154,7 +160,7 @@ Also check [yt-dlp's issues](https://github.com/yt-dlp/yt-dlp/issues).
 
 If it appears to be supported, fill in a bug report with app logs.
 
-## Other issues
+### Other issues
 
 Please fill in a bug report. Attach browser and app logs if relevant, app version, browser name, etc.
 
