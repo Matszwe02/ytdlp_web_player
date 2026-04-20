@@ -438,6 +438,7 @@ function setVideoQuality(height = 0, button = null)
                         .then(response => {
                             let timeout = meta.hls_duration + 1 - player.currentTime() % meta.hls_duration;
                             if (timeout > meta.hls_duration / 2) timeout = 0;
+                            if (player.paused()) timeout = 0;
                             setTimeout(() => {
                                 applyVideoQuality();
                                 buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
@@ -728,9 +729,6 @@ class DownloadButton extends videojs.getComponent('Button')
 
     createDownloadMenu()
     {
-        const urlParams = new URLSearchParams(window.location.search);
-        const baseDownloadUrl = `/download?${urlParams.toString()}`;
-
         const menu = document.createElement('div');
         menu.classList.add('vjs-setting-menu');
         menu.style.display = 'none'; // Initially hidden
@@ -739,7 +737,7 @@ class DownloadButton extends videojs.getComponent('Button')
             { quality: 'best', title: 'Highest Quality' },
             { quality: 'current', title: 'Current Quality' },
             { quality: 'audio', title: 'Audio Only' },
-            { quality: 'trim', title: 'Trim Video' }
+            { quality: 'trim', title: 'Trim' }
         ];
 
         options.forEach(option => {
