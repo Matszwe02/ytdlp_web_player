@@ -17,6 +17,26 @@ function renderAllowedDomains(domainsArray)
         li.appendChild(deleteButton);
         allowedDomainsList.appendChild(li);
     });
+
+    chrome?.tabs?.query({ active: true, currentWindow: true }).then(tab =>{
+        if (tab && tab[0].url)
+        {
+            const currentUrl = new URL(tab[0].url);
+            const hostname = currentUrl.hostname;
+            if (domainsArray.some(allowedDomain => { return hostname === allowedDomain || hostname.endsWith(`.${allowedDomain}`); }))
+            {
+                document.getElementById('addCurrentDomainButton').style.display = 'none';
+                document.getElementById('removeCurrentDomainButton').style.display = 'block';
+            }
+            else
+            {
+                document.getElementById('addCurrentDomainButton').style.display = 'block';
+                document.getElementById('removeCurrentDomainButton').style.display = 'none';
+            }
+        }
+    });
+
+
 }
 
 function getDomainsArray()
@@ -53,7 +73,7 @@ function restoreOptions()
 
 async function addCurrentDomain()
 {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const [tab] = await chrome?.tabs?.query({ active: true, currentWindow: true });
     if (!tab || !tab.url)
     {
         alert("Could not get current tab information");
@@ -79,9 +99,47 @@ async function addCurrentDomain()
     }
 }
 
+async function removeCurrentDomain()
+{
+    const [tab] = await chrome?.tabs?.query({ active: true, currentWindow: true });
+    if (!tab || !tab.url)
+    {
+        alert("Could not get current tab information");
+        return;
+    }
+    try
+    {
+        const url = new URL(tab.url);
+        const domain = url.hostname;
+        
+        const currentDomainsArray = getDomainsArray();
+        if (!currentDomainsArray.includes(domain))
+        {
+            alert('Domain not in the list');
+            return;
+        }
+        currentDomainsArray.pop(domain);
+        updateDomains(currentDomainsArray);
+    }
+    catch (e)
+    {
+        alert("Could not parse URL or add domain");
+    }
+}
+
+async function sendMsg(action)
+{
+    const [tab] = await chrome?.tabs?.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id) return;
+    chrome.tabs.sendMessage(tab.id, { action: action });
+}
+
 
 document.addEventListener('DOMContentLoaded', restoreOptions);
 document.getElementById('addCurrentDomainButton').addEventListener('click', addCurrentDomain);
+document.getElementById('removeCurrentDomainButton').addEventListener('click', removeCurrentDomain);
+document.getElementById('startCurrentTabButton').addEventListener('click', () => sendMsg('start'));
+document.getElementById('stopCurrentTabButton').addEventListener('click', () => sendMsg('stop'));
 document.getElementById('playerUrl').addEventListener('input', saveOptions);
 document.getElementById('cookies').addEventListener('input', saveOptions);
 document.getElementById('allowedDomains').addEventListener('input', saveOptions);

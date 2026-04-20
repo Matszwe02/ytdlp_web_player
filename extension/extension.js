@@ -19,33 +19,26 @@
 
 var playerUrl = '';
 
-var audioContext = null;
 var iframe = null;
 var iframeContainer = null;
 var cookies = false;
 var isPosFixed = false;
 var posUpdatesInRow = 0;
+var tabEnabled = true;
 
 
 function blockVideos()
 {
-    if (audioContext == null)
-    {
-        try
-        {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        catch {}
-    }
+    if (!tabEnabled) return;
     for (let media of document.querySelectorAll('video, audio'))
     {
         try
         {
             if (media.muted && media.volume == 0 && media.paused && !media.autoplay) continue;
-            audioSource = audioContext?.createMediaElementSource(media);
             console.log(`Blocking ${media}`);
             
             const stopMedia = (e = null) => {
+                if (!tabEnabled) return;
                 if (e !== null)
                 {
                     e.stopImmediatePropagation();
@@ -58,6 +51,7 @@ function blockVideos()
             };
             ['play', 'playing', 'loadeddata', 'loadedmetadata', 'timeupdate']
                 .forEach(e => media.addEventListener(e, stopMedia, true));
+            if (!media.muted && media.volume > 0) media.classList.add('ytdlp-player-muted');
             stopMedia();
         }
         catch (e)
@@ -65,6 +59,16 @@ function blockVideos()
             if (e.name != 'InvalidStateError') console.warn(e);
         };
     }
+}
+
+
+function unblockVideos()
+{
+    if (tabEnabled) return;
+    document.querySelectorAll('.ytdlp-player-muted').forEach(element => {
+        element.muted = false;
+        element.volume = 1;
+    });
 }
 
 
@@ -93,7 +97,7 @@ function getIframeContainer()
         const area = rect.width * rect.height;
         return area >= maxArea * 0.80;
     });
-    console.log(`Potential candidates: ${potentialCandidates.length}`);
+    console.debug(`Potential candidates: ${potentialCandidates.length}`);
 
     let bestVideo = null;
     let maxVisibilityScore = -Infinity;
@@ -104,7 +108,7 @@ function getIframeContainer()
         const closeY = Math.min(rect.top - 0, window.innerHeight - rect.bottom);
         const visibilityScore = Math.min(closeX, closeY);
 
-        console.log(`  - Visibility ${visibilityScore.toFixed(0)}, top:${rect.top}, left:${rect.left}, w:${rect.width}, h:${rect.height}`);
+        console.debug(`  - Visibility ${visibilityScore.toFixed(0)}, top:${rect.top}, left:${rect.left}, w:${rect.width}, h:${rect.height}`);
 
         if (visibilityScore >= maxVisibilityScore)
         {
@@ -122,7 +126,7 @@ function getIframeContainer()
             bestVideo = bestVideo.parentElement;
         }
     }
-    console.log(bestVideo);
+    console.debug(bestVideo);
     return bestVideo;
 }
 
@@ -146,7 +150,7 @@ function createIframe(src='')
     {
         try
         {
-            chrome.runtime.sendMessage({
+            chrome?.runtime?.sendMessage({
                 action: 'postCookies',
                 playerUrl: playerUrl,
                 documentCookies: document.cookie,
@@ -164,6 +168,7 @@ function createIframe(src='')
 
 function updateIframeGeometry(forceZero = false)
 {
+    if (!tabEnabled) return;
     const rect = iframeContainer?.getBoundingClientRect();
     const vidRect = iframeContainer?.querySelector('video')?.getBoundingClientRect();
     const iframeRect = iframe.getBoundingClientRect();
@@ -193,7 +198,7 @@ function updateIframeGeometry(forceZero = false)
         {
             isPosFixed = true;
             iframe.style.position = 'fixed';
-            console.warn(`Could not stabilize iframe in position absolute. Changing to position fixed.`);
+            console.log(`Could not stabilize iframe in position absolute. Changing to position fixed.`);
         }
         iframe.style.top = `${top}px`;
         iframe.style.left = `${left}px`;
@@ -203,6 +208,7 @@ function updateIframeGeometry(forceZero = false)
 
 function updateIframe(updateContainer = false)
 {
+    if (!tabEnabled) return;
     let src = window.top.location.href;
     let srcUrl = new URL(src);
     let iframeEnabled = srcUrl.pathname != '/' || srcUrl.search;
@@ -248,6 +254,7 @@ function updateIframe(updateContainer = false)
 
 function start()
 {
+    tabEnabled = true;
     window.addEventListener('scroll', updateIframeGeometry, { passive: true });
     window.addEventListener('popstate', updateIframe);
 
@@ -274,11 +281,27 @@ function start()
     updateIframe(true);
     blockVideos();
     document.addEventListener('click', (e) => {
-        if (iframe !== null)
+        if (iframe !== null && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'SELECT')
         {
             iframe.focus();
         }
     });
+}
+
+
+function stop()
+{
+    tabEnabled = false;
+    if (iframe)
+    {
+        iframe.remove();
+    }
+    if (iframeContainer)
+    {
+        iframeContainer.style.opacity = '';
+        iframeContainer.style.pointerEvents = '';
+    }
+    unblockVideos();
 }
 
 
@@ -290,6 +313,10 @@ function tryStart()
             playerUrl = items.playerUrl;
             cookies = items.cookies;
             tryStart();
+        });
+        chrome.storage.onChanged.addListener((changes, namespace) => {
+            if (namespace !== 'sync' || !changes.playerUrl) return;
+            playerUrl = changes.playerUrl.newValue;
         });
         return;
     }
@@ -317,6 +344,7 @@ function tryStart()
 if (playerUrl) tryStart();
 else
 {
+
     chrome.storage.sync.get({ allowedDomains: '' }, (items) => {
         if (!items.allowedDomains) return;
     
@@ -324,8 +352,42 @@ else
         const hostname = currentUrl.hostname;
     
         const allowedDomains = items.allowedDomains.split(',').map(domain => domain.trim());
-        if (!allowedDomains.some(allowedDomain => { return hostname === allowedDomain || hostname.endsWith(`.${allowedDomain}`); })) return;
-    
-        tryStart();
+        if (allowedDomains.some(allowedDomain => { return hostname === allowedDomain || hostname.endsWith(`.${allowedDomain}`); }))
+        {
+            tryStart();
+        }
+        else
+        {
+            stop();
+        }
     });
+
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+        if (namespace !== 'sync' || !changes.allowedDomains) return;
+    
+        const currentUrl = new URL(window.top.location.href);
+        const hostname = currentUrl.hostname;
+    
+        const allowedDomains = changes.allowedDomains.newValue.split(',').map(domain => domain.trim());
+        if (allowedDomains.some(allowedDomain => { return hostname === allowedDomain || hostname.endsWith(`.${allowedDomain}`); }))
+        {
+            tryStart();
+        }
+        else
+        {
+            stop();
+        }
+    });
+
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.action === 'start')
+        {
+            tryStart();
+        }
+        else if (message.action === 'stop')
+        {
+            stop();
+        }
+    });
+
 }

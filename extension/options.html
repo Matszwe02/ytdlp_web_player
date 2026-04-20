@@ -12,10 +12,14 @@
         li { margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
         li span { flex-grow: 1; margin-right: 10px; }
         button { color: #fff; cursor: pointer; border: none; padding: 5px 8px; border-radius: 2px; }
-        li button { background-color: #a00; font-size: 0.8em; }
-        li button:hover { background-color: #970000; }
-        #addCurrentDomainButton { background-color: #080; width: 418px; }
-        #addCurrentDomainButton:hover { background-color: #007700; }
+        li button { font-size: 0.8em; }
+        #addCurrentDomainButton,#removeCurrentDomainButton { width: 418px; }
+        .tab-control-button { width: 150px; }
+        .lr-container { display: flex; justify-content: space-between; }
+        li button,.red { background-color: #a22; }
+        li button,.red:hover { background-color: #972222; }
+        .green { background-color: #393;}
+        .green:hover { background-color: #338833; }
     </style>
 </head>
 <body>
@@ -23,9 +27,15 @@
     <input type="url" id="playerUrl" pattern="https://.*" placeholder="https://example.com" title="YT-DLP player URL with HTTPS endpoint">
     <label for="cookies">Send cookies with requests:</label>
     <input type="checkbox" id="cookies" title="If enabled, every replaced video will be played with your browser's cookies">
+    
+    <div class="lr-container">
+        <button id="startCurrentTabButton" class="tab-control-button green">Start For Current Tab</button>
+        <button id="stopCurrentTabButton" class="tab-control-button red">Stop For Current Tab</button>
+    </div>
 
     <div id="domainListContainer" class="domain-list">
-        <button id="addCurrentDomainButton">Add Current Domain</button>
+        <button id="addCurrentDomainButton" class="green">Add Current Domain</button>
+        <button id="removeCurrentDomainButton" class="red" style="display: none;">Remove Current Domain</button>
         <ul id="allowedDomainsList">
         </ul>
         <input type="text" id="allowedDomains" placeholder="Click on Add Current Domain">
