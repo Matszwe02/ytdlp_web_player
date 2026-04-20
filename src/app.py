@@ -573,7 +573,7 @@ def download_file(url: str, media_type='video'):
         timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', media_type)
         start_time = None
         end_time = None
-        res = int((re.search(r'(\d+)p', media_type) and re.search(r'(\d+)p', media_type).group(1) or str(default_quality)).removesuffix('p'))
+        res = int((re.search(r'(\d+)', media_type) and re.search(r'(\d+)', media_type).group(1) or str(default_quality)))
         
         if timestamps:
             try:
@@ -703,7 +703,7 @@ def download_file(url: str, media_type='video'):
 
                 if not video_url and not audio_source:
                     print('Could not find any suitable streamable video format: Downloading the whole video')
-                    video_file_path = download_file(url, f'video-{res}p')
+                    video_file_path = download_file(url, f'video-{res}')
 
             ffmpeg_command = [
                 '-c:v', 'libx264',
@@ -748,7 +748,7 @@ def download_file(url: str, media_type='video'):
                         ff = FFMPEG()
                         Thread(target=ff.run, args=[ffmpeg_command]).start()
                         time.sleep(10)
-                        video_file_path = download_file(url, f'video-{res}p')
+                        video_file_path = download_file(url, f'video-{res}')
                         if not video_file_path: raise RuntimeError('Could not download video')
                         ff.kill()
                         os.rename(m3u8_path, temp_m3u8_path)
@@ -993,11 +993,11 @@ def raw():
 @app.route('/download')
 def download_media():
     try:
-        res = (request.args.get('quality') or '').removesuffix("p")
+        res = (request.args.get('quality') or '')
         start_time = request.args.get('start', 0, type=float)
         end_time = request.args.get('end', 0, type=float)
         
-        media_type = 'audio' if res == 'audio' else f'video-{res}p'.removesuffix('-p')
+        media_type = 'audio' if res == 'audio' else f'video-{res}'.removesuffix('-')
         
         if start_time > 0 or end_time > 0:
             media_type += f'_{start_time:.1f}-{end_time:.1f}'
@@ -1033,7 +1033,7 @@ def resp_direct_stream():
             return stream_media_file(direct_quality)
 
         res = get_good_quality(get_video_formats(url)) 
-        media_type = f'hls-{res}'.removesuffix('-p')
+        media_type = f'hls-{res}'.removesuffix('-')
         return host_file(get_url(request), media_type)
     except Exception as e:
         return pprint_exc(e)
@@ -1085,8 +1085,8 @@ def serve_sw():
 @app.route('/hls')
 def download_hls():
     try:
-        res = (request.args.get('quality') or '').removesuffix("p")    
-        media_type = 'hls' if res == 'audio' else f'hls-{res}p'.removesuffix('-p')
+        res = (request.args.get('quality') or '')  
+        media_type = 'hls' if res == 'audio' else f'hls-{res}'.removesuffix('-')
         return host_file(get_url(request), media_type)
     except Exception as e:
         return pprint_exc(e)
