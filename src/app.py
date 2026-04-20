@@ -359,9 +359,16 @@ def search(query, search_engine='auto'):
     return entries
 
 
-def generate_chapters(desc: str):
+def generate_chapters(meta: dict):
+    chapters = []
     try:
-        chapters = []
+        meta_chapters = meta.get('chapters') or []
+        for chapter in meta_chapters:
+            chapters.append({'time': chapter.get('start_time'), 'label': chapter.get('title')})
+        if chapters: return chapters
+    except: pass
+    try:
+        desc = meta.get('description')
         last_time = 0
         def time_to_int(t: str):
             parts = t.split(':')
@@ -406,7 +413,7 @@ def clean_meta(raw_meta: dict):
     meta['playlist_support'] = playlist_support
     meta['auto_bg_playback'] = auto_bg_playback
     meta['audio_visualizer'] = audio_visualizer
-    meta['chapters'] = generate_chapters(raw_meta.get('description'))
+    meta['chapters'] = generate_chapters(raw_meta)
     if raw_meta.get('is_live'):
         meta['formats'] = []
         meta['load_default_quality'] = False
