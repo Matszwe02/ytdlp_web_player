@@ -15,6 +15,7 @@ max_video_age = int(os.environ.get('MAX_VIDEO_AGE', '3600'))
 max_video_duration = int(os.environ.get('MAX_VIDEO_DURATION', '36000'))
 default_quality = int(os.environ.get('DEFAULT_QUALITY', '720'))
 load_default_quality = (os.environ.get('LOAD_DEFAULT_QUALITY', 'True')).lower() == 'true'
+autoskip_sb_segments = [seg for seg in (os.environ.get('AUTOSKIP_SB_SEGMENTS') or '').split(',') if seg != '']
 cookies_only_on_failure = (os.environ.get('COOKIES_ONLY_ON_FAILURE', 'True')).lower() == 'true'
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
 playlist_support = os.environ.get('PLAYLIST_SUPPORT', 'False').lower() == 'true'

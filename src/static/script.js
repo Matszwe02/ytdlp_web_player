@@ -1508,6 +1508,11 @@ function checkSponsorTime()
         skipSegment.innerHTML = "skip <b>" + segmentShown.category.replaceAll('_', ' ') + '</b> <i class="fa-solid fa-angles-right"></i>';
         skipTime = segmentShown.end;
 
+        if (meta?.autoskip_sb_segments?.indexOf(segmentShown.category) >= 0)
+        {
+            if (currentTime < segmentShown.start + 1) skipclick();
+        }
+
         if ( "mediaSession" in navigator)
         {
             navigator.mediaSession.metadata.artist = meta.uploader + `    [${segmentShown.category.replaceAll('_', ' ')}]`;

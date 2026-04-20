@@ -413,6 +413,7 @@ def clean_meta(raw_meta: dict):
     meta['playlist_support'] = playlist_support
     meta['auto_bg_playback'] = auto_bg_playback
     meta['audio_visualizer'] = audio_visualizer
+    meta['autoskip_sb_segments'] = autoskip_sb_segments
     meta['chapters'] = generate_chapters(raw_meta)
     if raw_meta.get('is_live'):
         meta['formats'] = []
