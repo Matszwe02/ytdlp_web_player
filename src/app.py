@@ -593,17 +593,17 @@ def download_file(url: str, media_type='video'):
             video_width = meta.get('width')
             video_height = meta.get('height')
             try:
-                download_media_file(thumb_url, os.path.join(data_dir, 'thumb_orig'))
-            except Exception:
-                pass
+                download_media_file(thumb_url, os.path.join(data_dir, 'thumb-orig'))
+            except Exception as e:
+                pprint_exc(e)
             try:
                 if video_width and video_height:
-                    thumb_file = check_media(url=url, media_type='thumb_orig')
+                    thumb_file = check_media(url=url, media_type='thumb-orig')
                     if not thumb_file:
                         print('Direct thumbnail download did not succeed. Downloading using yt-dlp.')
                         ydl_opts.update({'writethumbnail': True, 'skip_download': True})
                         YTDLP.download(url, ydl_opts)
-                        thumb_file = check_media(url=url, media_type='thumb_orig')
+                        thumb_file = check_media(url=url, media_type='thumb-orig')
 
                     ffmpeg_command = [
                         '-y',
@@ -616,7 +616,6 @@ def download_file(url: str, media_type='video'):
                     os.remove(thumb_file)
                 else:
                     print("Video dimensions not found in meta, skipping thumbnail cropping.")
-                    shutil.move(thumb_file, thumb_file.replace('thumb_orig', 'thumb'))
             except Exception as e:
                 print(f"Error cropping thumbnail: {e}")
 
