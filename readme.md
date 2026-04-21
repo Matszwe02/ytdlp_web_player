@@ -77,9 +77,20 @@ some of these features are off by default and need to be turned on in `.env`
 ![PWA](.github/images/app.png)
 
 
-## How to run
+## DEMO
 
-**There are no official public instances of this app due to anti-bot policies of popular video sharing platforms**
+### Demo server
+
+Low performance due to this server's limitations
+
+[https://ytdlp-web-player.vercel.app](https://ytdlp-web-player.vercel.app)
+
+### Proof-of-Concept YT-DLP Web Player inside Invidious
+
+[Docker Hub repo](https://hub.docker.com/r/matszwe02/invidious_ytdlp_web_player)
+
+
+## How to run
 
 App should be accessible at [http://localhost:5000](http://localhost:5000)
 
