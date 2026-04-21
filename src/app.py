@@ -273,8 +273,10 @@ def get_video_sources(url, protocol = None):
     meta = get_meta(url)
     formats = meta.get('formats') or []
     for f in formats:
-        video_name = f"{(f.get('height') or '')}" if (f.get('vcodec') or 'none').lower() != 'none' else ''
+        video_name = ''
         audio_name = ''
+        if (f.get('vcodec') or 'none').lower() != 'none' or ((f.get('video_ext') or 'none').lower() != 'none'):
+            video_name = f"{(f.get('height') or '')}"
         if f.get('acodec', 'none') != 'none':
             audio_name = 'audio_drc' if 'drc' in f"{f.get('format_id')} {f.get('format_note')}".lower() else 'audio'
         if 'audio' in (f.get('format_id') or '') or (f.get('acodec') or 'audio_presumed') == 'audio_presumed':
@@ -310,6 +312,10 @@ def get_subtitles(meta: dict):
 
 def get_direct_quality(url):
     sources = get_video_sources(url, protocol='https')
+    preferred_quality = get_good_quality(get_video_formats(url, protocol='https'))
+    for s in sources:
+        if s.startswith(f'{preferred_quality}audio'):
+            return sources[s]
     for s in sources:
         if 'audio' in s and not s.startswith('audio'):
             return sources[s]
