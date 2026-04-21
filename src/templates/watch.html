@@ -69,8 +69,8 @@
             </button>
             <div id="expandable-content" class="expandable-content">
                 <ul>
-                    <li><a href="{{request.url}}" onclick="copyCurrentUrl(event)" id="url-copy"><i class="fa-solid fa-copy"></i> Copy URL</a></li>
-                    <li><a href="/download?{{(request.query_string.decode())}}"><i class="fa-solid fa-film"></i> Watch raw video</a></li>
+                    <li><a href="/watch?url={{original_url|urlencode}}" onclick="copyCurrentUrl(event)" id="url-copy"><i class="fa-solid fa-copy"></i> Copy URL</a></li>
+                    <li><a href="javascript:void(0)" onclick="window.open(window.location.href.replace('watch', 'download'))"><i class="fa-solid fa-film"></i> Watch raw video</a></li>
                     <li><a href="{{original_url}}" target="_blank"><i class="fa-solid fa-link"></i> Open video url</a></li>
                     <li><a href="https://github.com/yt-dlp/yt-dlp" target="_blank"><i class="fa-solid fa-download"></i> YT-DLP version:<br><b>{{ydl_version}}</b></a></li>
                     <li><a href="https://ffmpeg.org" target="_blank"><i class="fa-solid fa-cogs"></i> FFmpeg version:<br><b>{{ffmpeg_version}}</b></a></li>
@@ -128,7 +128,7 @@
                 if (event.button === 0)
                 {
                     event.preventDefault();
-                    navigator.clipboard.writeText(window.location.href).then(() => {
+                    navigator.clipboard.writeText(window.top.location.href.split('?')[0] + '?url={{original_url|urlencode}}').then(() => {
                         var b = document.getElementById('url-copy');
                         b.innerHTML = '<i class="fa-solid fa-copy"></i> URL Copied!';
                         setTimeout(() => { b.innerHTML = '<i class="fa-solid fa-copy"></i> Copy URL'; }, 2000);
