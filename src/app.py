@@ -443,6 +443,7 @@ def normalize_url(url):
 
 
 def get_url(req):
+    if demo := (os.environ.get('DEMO_VIDEO')): return demo
     url = req.args.get('v') or req.args.get('url') or None
     if url is None or len(url) < 3: return None
     return normalize_url(url)
@@ -1116,6 +1117,7 @@ def hls_stream(filename):
 @app.route('/search')
 def serve_search():
     try:
+        if demo := (os.environ.get('DEMO_VIDEO')): return demo
         query = request.args.get('q')
         meta = search(query)[0]
         url = meta.get('original_url') or ''
