@@ -31,14 +31,14 @@
         <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.3.0/video-js.min.css" rel="stylesheet" />
         <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" type="text/css" />
         <link rel="stylesheet" href="{{ url_for('static', filename='videojs.css') }}" type="text/css" />
-        <link rel="icon" type="image/png" href="/thumb/{{original_url|urlencode}}">
+        <link rel="icon" type="image/png" href="/thumb?url={{original_url|urlencode}}">
         
-        <link rel="shortcut icon" href="/thumb/{{original_url|urlencode}}">
-        <link rel="icon" href="/thumb/{{original_url|urlencode}}">
+        <link rel="shortcut icon" href="/thumb?url={{original_url|urlencode}}">
+        <link rel="icon" href="/thumb?url={{original_url|urlencode}}">
         <meta property="og:site_name" content="{{app_title}}">
         <meta property="og:url" content="/watch?{{(request.query_string.decode())}}">
         <meta property="og:title" content="{{app_title}}">
-        <meta property="og:image" content="/thumb/{{original_url|urlencode}}">
+        <meta property="og:image" content="/thumb?url={{original_url|urlencode}}">
         <meta property="og:description" content="{{app_title}}">
         <meta property="al:web:url" content="/watch?{{(request.query_string.decode())}}">
         <meta property="og:type" content="video.other">
@@ -52,7 +52,7 @@
         <meta name="twitter:url" content="/watch?{{(request.query_string.decode())}}">
         <meta name="twitter:title" content="{{app_title}}">
         <meta name="twitter:description" content="{{app_title}}">
-        <meta name="twitter:image" content="/thumb/{{original_url|urlencode}}">
+        <meta name="twitter:image" content="/thumb?url={{original_url|urlencode}}">
         <meta name="twitter:player" content="/download?{{(request.query_string.decode())}}">
         <meta name="twitter:player:stream" content="/download?{{(request.query_string.decode())}}">
         <meta name="twitter:player:stream:content_type" content="video/mp4">

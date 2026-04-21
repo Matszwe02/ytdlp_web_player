@@ -17,30 +17,30 @@
         <link href="https://vjs.zencdn.net/8.23.4/video-js.css" rel="stylesheet" />
         <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" type="text/css" />
         <link rel="stylesheet" href="{{ url_for('static', filename='videojs.css') }}" type="text/css" />
-        <link rel="icon" type="image/png" href="/thumb/{{original_url|urlencode}}">
+        <link rel="icon" type="image/png" href="/thumb?url={{original_url|urlencode}}">
         
-        <link rel="shortcut icon" href="/thumb/{{original_url|urlencode}}">
-        <link rel="icon" href="/thumb/{{original_url|urlencode}}">
+        <link rel="shortcut icon" href="/thumb?url={{original_url|urlencode}}">
+        <link rel="icon" href="/thumb?url={{original_url|urlencode}}">
         <meta property="og:site_name" content="{{app_title}}">
-        <meta property="og:url" content="/watch?{{(request.query_string.decode())}}">
+        <meta property="og:url" content="/watch?url={{original_url|urlencode}}">
         <meta property="og:title" content="{{video_title}}">
-        <meta property="og:image" content="/thumb/{{original_url|urlencode}}">
+        <meta property="og:image" content="/thumb?url={{original_url|urlencode}}">
         <meta property="og:description" content="{{app_title}}">
-        <meta property="al:web:url" content="/watch?{{(request.query_string.decode())}}">
+        <meta property="al:web:url" content="/watch?url={{original_url|urlencode}}">
         <meta property="og:type" content="video.other">
-        <meta property="og:video:url" content="/download?{{(request.query_string.decode())}}">
-        <meta property="og:video:secure_url" content="/download?{{(request.query_string.decode())}}">
-        <meta property="og:video" content="/download?{{(request.query_string.decode())}}">
-        <meta property="og:video:type" content="video/mp4">
+        <meta property="og:video:url" content="/download?url={{original_url|urlencode}}">
+        <meta property="og:video:secure_url" content="/download?url={{original_url|urlencode}}">
+        <meta property="og:video" content="/download?url={{original_url|urlencode}}">
+        <meta property="og:video:type" content="video.other">
         <meta property="og:video:width" content="{{ video_width }}">
         <meta property="og:video:height" content="{{ video_height }}">
         <meta name="twitter:card" content="player">
-        <meta name="twitter:url" content="/watch?{{(request.query_string.decode())}}">
+        <meta name="twitter:url" content="/watch?url={{original_url|urlencode}}">
         <meta name="twitter:title" content="{{video_title}}">
         <meta name="twitter:description" content="{{app_title}}">
-        <meta name="twitter:image" content="/thumb/{{original_url|urlencode}}">
-        <meta name="twitter:player" content="/download?{{(request.query_string.decode())}}">
-        <meta name="twitter:player:stream" content="/download?{{(request.query_string.decode())}}">
+        <meta name="twitter:image" content="/thumb?url={{original_url|urlencode}}">
+        <meta name="twitter:player" content="/download?url={{original_url|urlencode}}">
+        <meta name="twitter:player:stream" content="/download?url={{original_url|urlencode}}">
         <meta name="twitter:player:stream:content_type" content="video/mp4">
         <meta name="twitter:player:width" content="{{ video_width }}">
         <meta name="twitter:player:height" content="{{ video_height }}">
