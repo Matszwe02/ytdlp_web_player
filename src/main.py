@@ -26,6 +26,7 @@ disable_transcoding = os.environ.get('DISABLE_TRANSCODING', 'False').lower() == 
 port = int(os.environ.get('PORT', '5000'))
 
 hls_duration = 5
+hls_audio_duration = 10
 
 
 os.makedirs(download_path, exist_ok=True)

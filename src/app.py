@@ -410,6 +410,7 @@ def clean_meta(raw_meta: dict):
     meta['default_quality'] = 'audio' if 'Music' in (raw_meta.get('categories') or []) and audio_visualizer else get_good_quality(meta['formats'])
     meta['load_default_quality'] = load_default_quality
     meta['hls_duration'] = hls_duration
+    meta['hls_audio_duration'] = hls_audio_duration
     meta['playlist_support'] = playlist_support
     meta['auto_bg_playback'] = auto_bg_playback
     meta['audio_visualizer'] = audio_visualizer
@@ -680,23 +681,24 @@ def download_file(url: str, media_type='video'):
 
         elif media_type.startswith('hls'):
             if meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
-            hls_url_dir = os.path.join(gen_pathname(url), f"hls_playlist-{res}")
+            res_str = 'audio' if 'audio' in media_type else str(res)
+            hls_url_dir = os.path.join(gen_pathname(url), f"hls_playlist-{res_str}")
             hls_output_dir = os.path.join(download_path, hls_url_dir)
+            hls_segment_duration = hls_audio_duration if res_str == 'audio' else hls_duration
             os.makedirs(hls_output_dir, exist_ok=True)
 
             temp_m3u8_path = os.path.join(data_dir, f'{media_type}.m3u8.temp')
             m3u8_path = os.path.join(data_dir, f'{media_type}.m3u8')
-            res_str = str(res)
 
             sources = get_video_sources(url)
             video_url = None
             audio_source = None
-            video_file_path = check_res_at_least(url, res)
+            video_file_path = check_media(url, 'audio') if res_str == 'audio' else check_res_at_least(url, res)
 
             if not video_file_path:
                 audio_source = check_media(url, 'audio')
                 if res_str in sources:
-                    if res_str == 'audio' or res_str == 'audio_drc':
+                    if res_str == 'audio':
                         audio_source = audio_source or sources[res_str]
                     else:
                         video_url = sources[res_str]
@@ -704,7 +706,7 @@ def download_file(url: str, media_type='video'):
 
                 if not video_url and not audio_source:
                     print('Could not find any suitable streamable video format: Downloading the whole video')
-                    video_file_path = download_file(url, f'video-{res}')
+                    video_file_path = download_file(url, 'audio' if 'audio' in media_type else f'video-{res}')
 
             ffmpeg_command = [
                 '-c:v', 'libx264',
@@ -714,8 +716,8 @@ def download_file(url: str, media_type='video'):
                 '-ar', '44100',
                 '-f', 'hls',
                 '-vf', f'scale=-2:{res}',
-                '-force_key_frames', f'expr:gte(t,n_forced*{hls_duration})',
-                '-hls_time', f'{hls_duration}',
+                '-force_key_frames', f'expr:gte(t,n_forced*{hls_segment_duration})',
+                '-hls_time', f'{hls_segment_duration}',
                 '-hls_playlist_type', 'vod',
                 '-hls_segment_filename', os.path.join(hls_output_dir, 'segment%04d.ts'),
                 temp_m3u8_path
@@ -734,9 +736,9 @@ def download_file(url: str, media_type='video'):
             seg_path = f"/hls_stream/{hls_url_dir.rstrip('/')}/"
 
             with open(m3u8_path, "w") as f:
-                f.write(f"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:{hls_duration}\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n")
+                f.write(f"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:{hls_segment_duration}\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n")
                 while seg_time < duration:
-                    time_to_add = min(hls_duration, meta["duration"] - seg_time)
+                    time_to_add = min(hls_segment_duration, meta["duration"] - seg_time)
                     f.write(f"#EXTINF:{time_to_add:.6f},\n{seg_path}segment{seg_num:0>4}.ts\n")
                     seg_time += time_to_add
                     seg_num += 1
@@ -749,7 +751,7 @@ def download_file(url: str, media_type='video'):
                         ff = FFMPEG()
                         Thread(target=ff.run, args=[ffmpeg_command]).start()
                         time.sleep(10)
-                        video_file_path = download_file(url, f'video-{res}')
+                        video_file_path = download_file(url, 'audio' if 'audio' in media_type else f'video-{res}')
                         if not video_file_path: raise RuntimeError('Could not download video')
                         ff.kill()
                         os.rename(m3u8_path, temp_m3u8_path)
@@ -955,8 +957,8 @@ def preload(url = None, meta = None, playlist = None):
             Thread(target=get_meta, args=[url]).start()
         if not check_media(url, 'thumb'):
             Thread(target=download_file, args=[url, 'thumb']).start()
-        if not check_media(url, 'audio'):
-            Thread(target=download_file, args=[url, 'audio']).start()
+        if not check_media(url, 'hls-audio'):
+            Thread(target=download_file, args=[url, 'hls-audio']).start()
         if playlist and not check_media(url, 'playlist'):
             with open(os.path.join(get_data_dir(url), 'playlist.json'), 'w') as f:
                 json.dump(playlist, f)
@@ -1087,7 +1089,7 @@ def serve_sw():
 def download_hls():
     try:
         res = (request.args.get('quality') or '')  
-        media_type = 'hls' if res == 'audio' else f'hls-{res}'.removesuffix('-')
+        media_type = f'hls-{res}'.removesuffix('-')
         return host_file(get_url(request), media_type)
     except Exception as e:
         return pprint_exc(e)

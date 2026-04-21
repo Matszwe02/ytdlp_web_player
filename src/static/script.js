@@ -333,21 +333,15 @@ function getVideoSource()
     var quality = urlParams.get('quality');
     if (quality == '') quality = null;
     if (quality == 'null') quality = null;
-    const hlsEnabled = quality != null && quality != 'audio'
-    console.log(`Video quality: ${quality} ${hlsEnabled ? '(HLS)' : ''}`);
+    console.log(`Video quality: ${quality}`);
 
-    let downloadUrl;
-    let videoType;
+    let downloadUrl = `/direct?url=${encodeURIComponent(originalUrl)}`;
+    let videoType = 'video/mp4';
 
-    if (hlsEnabled)
+    if (quality)
     {
         downloadUrl = `/hls?url=${encodeURIComponent(originalUrl)}&quality=${quality}`;
         videoType = 'application/x-mpegURL';
-    }
-    else
-    {
-        downloadUrl = quality ? `/download?url=${encodeURIComponent(originalUrl)}&quality=${quality}` : `/direct?url=${encodeURIComponent(originalUrl)}`;
-        videoType = 'video/mp4';
     }
     return [downloadUrl, videoType];
 }
@@ -413,17 +407,17 @@ function setVideoQuality(height = 0, button = null)
         });
     }
     history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
-    const hlsEnabled = height != null && height != '' && height != 'null' && height != 'audio';
+    const hlsEnabled = height != null && height != '' && height != 'null';
     if (hlsEnabled)
     {
-        console.log('HLS ENABLED');
         retryFetch(getVideoSource()[0])
             .then(response => response.text())
             .then(playlist => {
+                var hls_segment_duration = height == 'audio' ? meta.hls_audio_duration : meta.hls_duration;
                 function tryToFetchHLS()
                 {
                     var segments = playlist.split('\n');
-                    const segmentToDownload = String(Math.ceil((player.currentTime() + meta.hls_duration / 2)/10)).padStart(4,'0') + ".ts";
+                    const segmentToDownload = String(Math.ceil((player.currentTime() + hls_segment_duration / 2)/10)).padStart(4,'0') + ".ts";
                     var selectedSegment;
                     for (let i = 0; i < segments.length; i++) {
                         const segment = segments[i];
@@ -436,8 +430,8 @@ function setVideoQuality(height = 0, button = null)
                     }
                     retryFetch(selectedSegment, {}, undefined, undefined, undefined, true)
                         .then(response => {
-                            let timeout = meta.hls_duration + 1 - player.currentTime() % meta.hls_duration;
-                            if (timeout > meta.hls_duration / 2) timeout = 0;
+                            let timeout = hls_segment_duration + 1 - player.currentTime() % hls_segment_duration;
+                            if (timeout > hls_segment_duration / 2) timeout = 0;
                             if (player.paused()) timeout = 0;
                             setTimeout(() => {
                                 applyVideoQuality();
@@ -1790,7 +1784,7 @@ function loadVideo()
                         if (!player.src().includes('&quality=audio')) // assume audio always works
                         {
                             ps.save();
-                            player.src({ src: `/download?url=${encodeURIComponent(originalUrl)}&quality=audio`, type: 'audio/mpeg' });
+                            player.src({ src: `/hls?url=${encodeURIComponent(originalUrl)}&quality=audio`, type: 'audio/mpeg' });
                             ps.apply();
                         }
                     }
