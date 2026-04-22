@@ -192,7 +192,10 @@ function updateIframeGeometry(forceZero = false)
     {
         const top = (rect?.top || 0) - iframeRect.top + parseFloat(iframe.style.top || 0);
         const left = (rect?.left || 0) - iframeRect.left + parseFloat(iframe.style.left || 0);
-        if (iframe.style.top != `${top}px` || iframe.style.left != `${left}px`) posUpdatesInRow ++;
+        if (Math.abs((parseFloat(iframe.style.top) - top) + Math.abs(parseFloat(iframe.style.left) - left)) > 1)
+        {
+            posUpdatesInRow ++;
+        }
         else posUpdatesInRow = 0;
         if (posUpdatesInRow > 20)
         {
@@ -213,28 +216,35 @@ function updateIframe(updateContainer = false)
     let srcUrl = new URL(src);
     let iframeEnabled = srcUrl.pathname != '/' || srcUrl.search;
     let iframeSrc = `${playerUrl}/iframe?url=${encodeURIComponent(src)}`;
-    if (iframe === null || !document.getElementById('ytdlp-player')) createIframe(iframeSrc);
-    if ((iframe.src != iframeSrc && iframeEnabled))
+    if (iframeEnabled)
     {
-        console.log(`Chaning iframe src from ${iframe.src} to ${iframeSrc}`);
-        iframe.remove();
-        createIframe(iframeSrc);
-    }
-    if (updateContainer)
-    {
-        if (iframeContainer)
+        if (iframe?.src != iframeSrc)
         {
-            iframeContainer.style.opacity = '';
-            iframeContainer.style.pointerEvents = '';
+            console.log(`Chaning iframe src from ${iframe?.src} to ${iframeSrc}`);
+            iframe?.remove();
+            createIframe(iframeSrc);
         }
-        iframeContainer = getIframeContainer();
-        if (iframeContainer)
+        else if (iframe === null || !document.getElementById('ytdlp-player'))
         {
-            iframeContainer.style.opacity = '0';
-            iframeContainer.style.pointerEvents = 'none';
+            createIframe(iframeSrc);
         }
+        if (updateContainer)
+        {
+            if (iframeContainer)
+            {
+                iframeContainer.style.opacity = '';
+                iframeContainer.style.pointerEvents = '';
+            }
+            iframeContainer = getIframeContainer();
+            if (iframeContainer)
+            {
+                iframeContainer.style.opacity = '0';
+                iframeContainer.style.pointerEvents = 'none';
+            }
+        }
+        updateIframeGeometry(forceZero = !iframeEnabled);
     }
-    if (!iframeEnabled)
+    else
     {
         if (iframeContainer)
         {
@@ -242,13 +252,13 @@ function updateIframe(updateContainer = false)
             iframeContainer.style.pointerEvents = '';
             iframeContainer = null;
         }
-        if (iframe !== null && iframe.src !== '')
+        if (iframe !== null)
         {
             console.log('Disabling iframe');
-            iframe.src = '';
+            iframe.remove();
+            iframe = null;
         }
     }
-    updateIframeGeometry(forceZero = !iframeEnabled);
 }
 
 
@@ -295,6 +305,7 @@ function stop()
     if (iframe)
     {
         iframe.remove();
+        iframe = null;
     }
     if (iframeContainer)
     {
