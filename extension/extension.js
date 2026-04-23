@@ -10,7 +10,7 @@
 // @author       matszwe02
 // @match        *://*.youtube.com/*
 // @icon         https://github.com/Matszwe02/ytdlp_web_player/raw/main/src/static/favicon.svg
-// @grant        none
+// @grant        GM_registerMenuCommand
 // @run-at       document-start
 // ==/UserScript==
 
@@ -352,7 +352,16 @@ function tryStart()
 }
 
 
-if (playerUrl) tryStart();
+if (playerUrl)
+{
+    tryStart();
+    try
+    {
+        GM_registerMenuCommand("Start", start);
+        GM_registerMenuCommand("Stop", stop);
+    }
+    catch {}
+}
 else
 {
 
