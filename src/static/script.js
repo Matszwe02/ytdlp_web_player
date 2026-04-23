@@ -64,6 +64,7 @@ function setUpAudioContext()
 {
     if (audioContext == null)
     {
+        console.log(`Setting up AudioContext`);
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         audioSource = audioContext.createMediaElementSource(player.el_.querySelector('video'));
         audioSource.connect(audioContext.destination);
@@ -1773,28 +1774,26 @@ function loadVideo()
             if (meta.auto_bg_playback && navigator?.userAgentData?.mobile)
             {
                 document.addEventListener('visibilitychange', () => {
-                    if (meta.audio_visualizer)
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (urlParams.get('quality') == 'audio')
                     {
-                        if (document.visibilityState === 'hidden') pauseVisualizer(player);
-                        else resumeVisualizer(player);
+                        if (meta.audio_visualizer)
+                        {
+                            if (document.visibilityState === 'hidden') pauseVisualizer(player);
+                            else resumeVisualizer(player);
+                        }
+                        return;
                     }
                     if (player.isInPictureInPicture()) return;
                     if (document.visibilityState === 'hidden')
                     {
-                        if (!player.src().includes('&quality=audio')) // assume audio always works
-                        {
-                            ps.save();
-                            player.src({ src: `/hls?url=${encodeURIComponent(originalUrl)}&quality=audio`, type: 'audio/mpeg' });
-                            ps.apply();
-                        }
+                        ps.save();
+                        player.src({ src: `/hls?url=${encodeURIComponent(originalUrl)}&quality=audio`, type: 'application/x-mpegURL' });
+                        ps.apply();
                     }
                     else
                     {
-                        const urlParams = new URLSearchParams(window.location.search);
-                        if (urlParams.get('quality') != 'audio')
-                        {
-                            setVideoQuality();
-                        }
+                        setVideoQuality();
                     }
                 });
             }
