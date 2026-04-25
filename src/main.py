@@ -23,6 +23,7 @@ auto_bg_playback = os.environ.get('AUTO_BG_PLAYBACK', 'False').lower() == 'true'
 audio_visualizer = os.environ.get('AUDIO_VISUALIZER', 'False').lower() == 'true'
 download_path = os.environ.get('DOWNLOAD_PATH', './download')
 disable_transcoding = os.environ.get('DISABLE_TRANSCODING', 'False').lower() == 'true'
+proxy = os.environ.get('PROXY', '')
 port = int(os.environ.get('PORT', '5000'))
 
 hls_duration = 5

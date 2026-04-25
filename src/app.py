@@ -52,6 +52,7 @@ class YTDLP:
 
     @staticmethod
     def download(url, opts):
+        if (proxy): opts["proxy"] = proxy
         logger = YTDLP.Logger(url, opts, 'download')
         try:
             with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
@@ -78,6 +79,7 @@ class YTDLP:
 
     @staticmethod
     def get_info(url, opts):
+        if (proxy): opts["proxy"] = proxy
         logger = YTDLP.Logger(url, opts, 'extract_info')
         try:
             with yt_dlp.YoutubeDL(json.loads(json.dumps(opts)) | {'logger': logger}) as ydl:
@@ -124,9 +126,9 @@ class FFMPEG:
         """
         if not self.ffmpeg: return None
         ffmpeg_command = [self.ffmpeg] + ffmpeg_command
-        
+        ffmpeg_env = {f"{proxy.split('://')[0]}_proxy": proxy} if proxy else None
         print(f'[FFMPEG {self.ff_id}] Executing {ffmpeg_command}')
-        self._p = subprocess.Popen(ffmpeg_command, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+        self._p = subprocess.Popen(ffmpeg_command, stdout = subprocess.PIPE, stderr = subprocess.STDOUT, env=ffmpeg_env)
         for line in self._p.stdout:
             print(f'[FFMPEG {self.ff_id}] {line.decode().strip()}')
             if time.time() - self.start_time > 3600:
@@ -465,7 +467,8 @@ def append_query_to_url(url, query):
 
 def download_media_file(url: str, path_without_ext: str, ext: str|None = None):
     """Download raw file with requests.get with selected filename"""
-    response = requests.get(url, stream=True)
+    proxies = {proxy.split('://')[0]: proxy} if proxy else None
+    response = requests.get(url, stream=True, proxies=proxies)
     response.raise_for_status()
     if not ext:
         urlpath = url
