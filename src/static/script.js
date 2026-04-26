@@ -429,7 +429,7 @@ function setVideoQuality(height = 0, button = null)
                                 break;
                         }
                     }
-                    retryFetch(selectedSegment, {}, undefined, undefined, undefined, true)
+                    retryFetch(selectedSegment, {}, 1, 1000, true, true)
                         .then(response => {
                             let timeout = hls_segment_duration + 1 - player.currentTime() % hls_segment_duration;
                             if (timeout > hls_segment_duration / 2) timeout = 0;
@@ -444,7 +444,7 @@ function setVideoQuality(height = 0, button = null)
                             console.log('HLS not ready. Retrying fetching...');
                             setTimeout(() => {
                                 tryToFetchHLS();
-                            }, 1000);
+                            }, 500);
                         });
                 }
                 tryToFetchHLS();
