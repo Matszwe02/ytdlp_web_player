@@ -772,9 +772,12 @@ class DownloadButton extends videojs.getComponent('Button')
                         link.href += `&start=${this.startTime.toFixed(1)}&end=${this.endTime.toFixed(1)}`;
 
                     link.download = 'file';
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
+
+                    retryFetch(link.href, {}, 100, undefined, true, true).then(response => {
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    })
 
                     this.handleCloseMenu(true);
                     retryFetch(link.href)
