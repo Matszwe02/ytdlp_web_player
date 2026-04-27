@@ -1686,6 +1686,14 @@ function loadVideo()
         errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
         player.el_.querySelector('.vjs-control-bar').classList.add('display-flex');
 
+        if (player.spriteThumbnails != null)
+        {
+            player.spriteThumbnails().setState({ready: false});
+            retryFetch(`/sprite?${urlParams.toString()}`, {}, 100, undefined, false).then(response => {
+                player.spriteThumbnails().setState({ready: true});
+            });
+        }
+
         if (meta.chapters.length > 0)
             loadChapters();
     });
@@ -1732,10 +1740,6 @@ function loadVideo()
                 if (spriteElement && !isNaN(spriteDuration) && videoLength < spriteDuration)
                 {
                     player.spriteThumbnails({ url: `/sprite?${urlParams.toString()}`, width: 160, height: 90, columns: 10, interval: 10 });
-                    player.spriteThumbnails().setState({ready: false});
-                    retryFetch(`/sprite?${urlParams.toString()}`, undefined, undefined, undefined, false).then(response => {
-                        player.spriteThumbnails().setState({ready: true});
-                    });
                 }
             }
             catch {}
