@@ -1733,11 +1733,7 @@ function loadVideo()
 
             try
             {
-                const spriteElement = document.getElementById('enable-sprite');
-                const spriteDuration = parseFloat(spriteElement ? spriteElement.dataset.spriteDuration : null);
-                const videoLength = parseInt(meta.duration);
-    
-                if (spriteElement && !isNaN(spriteDuration) && videoLength < spriteDuration)
+                if (parseInt(meta.duration) < parseInt(meta.generate_sprite_below))
                 {
                     player.spriteThumbnails({ url: `/sprite?${urlParams.toString()}`, width: 160, height: 90, columns: 10, interval: 10 });
                 }

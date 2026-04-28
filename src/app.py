@@ -417,6 +417,7 @@ def clean_meta(raw_meta: dict):
     meta['url'] = raw_meta.get('original_url')
     meta['default_quality'] = 'audio' if 'Music' in (raw_meta.get('categories') or []) and audio_visualizer else get_good_quality(meta['formats'])
     meta['load_default_quality'] = load_default_quality
+    meta['generate_sprite_below'] = generate_sprite_below
     meta['hls_duration'] = hls_duration
     meta['hls_audio_duration'] = hls_audio_duration
     meta['playlist_support'] = playlist_support
@@ -928,7 +929,7 @@ def watch():
     preload(url)
 
     print('Stopped serving watch')
-    return render_template('watch.html', original_url=url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, generate_sprite_below=generate_sprite_below, amoled_bg=amoled_bg, video_width=video_width, video_height=video_height, video_title=video_title)
+    return render_template('watch.html', original_url=url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg, video_width=video_width, video_height=video_height, video_title=video_title)
 
 
 @app.route('/iframe')
@@ -946,7 +947,7 @@ def iframe():
     preload(url)
 
     print('Stopped serving iframe')
-    return render_template('iframe.html', app_title=app_title, theme_color=theme_color, generate_sprite_below=generate_sprite_below, video_width=video_width, video_height=video_height)
+    return render_template('iframe.html', app_title=app_title, theme_color=theme_color, video_width=video_width, video_height=video_height)
 
 
 @app.route('/preload')
