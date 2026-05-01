@@ -744,17 +744,18 @@ def download_file(url: str, media_type='video'):
             seg_time = 0
             seg_num = 0
             duration = meta["duration"]
-            seg_path = f"/hls_stream/{hls_url_dir.rstrip('/')}/"
+            hls_url_dir = os.path.join(gen_pathname(url), f"hls_playlist-{res_str}")
+            seg_path = f"/hls_stream?url={quote_plus(url)}&quality={res_str}&seg="
 
             with open(m3u8_path, "w") as f:
                 f.write(f"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:{hls_segment_duration}\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n")
                 while seg_time < duration:
                     time_to_add = min(hls_segment_duration, meta["duration"] - seg_time)
-                    f.write(f"#EXTINF:{time_to_add:.6f},\n{seg_path}segment{seg_num:0>4}.ts\n")
+                    f.write(f"#EXTINF:{time_to_add:.6f},\n{seg_path}{seg_num}\n")
                     seg_time += time_to_add
                     seg_num += 1
                 f.write("#EXT-X-ENDLIST\n")
-            
+
             def download_hls_files():
                 nonlocal video_file_path
                 try:
@@ -769,10 +770,6 @@ def download_file(url: str, media_type='video'):
                         download_file(url, media_type)
                     elif FFMPEG(ffmpeg_command).success:
                         print(f"FFMPEG Finished HLS Conversion!")
-                        with open(temp_m3u8_path, 'r') as f:
-                            contents = f.read()
-                        with open(m3u8_path, 'w') as f:
-                            f.write(contents.replace('segment', seg_path + 'segment'))
                         os.remove(temp_m3u8_path)
                     else:
                         print(f"An FFMPEG error occurred during HLS conversion")
@@ -1106,8 +1103,24 @@ def download_hls():
         return pprint_exc(e)
 
 
+@app.route('/hls_stream')
+def hls_stream():
+    url = get_url(request)
+    data_dir = get_data_dir(url)
+    quality = request.args.get('quality')
+    seg = request.args.get('seg')
+    file = os.path.join(data_dir, f'hls_playlist-{quality}/segment{seg:>0{4}}.ts')
+
+    if not os.path.exists(file):
+        media_type = f'hls-{quality}'.removesuffix('-')
+        host_file(get_url(request), media_type)
+        return jsonify({"error": "File not found"}), 404
+
+    return send_file_partial(file)
+
+
 @app.route('/hls_stream/<path:filename>')
-def hls_stream(filename):
+def hls_stream_by_path(filename):
     base_dir = os.path.abspath(download_path)
     full_path = os.path.abspath(os.path.join(base_dir, filename))
 

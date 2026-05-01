@@ -395,6 +395,7 @@ function setVideoQuality(height = 0, button = null)
     abortController = new AbortController();
     const signal = abortController.signal;
     const urlParams = new URLSearchParams(window.location.search);
+    const originalUrl = urlParams.get('v') || urlParams.get('url');
     const buttons = menu.querySelectorAll('.vjs-resolution-option');
     if (height === 0)
     {
@@ -418,17 +419,8 @@ function setVideoQuality(height = 0, button = null)
                 function tryToFetchHLS()
                 {
                     var segments = playlist.split('\n');
-                    const segmentToDownload = String(Math.ceil(player.currentTime() / hls_segment_duration + 0.5)).padStart(4,'0') + ".ts";
-                    var selectedSegment;
-                    for (let i = 0; i < segments.length; i++) {
-                        const segment = segments[i];
-                        if (segment.endsWith('.ts'))
-                        {
-                            selectedSegment = segment;
-                            if (segment.endsWith(segmentToDownload))
-                                break;
-                        }
-                    }
+                    var segNum = Math.min(Math.ceil(player.currentTime() / hls_segment_duration + 0.5), segments.length - 1);
+                    var selectedSegment = `/hls_stream?url=${encodeURIComponent(originalUrl)}&quality=${height}&seg=${segNum}`;
                     retryFetch(selectedSegment, {}, 1, 1000, true, true)
                         .then(response => {
                             let timeout = hls_segment_duration + 1 - player.currentTime() % hls_segment_duration;
