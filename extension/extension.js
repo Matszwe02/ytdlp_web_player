@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         YT-DLP Web Player
 // @namespace    https://github.com/Matszwe02/ytdlp_web_player
-// @downloadURL  https://github.com/Matszwe02/ytdlp_web_player
-// @updateURL    https://github.com/Matszwe02/ytdlp_web_player
 // @homepageURL  https://github.com/Matszwe02/ytdlp_web_player
 // @supportURL   https://github.com/Matszwe02/ytdlp_web_player
+// @downloadURL  https://github.com/Matszwe02/ytdlp_web_player/raw/main/extension/extension.js
+// @updateURL    https://github.com/Matszwe02/ytdlp_web_player/raw/main/extension/extension.js
 // @version      1.0.0
 // @description  Replaces videos with YT-DLP Player
 // @author       matszwe02
