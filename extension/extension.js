@@ -28,6 +28,7 @@ var cookies = false;
 var isPosFixed = false;
 var posUpdatesInRow = 0;
 var tabEnabled = true;
+var altSrc = "";
 
 
 function blockVideos()
@@ -122,6 +123,16 @@ function getIframeContainer()
     if (bestVideo)
     {
         const rect = bestVideo.getBoundingClientRect();
+
+        altSrc = "";
+        let a = bestVideo;
+        while (a.parentElement !== document.body)
+        {
+            a = a.parentElement;
+            if (a.tagName == "A") altSrc = a.href;
+            console.log(`Setting alt src to ${altSrc}`);
+        }
+
         while (bestVideo.parentElement !== document.body)
         {
             const parentRect = bestVideo.parentElement.getBoundingClientRect();
@@ -216,7 +227,7 @@ function updateIframeGeometry(forceZero = false)
 function updateIframe(updateContainer = false)
 {
     if (!tabEnabled) return;
-    let src = window.top.location.href;
+    let src = altSrc || window.top.location.href;
     let srcUrl = new URL(src);
     let iframeEnabled = srcUrl.pathname != '/' || srcUrl.search;
     let iframeSrc = `${playerUrl}/iframe?url=${encodeURIComponent(src)}`;
