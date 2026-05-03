@@ -207,12 +207,13 @@ function updateIframeGeometry(forceZero = false)
     {
         const top = (rect?.top || 0) - iframeRect.top + parseFloat(iframe.style.top || 0);
         const left = (rect?.left || 0) - iframeRect.left + parseFloat(iframe.style.left || 0);
-        if (Math.abs((parseFloat(iframe.style.top) - top) + Math.abs(parseFloat(iframe.style.left) - left)) > 1)
+        if (Math.abs((parseFloat(iframe.style.top) - top) + Math.abs(parseFloat(iframe.style.left) - left)) > 5)
         {
             posUpdatesInRow ++;
+            console.debug(`Update ${posUpdatesInRow}/10 : ${iframe.style.top}, ${iframe.style.left} -> ${top}, ${left}`);
         }
         else posUpdatesInRow = 0;
-        if (posUpdatesInRow > 20)
+        if (posUpdatesInRow > 9)
         {
             isPosFixed = true;
             iframe.style.position = 'fixed';
