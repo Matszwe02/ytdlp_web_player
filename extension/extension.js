@@ -79,14 +79,14 @@ function unblockVideos()
 function getIframeContainer()
 {
     const allVideos = Array.from(document.querySelectorAll('video, .html5-video-player'));
-    console.log(`Total videos found: ${allVideos.length}`);
+    console.debug(`Total videos found: ${allVideos.length}`);
 
 
     let maxArea = 0;
     allVideos.forEach(video => {
         const rect = video.getBoundingClientRect();
         const area = rect.width * rect.height;
-        console.log(`  - top:${rect.top}, left:${rect.left}, w:${rect.width}, h:${rect.height}`);
+        console.debug(`  - top:${rect.top}, left:${rect.left}, w:${rect.width}, h:${rect.height}`);
         if (area > maxArea) maxArea = area;
     });
 
@@ -130,7 +130,6 @@ function getIframeContainer()
         {
             a = a.parentElement;
             if (a.tagName == "A") altSrc = a.href;
-            console.log(`Setting alt src to ${altSrc}`);
         }
 
         while (bestVideo.parentElement !== document.body)
