@@ -171,7 +171,8 @@ function updateIframeGeometry(forceZero = false)
     if (!tabEnabled) return;
     const rect = iframeContainer?.getBoundingClientRect();
     const vidRect = iframeContainer?.querySelector('video')?.getBoundingClientRect();
-    const iframeRect = iframe.getBoundingClientRect();
+    const iframeRect = iframe ? iframe.getBoundingClientRect() : null;
+    if (!iframeRect) return;
     const width = Math.max(rect?.width || 0, vidRect?.width || 0);
     const height = Math.max(rect?.height || 0, vidRect?.height || 0);
 
