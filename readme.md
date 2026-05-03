@@ -171,6 +171,16 @@ Also check [yt-dlp's issues](https://github.com/yt-dlp/yt-dlp/issues).
 
 If it appears to be supported, fill in a bug report with app logs.
 
+### Livestream doesn't work
+
+YT-DLP Web Player is very limited with this feature.
+
+Try using cookies or waiting 30s for the video to buffer before hitting play.
+
+### Can this app do XYZ?
+
+This readme does not mention every configuration option. See `example.env` and check if the feature you want is already settable. If not, I'm open for feature requests.
+
 ### Other issues
 
 Please fill in a bug report. Attach browser and app logs if relevant, app version, browser name, etc.
