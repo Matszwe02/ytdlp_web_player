@@ -8,14 +8,17 @@
 // @version      1.0.0
 // @description  Replaces videos with YT-DLP Player
 // @author       matszwe02
-// @match        *://*.youtube.com/*
+// @match        *://*/*
 // @icon         https://github.com/Matszwe02/ytdlp_web_player/raw/main/src/static/favicon.svg
 // @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
+// @grant        GM_setValue
+// @grant        GM_getValue
 // @run-at       document-start
 // ==/UserScript==
 
 
-// if running this script in standalone mode (tampermonkey), fill in playerUrl with your YT-DLP Player instance
+// fill in playerUrl with your YT-DLP Player instance if running this script in standalone mode (optional)
 
 var playerUrl = '';
 
@@ -353,51 +356,33 @@ function tryStart()
 }
 
 
-if (playerUrl)
+function updateAllowedDomains(allowedDomains)
 {
-    tryStart();
-    try
-    {
-        GM_registerMenuCommand("Start", start);
-        GM_registerMenuCommand("Stop", stop);
-    }
-    catch {}
-}
-else
-{
+    const currentUrl = new URL(window.top.location.href);
+    const hostname = currentUrl.hostname;
 
+    const allowedDomainsList = allowedDomains.split(',').map(domain => domain.trim());
+    if (allowedDomainsList.some(allowedDomain => { return hostname === allowedDomain || hostname.endsWith(`.${allowedDomain}`); }))
+    {
+        tryStart();
+    }
+    else
+    {
+        stop();
+    }
+}
+
+
+if ((typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id))
+{
     chrome.storage.sync.get({ allowedDomains: '' }, (items) => {
         if (!items.allowedDomains) return;
-    
-        const currentUrl = new URL(window.top.location.href);
-        const hostname = currentUrl.hostname;
-    
-        const allowedDomains = items.allowedDomains.split(',').map(domain => domain.trim());
-        if (allowedDomains.some(allowedDomain => { return hostname === allowedDomain || hostname.endsWith(`.${allowedDomain}`); }))
-        {
-            tryStart();
-        }
-        else
-        {
-            stop();
-        }
+        updateAllowedDomains(items.allowedDomains);
     });
 
     chrome.storage.onChanged.addListener((changes, namespace) => {
         if (namespace !== 'sync' || !changes.allowedDomains) return;
-    
-        const currentUrl = new URL(window.top.location.href);
-        const hostname = currentUrl.hostname;
-    
-        const allowedDomains = changes.allowedDomains.newValue.split(',').map(domain => domain.trim());
-        if (allowedDomains.some(allowedDomain => { return hostname === allowedDomain || hostname.endsWith(`.${allowedDomain}`); }))
-        {
-            tryStart();
-        }
-        else
-        {
-            stop();
-        }
+        updateAllowedDomains(changes.allowedDomains.newValue);
     });
 
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -410,5 +395,63 @@ else
             stop();
         }
     });
+}
+else
+{
+    if (GM_registerMenuCommand)
+    {
+            GM_registerMenuCommand("Start", start);
+            GM_registerMenuCommand("Stop", stop);
 
+            playerUrl = GM_getValue("playerUrl", null);
+            if (!playerUrl)
+            {
+                playerUrl = prompt("Enter YT-DLP Web Player URL:");
+                GM_setValue("playerUrl", playerUrl);
+            }
+
+            function GM_toggleDomain()
+            {
+                var allowedDomains = GM_loadDomains().split(',');
+                const currentUrl = new URL(window.top.location.href);
+                if (allowedDomains.includes(currentUrl.hostname))
+                {
+                    allowedDomains.pop(currentUrl.hostname);
+                }
+                else
+                {
+                    allowedDomains.push(currentUrl.hostname);
+                }
+                allowedDomains = allowedDomains.join(',');
+                GM_setValue("allowedDomains", allowedDomains);
+                updateAllowedDomains(GM_loadDomains());   
+            }
+
+            var cmd = null;
+            function GM_loadDomains()
+            {
+                if (cmd) GM_unregisterMenuCommand(cmd);
+                var allowedDomains = GM_getValue("allowedDomains", '').split(',').map(domain => domain.trim());
+                console.warn(allowedDomains);
+                const currentUrl = new URL(window.top.location.href);
+                if (allowedDomains.includes(currentUrl.hostname))
+                {
+                    cmd = GM_registerMenuCommand("Remove Current Domain", GM_toggleDomain);
+                }
+                else
+                {
+                    cmd = GM_registerMenuCommand("Add Current Domain", GM_toggleDomain);
+                }
+                return allowedDomains.join(',');
+            }
+            updateAllowedDomains(GM_loadDomains());
+    }
+    else
+    {
+        if (!playerUrl)
+        {
+            playerUrl = prompt("Enter YT-DLP Web Player URL:");
+        }
+        tryStart();
+    }
 }
