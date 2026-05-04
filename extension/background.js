@@ -15,7 +15,7 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
 chrome.runtime.onInstalled.addListener(() => {
     chrome.contextMenus.create({
         id: "open-in-app",
-        title: "Open in YT-DLP Player",
+        title: "Watch in YT-DLP Player",
         contexts: ["link"]
     });
 });
