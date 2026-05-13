@@ -183,6 +183,20 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible 
     }
 }
 
+
+function getUrlInfo()
+{
+    const urlParams = new URLSearchParams(window.location.search);
+    const originalUrl = urlParams.get('v') || urlParams.get('url');
+    const encodedUrl = encodeURIComponent(originalUrl);
+    var quality = urlParams.get('quality');
+    if (quality == '') quality = null;
+    if (quality == 'null') quality = null;
+    if (meta && meta['height'] == null && meta['width'] == null) quality = 'audio';
+    return { quality: quality, originalUrl: originalUrl, encodedUrl:encodedUrl, urlParams:urlParams };
+}
+
+
 function formatTime(timeInSeconds)
 {
     if (timeInSeconds === null || isNaN(timeInSeconds)) return '-';
@@ -329,19 +343,15 @@ function loadChapters()
 
 function getVideoSource()
 {
-    const urlParams = new URLSearchParams(window.location.search);
-    const originalUrl = urlParams.get('v') || urlParams.get('url');
-    var quality = urlParams.get('quality');
-    if (quality == '') quality = null;
-    if (quality == 'null') quality = null;
-    console.log(`Video quality: ${quality}`);
+    var url = getUrlInfo();
+    console.log(`Video quality: ${url.quality}`);
 
-    let downloadUrl = `/direct?url=${encodeURIComponent(originalUrl)}`;
+    let downloadUrl = `/direct?url=${url.encodedUrl}`;
     let videoType = 'video/mp4';
 
-    if (quality)
+    if (url.quality)
     {
-        downloadUrl = `/hls?url=${encodeURIComponent(originalUrl)}&quality=${quality}`;
+        downloadUrl = `/hls?url=${url.encodedUrl}&quality=${url.quality}`;
         videoType = 'application/x-mpegURL';
     }
     return [downloadUrl, videoType];
@@ -350,9 +360,7 @@ function getVideoSource()
 
 function applyVideoQuality()
 {
-    const urlParams = new URLSearchParams(window.location.search);
-    var quality = urlParams.get('quality');
-    if (meta['height'] == null && meta['width'] == null) quality = 'audio';
+    var url = getUrlInfo();
     const videoSource = getVideoSource();
 
     const videoEl = player.el_.querySelector('video');
@@ -361,7 +369,7 @@ function applyVideoQuality()
     player.src({ src: videoSource[0], type: videoSource[1] });
     ps.apply();
 
-    if (quality === 'audio')
+    if (url.quality === 'audio')
     {
         if (videoEl) videoEl.style.display = 'none';
         if (posterEl)
@@ -394,21 +402,20 @@ function setVideoQuality(height = 0, button = null)
     if (abortController) abortController.abort();
     abortController = new AbortController();
     const signal = abortController.signal;
-    const urlParams = new URLSearchParams(window.location.search);
-    const originalUrl = urlParams.get('v') || urlParams.get('url');
+    var url = getUrlInfo();
     const buttons = menu.querySelectorAll('.vjs-resolution-option');
     if (height === 0)
     {
-        height = urlParams.get('quality');
+        height = url.quality;
     }
-    urlParams.set('quality', height);
+    url.urlParams.set('quality', height);
     if (button == null)
     {
         buttons.forEach(b => {
             if ((b.textContent.toLowerCase().includes(height)) || (b.textContent == 'Direct' && height == '')) button = b;
         });
     }
-    history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
+    history.replaceState(null, '', `${window.location.pathname}?${url.urlParams.toString()}`);
     const hlsEnabled = height != null && height != '' && height != 'null';
     if (hlsEnabled)
     {
@@ -418,10 +425,11 @@ function setVideoQuality(height = 0, button = null)
                 var hls_segment_duration = height == 'audio' ? meta.hls_audio_duration : meta.hls_duration;
                 function tryToFetchHLS()
                 {
+                    const url = getUrlInfo();
                     var segments = playlist.split('\n');
                     var segNum = Math.min(Math.ceil(player.currentTime() / hls_segment_duration + 0.5), segments.length - 1);
-                    var selectedSegment = `/hls_stream?url=${encodeURIComponent(originalUrl)}&quality=${height}&seg=${segNum}`;
-                    retryFetch(selectedSegment, {}, 1, 1000, true, true)
+                    var selectedSegment = `/hls_stream?url=${url.encodedUrl}&quality=${height}&seg=${segNum}`;
+                    retryFetch(selectedSegment, undefined, 1, 1000, true, true)
                         .then(response => {
                             let timeout = hls_segment_duration + 1 - player.currentTime() % hls_segment_duration;
                             if (timeout > hls_segment_duration / 2) timeout = 0;
@@ -621,7 +629,6 @@ class OverAmplificationButton extends videojs.getComponent('Button')
     constructor(player, options)
     {
         super(player, options);
-        const urlParams = new URLSearchParams(window.location.search);
         this.addClass('menu-button');
         this.el().innerHTML = '<i class="fa-solid fa-bullhorn"></i>';
         this.enabled = false;
@@ -751,14 +758,13 @@ class DownloadButton extends videojs.getComponent('Button')
                 }
                 else
                 {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const originalUrl = urlParams.get('v') || urlParams.get('url');
-                    const currentQuality = urlParams.get('quality') || meta.default_quality;
+                    var url = getUrlInfo();
+                    const currentQuality = url.quality || meta.default_quality;
                     var quality = option.quality;
                     if (option.quality == 'current') quality = currentQuality;
 
                     const link = document.createElement('a');
-                    link.href = `/download?url=${encodeURIComponent(originalUrl)}&quality=${quality}`;
+                    link.href = `/download?url=${url.encodedUrl}&quality=${quality}`;
 
                     if (this.startTime != null && this.endTime != null)
                         link.href += `&start=${this.startTime.toFixed(1)}&end=${this.endTime.toFixed(1)}`;
@@ -1000,8 +1006,8 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
             const button = document.createElement('button');
             button.textContent = height === 'audio' ? 'Audio' : height === '' ? 'Direct' : `${height}p`;
             button.classList.add('vjs-resolution-option');
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('quality') == height || (urlParams.get('quality') == null && height == ''))
+            var url = getUrlInfo();
+            if (url.quality == height || (url.quality == null && height == ''))
             {
                 button.classList.add('vjs-menu-option-selected');
             }
@@ -1142,8 +1148,8 @@ class SubtitleSwitcherButton extends videojs.getComponent('Button')
         let tracks = player.textTracks();
         if (lang !== 'none')
         {
-            const urlParams = new URLSearchParams(window.location.search);
-            const subtitleSrc = `/subtitle?${urlParams.toString()}&lang=${lang}`;
+            var url = getUrlInfo();
+            const subtitleSrc = `/subtitle?url=${url.encodedUrl}&lang=${lang}`;
             retryFetch(subtitleSrc)
                 .then(response => response.text())
             
@@ -1340,8 +1346,8 @@ class PlaylistComponent extends Component
         this.options = options;
         this.player = player;
         this.addClass('vjs-playlist-component');
-        var params = new URLSearchParams(window.location.search);
-        this.currentVideoUrl = params.get('v') || params.get('url');
+        var url = getUrlInfo();
+        this.currentVideoUrl = url.originalUrl;
 
         this.menu = this.createPlaylistMenu();
         this.el().appendChild(this.menu);
@@ -1542,8 +1548,8 @@ function addSponsorblock(data)
 
 function loadVideo()
 {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.toString().length < 10) return;
+    var url = getUrlInfo();
+    if (url.urlParams.toString().length < 10) return;
     
     videojs.options.languages.en = videojs.mergeOptions(videojs.options.languages.en, {
         "Play": "Play [Space]",
@@ -1562,7 +1568,7 @@ function loadVideo()
         preload: 'auto',
         responsive: true,
         fluid: true,
-        poster: `/thumb?${urlParams.toString()}`,
+        poster: `/thumb?url=${url.encodedUrl}`,
         enableSmoothSeeking: true,
         disableSeekWhileScrubbingOnMobile: true,
         html5:
@@ -1663,8 +1669,7 @@ function loadVideo()
 
     player.el_.querySelector('.vjs-poster').style.filter = '';
 
-    const originalUrl = urlParams.get('v') || urlParams.get('url');
-    player.src({ src: `/direct?url=${encodeURIComponent(originalUrl)}`, type: 'video/mp4' });
+    player.src({ src: `/direct?url=${url.encodedUrl}`, type: 'video/mp4' });
 
     // When video is loaded
     player.on('loadeddata', () => {
@@ -1681,7 +1686,7 @@ function loadVideo()
         if (player.spriteThumbnails != null)
         {
             player.spriteThumbnails().setState({ready: false});
-            retryFetch(`/sprite?${urlParams.toString()}`, {}, 100, undefined, false).then(response => {
+            retryFetch(`/sprite?url=${url.encodedUrl}`, {}, 100, undefined, false).then(response => {
                 player.spriteThumbnails().setState({ready: true});
             });
         }
@@ -1689,7 +1694,7 @@ function loadVideo()
         if (meta.chapters.length > 0)
             loadChapters();
     });
-    retryFetch(`/meta?${urlParams.toString()}`)
+    retryFetch(`/meta?url=${url.encodedUrl}`)
         .then(response => response.json())
         .then(metaData => {
             meta = metaData;
@@ -1703,7 +1708,7 @@ function loadVideo()
                 player.controlBar.SettingsButton.updateResolutions();
                 player.controlBar.SettingsButton.updateSubtitles(meta.subtitles);
 
-                if (urlParams.get('quality') == null && meta.load_default_quality)
+                if (url.quality == null && meta.load_default_quality)
                 {
                     setVideoQuality(meta.default_quality);
                 }
@@ -1725,9 +1730,9 @@ function loadVideo()
 
             try
             {
-                if (parseInt(meta.duration) < parseInt(meta.generate_sprite_below))
+                if (parseFloat(meta.duration) < parseInt(meta.generate_sprite_below))
                 {
-                    player.spriteThumbnails({ url: `/sprite?${urlParams.toString()}`, width: 160, height: 90, columns: 10, interval: 10 });
+                    player.spriteThumbnails({ url: `/sprite?url=${url.encodedUrl}`, width: 160, height: 90, columns: 10, interval: 10 });
                 }
             }
             catch {}
@@ -1754,7 +1759,7 @@ function loadVideo()
 
             if (meta.playlist_support == true && window.location.pathname != '/iframe')
             {
-                retryFetch(`/playlist?url=${encodeURIComponent(urlParams.get('v') || urlParams.get('url'))}`)
+                retryFetch(`/playlist?url=${url.encodedUrl}`)
                     .then(response => response.json())
                     .then(playlistData => {
                         if (Array.isArray(playlistData) && playlistData.length > 0)
@@ -1769,8 +1774,8 @@ function loadVideo()
             if (meta.auto_bg_playback && navigator?.userAgentData?.mobile)
             {
                 document.addEventListener('visibilitychange', () => {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    if (urlParams.get('quality') == 'audio')
+                    var url = getUrlInfo();
+                    if (url.quality == 'audio')
                     {
                         if (meta.audio_visualizer)
                         {
@@ -1783,7 +1788,7 @@ function loadVideo()
                     if (document.visibilityState === 'hidden')
                     {
                         ps.save();
-                        player.src({ src: `/hls?url=${encodeURIComponent(originalUrl)}&quality=audio`, type: 'application/x-mpegURL' });
+                        player.src({ src: `/hls?url=${url.encodedUrl}&quality=audio`, type: 'application/x-mpegURL' });
                         ps.apply();
                     }
                     else
@@ -1799,7 +1804,7 @@ function loadVideo()
         });
 
         
-    retryFetch(`/sb?${urlParams.toString()}`)
+    retryFetch(`/sb?url=${url.encodedUrl}`)
         .then(response => response.json())
         .then(data => {
             if (Array.isArray(data)) {
@@ -1820,14 +1825,14 @@ function loadMediaPlayer()
 {
     if (! "mediaSession" in navigator) return;
 
-    const urlParams = new URLSearchParams(window.location.search);
+    var url = getUrlInfo();
     navigator.mediaSession.metadata = new MediaMetadata({
         title: meta.shortTitle,
         artist: meta.uploader,
         album: "",
         artwork: [
             {
-                src: `/thumb?${urlParams.toString()}`,
+                src: `/thumb?url=${url.encodedUrl}`,
                 sizes: "512x512",
                 type: "image/png",
             },
