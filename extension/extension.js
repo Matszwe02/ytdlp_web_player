@@ -232,7 +232,7 @@ function updateIframe(updateContainer = false)
     if (!tabEnabled) return;
     let src = altSrc || window.top.location.href;
     let srcUrl = new URL(src);
-    let iframeEnabled = srcUrl.pathname != '/' || srcUrl.search;
+    let iframeEnabled = srcUrl.pathname != '/' || srcUrl.search || altSrc;
     let iframeSrc = `${playerUrl}/iframe?url=${encodeURIComponent(src)}`;
     if (iframeEnabled)
     {
