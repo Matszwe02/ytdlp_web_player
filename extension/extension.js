@@ -159,6 +159,9 @@ function createIframe(src='')
     iframe.src = src;
     isPosFixed = false;
     document.body.appendChild(iframe);
+    setTimeout(() => {
+        iframe.focus();
+    }, 2000);
     if (cookies)
     {
         try
