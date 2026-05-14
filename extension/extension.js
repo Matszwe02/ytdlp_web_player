@@ -412,55 +412,55 @@ if ((typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id))
 }
 else
 {
-    if (GM_registerMenuCommand)
+    try
     {
-            GM_registerMenuCommand("Start", start);
-            GM_registerMenuCommand("Stop", stop);
+        GM_registerMenuCommand("Start", start);
+        GM_registerMenuCommand("Stop", stop);
 
-            playerUrl = GM_getValue("playerUrl", null);
-            if (!playerUrl)
-            {
-                playerUrl = prompt("Enter YT-DLP Web Player URL:");
-                GM_setValue("playerUrl", playerUrl);
-            }
+        playerUrl = GM_getValue("playerUrl", null);
+        if (!playerUrl)
+        {
+            playerUrl = prompt("Enter YT-DLP Web Player URL:");
+            GM_setValue("playerUrl", playerUrl);
+        }
 
-            function GM_toggleDomain()
+        function GM_toggleDomain()
+        {
+            var allowedDomains = GM_loadDomains().split(',');
+            const currentUrl = new URL(window.top.location.href);
+            if (allowedDomains.includes(currentUrl.hostname))
             {
-                var allowedDomains = GM_loadDomains().split(',');
-                const currentUrl = new URL(window.top.location.href);
-                if (allowedDomains.includes(currentUrl.hostname))
-                {
-                    allowedDomains.pop(currentUrl.hostname);
-                }
-                else
-                {
-                    allowedDomains.push(currentUrl.hostname);
-                }
-                allowedDomains = allowedDomains.join(',');
-                GM_setValue("allowedDomains", allowedDomains);
-                updateAllowedDomains(GM_loadDomains());   
+                allowedDomains.pop(currentUrl.hostname);
             }
+            else
+            {
+                allowedDomains.push(currentUrl.hostname);
+            }
+            allowedDomains = allowedDomains.join(',');
+            GM_setValue("allowedDomains", allowedDomains);
+            updateAllowedDomains(GM_loadDomains());   
+        }
 
-            var cmd = null;
-            function GM_loadDomains()
+        var cmd = null;
+        function GM_loadDomains()
+        {
+            if (cmd) GM_unregisterMenuCommand(cmd);
+            var allowedDomains = GM_getValue("allowedDomains", '').split(',').map(domain => domain.trim());
+            console.warn(allowedDomains);
+            const currentUrl = new URL(window.top.location.href);
+            if (allowedDomains.includes(currentUrl.hostname))
             {
-                if (cmd) GM_unregisterMenuCommand(cmd);
-                var allowedDomains = GM_getValue("allowedDomains", '').split(',').map(domain => domain.trim());
-                console.warn(allowedDomains);
-                const currentUrl = new URL(window.top.location.href);
-                if (allowedDomains.includes(currentUrl.hostname))
-                {
-                    cmd = GM_registerMenuCommand("Remove Current Domain", GM_toggleDomain);
-                }
-                else
-                {
-                    cmd = GM_registerMenuCommand("Add Current Domain", GM_toggleDomain);
-                }
-                return allowedDomains.join(',');
+                cmd = GM_registerMenuCommand("Remove Current Domain", GM_toggleDomain);
             }
-            updateAllowedDomains(GM_loadDomains());
+            else
+            {
+                cmd = GM_registerMenuCommand("Add Current Domain", GM_toggleDomain);
+            }
+            return allowedDomains.join(',');
+        }
+        updateAllowedDomains(GM_loadDomains());
     }
-    else
+    catch
     {
         if (!playerUrl)
         {
