@@ -39,8 +39,9 @@ class PlayerState
             this.tracks.push({
                 kind: track.kind,
                 src: track.src,
-                srclang: track.srclang,
-                label: track.label
+                srclang: track.language,
+                label: track.label,
+                mode: track.mode
             });
         }
     }
