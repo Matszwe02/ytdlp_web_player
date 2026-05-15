@@ -3,7 +3,6 @@ let skipSegment;
 let skipTime = 0;
 let meta = null;
 let activeFetches = 0; // Counter for active retryFetch calls
-let abortController = null; // AbortController for cancelling fetches
 let repeatMode = false;
 let repeatStartTime = 0;
 let repeatEndTime = 0;
@@ -132,22 +131,8 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible 
     try
     {
         const fetchOptions = { method: (head ? 'HEAD' : 'GET'), ...options };
-        const error = new Error();
-        const stack = error.stack.split('\n');
-        let callerInfo = 'unknown';
-        if (stack.length > 2)
-        {
-            const callerLine = stack[2];
-            const match = callerLine.match(/at (.*?) \((.*?):(\d+):(\d+)\)/) || callerLine.match(/at (.*?):(\d+):(\d+)/);
-            if (match)
-            {
-                if (match.length === 5) callerInfo = `${match[1]} (${match[2]}:${match[3]})`;
-                else if (match.length === 4) callerInfo = `(${match[1]}:${match[2]})`;
-            }
-        }
         if (player != null)
         {
-            console.log(`Fetching ${fetchOptions.method} "${url}" called from ${callerInfo}`);
             const response = await fetch(url, fetchOptions);
             if (response.status == 500) throw new Error(`Server error: ${await response.text()}`);
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -399,9 +384,6 @@ function setVideoQuality(height = 0, button = null)
 {
     console.log(`Setting video quality to ${height}`)
     let menu = player.controlBar.SettingsButton.resolutionSwitcher.menu;
-    if (abortController) abortController.abort();
-    abortController = new AbortController();
-    const signal = abortController.signal;
     var url = getUrlInfo();
     const buttons = menu.querySelectorAll('.vjs-resolution-option');
     if (height === 0)
@@ -426,6 +408,11 @@ function setVideoQuality(height = 0, button = null)
                 function tryToFetchHLS()
                 {
                     const url = getUrlInfo();
+                    if (height != url.quality)
+                    {
+                        console.debug(`Abandoning switching to ${height} as ${url.quality} is set`);
+                        return;
+                    }
                     var segments = playlist.split('\n');
                     var segNum = Math.min(Math.ceil(player.currentTime() / hls_segment_duration + 0.5), segments.length - 1);
                     var selectedSegment = `/hls_stream?url=${url.encodedUrl}&quality=${height}&seg=${segNum}`;
@@ -435,6 +422,12 @@ function setVideoQuality(height = 0, button = null)
                             if (timeout > hls_segment_duration / 2) timeout = 0;
                             if (player.paused()) timeout = 0;
                             setTimeout(() => {
+                                const url = getUrlInfo();
+                                if (height != url.quality)
+                                {
+                                    console.debug(`Abandoning switching to ${height} as ${url.quality} is set`);
+                                    return;
+                                }
                                 applyVideoQuality();
                                 buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
                                 button?.classList?.add('vjs-menu-option-selected');
@@ -452,8 +445,14 @@ function setVideoQuality(height = 0, button = null)
     }
     else
     {
-        retryFetch(getVideoSource()[0], { signal }, undefined, undefined, undefined, true)
+        retryFetch(getVideoSource()[0], undefined, undefined, undefined, undefined, true)
             .then(response => {
+                const url = getUrlInfo();
+                if (height != url.quality)
+                {
+                    console.log(`Abandoning switching to ${height} as ${url.quality} is set`);
+                    return;
+                }
                 applyVideoQuality();
                 buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
                 button?.classList?.add('vjs-menu-option-selected');
@@ -462,6 +461,12 @@ function setVideoQuality(height = 0, button = null)
                 button?.classList?.add('vjs-menu-option-selected');
             })
             .catch(error => {
+                const url = getUrlInfo();
+                if (height != url.quality)
+                {
+                    console.log(`Abandoning switching to ${height} as ${url.quality} is set`);
+                    return;
+                }
                 console.error('Error fetching new quality:', error);
             });
     }
@@ -1785,6 +1790,7 @@ function loadVideo()
                         return;
                     }
                     if (player.isInPictureInPicture()) return;
+                    if (parseFloat(meta.duration) == 0) return;
                     if (document.visibilityState === 'hidden')
                     {
                         ps.save();
