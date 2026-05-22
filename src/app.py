@@ -674,6 +674,7 @@ def download_file(url: str, media_type='video'):
                     FFMPEG(['-i', vid, '-vf', f'scale=-2:{res}', os.path.join(get_data_dir(url), media_type + '.mp4')])
                 else:
                     success = False
+                    temp_video = None
                     try:
                         ydl_opts.update({"format": f"bestvideo{height_param}/best", "outtmpl": os.path.join(data_dir, f'temp-{media_type}.%(ext)s')})
                         YTDLP.download(url, ydl_opts)
