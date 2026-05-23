@@ -1120,24 +1120,6 @@ def hls_stream():
     return send_file_partial(file)
 
 
-@app.route('/hls_stream/<path:filename>')
-def hls_stream_by_path(filename):
-    base_dir = os.path.abspath(download_path)
-    full_path = os.path.abspath(os.path.join(base_dir, filename))
-
-    if not full_path.startswith(base_dir):
-        return jsonify({"error": "Invalid file path"}), 400
-
-    if not os.path.exists(full_path):
-        return jsonify({"error": "File not found"}), 404
-
-    mime_type, _ = mimetypes.guess_type(full_path)
-    if not mime_type:
-        mime_type = 'application/octet-stream'
-
-    return send_file_partial(full_path)
-
-
 @app.route('/search')
 def serve_search():
     try:
