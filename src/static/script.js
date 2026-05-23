@@ -1699,6 +1699,25 @@ function loadVideo()
 
         if (meta.chapters.length > 0)
             loadChapters();
+
+        const volumePanel = player.el_.querySelector('.vjs-volume-panel');
+        let volumeScroll = false;
+        volumePanel.addEventListener('mouseover', () => {
+            volumeScroll = true;
+        });
+
+        volumePanel.addEventListener('mouseout', () => {
+            volumeScroll = false;
+        });
+
+        window.addEventListener('wheel', (event) => {
+            if (volumeScroll)
+            {
+                event.preventDefault();
+                player.volume(Math.max(0, Math.min(1, player.volume() + (event.deltaX - event.deltaY) / 1000)));
+            }
+        }, { passive: false });
+
     });
     retryFetch(`/meta?url=${url.encodedUrl}`)
         .then(response => response.json())
