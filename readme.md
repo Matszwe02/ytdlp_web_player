@@ -32,6 +32,7 @@
 - clean UI, configurable theme color
 - basic livestream support
 - browser extension to allow including this player on every website, which also adds `Open link in YT-DLP Player` browser-wide context menu
+- embedding using `/iframe?url=...` endpoint
 
 some of these features are off by default and need to be turned on in `.env`
 
@@ -47,8 +48,9 @@ some of these features are off by default and need to be turned on in `.env`
 - Audio Context API for audio over-amplification and audio visualizer
 
 ## Planned
-- more QoL features
 - video quality changing without interrupts
+- high quality playback without transcoding
+- user-side player configuration
 
 
 ## Limitations
