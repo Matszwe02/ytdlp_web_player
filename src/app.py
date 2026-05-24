@@ -360,8 +360,9 @@ def search(query, search_engine='auto'):
     print(f'Searching for {query}')
     ydl_opts = {'quiet': True, 'skip_download': True, 'default_search': search_engine}
     ydl_opts.update(ydl_global_opts)
+    del ydl_opts['playlistend']
     info = YTDLP.get_info(query, ydl_opts)
-    entries = info.get('entries') or [{}]
+    entries = info.get('entries') or []
     for entry in entries:
         entry['original_url'] = normalize_url(append_query_to_url(entry['original_url'], query))
     return entries
