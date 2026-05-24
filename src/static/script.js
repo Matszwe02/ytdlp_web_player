@@ -1714,7 +1714,7 @@ function loadVideo()
             if (volumeScroll)
             {
                 event.preventDefault();
-                player.volume(Math.max(0, Math.min(1, player.volume() + (event.deltaX - event.deltaY) / 1000)));
+                player.volume(Math.max(0, Math.min(1, player.volume() + (event.deltaX - event.deltaY) / 2000)));
             }
         }, { passive: false });
 
