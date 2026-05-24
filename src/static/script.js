@@ -19,6 +19,7 @@ class PlayerState
         this.switchTime = 0;
         this.isPlaying = false;
         this.tracks = null;
+        this.suspend = false;
     }
     save()
     {
@@ -352,6 +353,7 @@ function applyVideoQuality()
     const videoEl = player.el_.querySelector('video');
     const posterEl = player.el_.querySelector('.vjs-poster');
     ps.save();
+    if (ps.suspend) return;
     player.src({ src: videoSource[0], type: videoSource[1] });
     ps.apply();
 
@@ -1816,9 +1818,11 @@ function loadVideo()
                         ps.save();
                         player.src({ src: `/hls?url=${url.encodedUrl}&quality=audio`, type: 'application/x-mpegURL' });
                         ps.apply();
+                        ps.suspend = true;
                     }
                     else
                     {
+                        ps.suspend = false;
                         setVideoQuality();
                     }
                 });
