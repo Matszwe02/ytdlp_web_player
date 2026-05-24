@@ -1865,6 +1865,12 @@ function loadMediaPlayer()
         ],
     });
 
+    navigator.mediaSession.setActionHandler("play", () => {
+        player.play();
+    });
+    navigator.mediaSession.setActionHandler("pause", () => {
+        player.pause();
+    });
     navigator.mediaSession.setActionHandler("seekbackward", (details) => {
         player.currentTime(player.currentTime() - (details.seekOffset || 10));
     });
