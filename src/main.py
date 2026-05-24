@@ -19,7 +19,7 @@ autoskip_sb_segments = [seg for seg in (os.environ.get('AUTOSKIP_SB_SEGMENTS') o
 cookies_only_on_failure = (os.environ.get('COOKIES_ONLY_ON_FAILURE', 'True')).lower() == 'true'
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
 playlist_support = os.environ.get('PLAYLIST_SUPPORT', 'True').lower() == 'true'
-auto_bg_playback = os.environ.get('AUTO_BG_PLAYBACK', 'False').lower() == 'true'
+auto_bg_playback = os.environ.get('AUTO_BG_PLAYBACK', 'True').lower() == 'true'
 audio_visualizer = os.environ.get('AUDIO_VISUALIZER', 'False').lower() == 'true'
 download_path = os.environ.get('DOWNLOAD_PATH', './download')
 disable_transcoding = os.environ.get('DISABLE_TRANSCODING', 'False').lower() == 'true'
