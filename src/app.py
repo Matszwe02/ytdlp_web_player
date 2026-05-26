@@ -437,6 +437,10 @@ def clean_meta(raw_meta: dict):
 def normalize_url(url):
     parsed_url = urlparse(url)
     query_params = parse_qs(parsed_url.query)
+    strip_query = ['pp', 'themeRefresh', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'fbclid', 'igshid', 'srcid']
+    for i in strip_query:
+        if i in query_params.keys():
+            del query_params[i]
 
     new_query = urlencode(query_params, doseq=True)
     url = urlunparse(parsed_url._replace(query=new_query))
