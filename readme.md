@@ -145,7 +145,7 @@ I do not guarantee that cookies file is completly secure from accessing it throu
 ### Installation
 
 - You can install the extension by downloading repo and selecting `/extension` path to import into browser's extensions
-- Alternatively you can load `/extension/extension.js` with tampermonkey, or paste it into dev tool console
+- Alternatively you can load `/extension/extension.js` (or copy extension js from Web UI) with tampermonkey, or paste it into dev tools console
     - For some websites you need to have one of `disable CSM` extensions
 
 ### Working principle
