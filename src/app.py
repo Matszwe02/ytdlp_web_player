@@ -74,7 +74,8 @@ class YTDLP:
             else:
                 logger.error('An error occured when downloading. Providing cookies may help with this issue.')
                 raise e
-        logger.finish()
+        finally:
+            logger.finish()
 
 
     @staticmethod
