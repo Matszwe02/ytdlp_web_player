@@ -41,7 +41,7 @@
             </button>
             <div id="expandable-content" class="expandable-content">
                 <ul>
-                    <li><a href="javascript:void(0)" onclick="copyExtensionScript(event)" id="script-copy"><i class="fa-solid fa-file-code"></i> Copy excension js</a></li>
+                    <li><a href="javascript:void(0)" onclick="copyExtensionScript(event)" id="script-copy"><i class="fa-solid fa-file-code"></i> Copy extension js</a></li>
                     <li><a href="https://github.com/yt-dlp/yt-dlp" target="_blank"><i class="fa-solid fa-download"></i> YT-DLP version:<br><b>{{ydl_version}}</b></a></li>
                     <li><a href="https://ffmpeg.org" target="_blank"><i class="fa-solid fa-cogs"></i> FFmpeg version:<br><b>{{ffmpeg_version}}</b></a></li>
                     <li><a href="https://github.com/Matszwe02/ytdlp_web_player" target="_blank"><i class="fa-brands fa-github"></i></i> App version:<br><b>{{app_version}}</b></a></li>
@@ -123,7 +123,7 @@
                             navigator.clipboard.writeText(data).then(() => {
                                 var b = document.getElementById('script-copy');
                                 b.innerHTML = '<i class="fa-solid fa-file-code"></i> Script Copied!';
-                                setTimeout(() => { b.innerHTML = '<i class="fa-solid fa-file-code"></i> Copy excension js'; }, 2000);
+                                setTimeout(() => { b.innerHTML = '<i class="fa-solid fa-file-code"></i> Copy extension js'; }, 2000);
                             });
                         });
                     })
