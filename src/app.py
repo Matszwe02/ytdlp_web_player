@@ -18,6 +18,7 @@ import mimetypes
 import json
 import traceback
 from starlette.middleware.wsgi import WSGIMiddleware
+from multiprocessing import Process, Queue
 
 
 app = Flask(__name__)
@@ -25,12 +26,48 @@ wsgi = WSGIMiddleware(app)
 
 
 
+class Processes:
+    @staticmethod
+    def get():
+        proc = {}
+        for i in os.listdir(download_path):
+            if not os.path.isdir(os.path.join(download_path, i)):
+                with open(os.path.join(download_path, i), 'r') as f:
+                    proc[str(i)] = json.load(f)
+        return proc
+
+    @staticmethod
+    def getitem(item):
+        with open(os.path.join(download_path, str(item)), 'r') as f:
+            return json.load(f)
+
+    @staticmethod
+    def setitem(item, val):
+        print(f'Assigning pid {item} to {val}')
+        with open(os.path.join(download_path, str(item)), 'w') as f:
+            json.dump(val, f)
+
+    @staticmethod
+    def rm(item, kill = False):
+        print(f'Removing pid {item}{"(killing)" if kill else ""}')
+        if kill:
+            try:
+                os.kill(int(item), 9)
+                time.sleep(.2)
+            except ProcessLookupError:
+                print('Skipping killing - process already exited')
+            except Exception as e:
+                pprint_exc(e)
+        if os.path.exists(os.path.join(download_path, str(item))):
+            os.remove(os.path.join(download_path, str(item)))
+
+
 class YTDLP:
 
     class Logger:
-        def __init__(self, url, opts, method):
-            self.yt_id = sha1(f'{time.time()}'.encode()).hexdigest()[:6]
-            self.start(url, opts, method)
+        def __init__(self, url, opts, method, yt_id = None):
+            self.yt_id = yt_id or sha1(f'{time.time()}'.encode()).hexdigest()[:6]
+            if not yt_id: self.start(url, opts, method)
 
         def start(self, url, opts, method):
             print(f'[YT-DLP {self.yt_id}] Running YT-DLP {method} with opts: {opts} for url: {url}')
@@ -52,26 +89,50 @@ class YTDLP:
 
 
     @staticmethod
+    def _ydl_runner(url, opts, with_info, arg, queue, yt_id = None):
+        logger = YTDLP.Logger(url, opts, 'download', yt_id)
+        try:
+            with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
+                if with_info:
+                    ydl.download_with_info_file(arg)
+                else:
+                    ydl.download(arg)
+        except Exception as e:
+            queue.put(f'{e}')
+        logger.finish()
+
+
+    @staticmethod
     def download(url, opts):
         if (proxy): opts["proxy"] = proxy
         logger = YTDLP.Logger(url, opts, 'download')
+        def ydl_download(url, opts, with_info = False):
+            q = Queue()
+            arg = check_media(url, 'meta') if with_info else unquote(url)
+            p = Process(target=YTDLP._ydl_runner, args=(url, opts, with_info, arg, q, logger.yt_id))
+            p.start()
+            Processes.setitem(p.pid, [url, f'YT-DLP {logger.yt_id}', time.time()])
+            p.join()
+            Processes.rm(p.pid)
+            while not q.empty():
+                logger.error(q.get())
+            logger.info(f'Exited with code {p.exitcode}')
+            if p.exitcode != 0: raise RuntimeError(f'YT-DLP exited unexpectedly with return code {p.exitcode}')
+
         try:
-            with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
-                try:
-                    ydl.download_with_info_file(check_media(url, 'meta'))
-                except Exception as e:
-                    pprint_exc(e)
-                    logger.error('An error occured when downloading with meta. Downloading without meta...')
-                    ydl.download(unquote(url))
+            try:
+                ydl_download(url, opts, True)
+            except Exception as e:
+                pprint_exc(e)
+                logger.error('An error occured when downloading with meta. Downloading without meta...')
+                ydl_download(url, opts, False)
         except Exception as e:
             if (cookies := get_global_cookies_file(True)):
                 pprint_exc(e)
                 logger.error('An error occured when downloading. Downloading with cookies...')
                 opts["cookiefile"] = cookies
                 opts["mark_watched"] = False
-                logger.start(url, opts, 'download')
-                with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
-                    ydl.download(unquote(url))
+                ydl_download(url, opts)
             else:
                 logger.error('An error occured when downloading. Providing cookies may help with this issue.')
                 raise e
@@ -104,22 +165,23 @@ class YTDLP:
 
 
 class FFMPEG:
-    def __init__(self, ffmpeg_command=None):
+    def __init__(self, url, ffmpeg_command=None):
         """
         Provide ffmpeg_command to run synchronously. Check with `success`
         """
         self._p = None
+        self.pid = None
         self.ffmpeg = ffmpeg
         self.ff_id = sha1(f'{time.time()}'.encode()).hexdigest()[:6]
         self.success = False
         self.start_time = time.time()
+        self.url = url
         if ffmpeg_command and self.ffmpeg:
             self.run(ffmpeg_command)
 
     def kill(self):
         if self._p is None: return
-        self._p.kill()
-        time.sleep(0.2)
+        Processes.rm(self.pid, kill=True)
         print(f'[FFMPEG {self.ff_id}] Killed')
 
     def run(self, ffmpeg_command):
@@ -131,6 +193,8 @@ class FFMPEG:
         ffmpeg_env = {f"{proxy.split('://')[0]}_proxy": proxy} if proxy else None
         print(f'[FFMPEG {self.ff_id}] Executing {ffmpeg_command}')
         self._p = subprocess.Popen(ffmpeg_command, stdout = subprocess.PIPE, stderr = subprocess.STDOUT, env=ffmpeg_env)
+        self.pid = self._p.pid
+        Processes.setitem(self.pid, [self.url, f'FFMPEG {self.ff_id}', time.time()])
         for line in self._p.stdout:
             print(f'[FFMPEG {self.ff_id}] {line.decode().strip()}')
             if time.time() - self.start_time > 3600:
@@ -138,6 +202,7 @@ class FFMPEG:
                 self.success = False
                 raise TimeoutError()
         self._p.wait()
+        Processes.rm(self.pid)
         print(f'[FFMPEG {self.ff_id}] Finished')
         self.success = True
 
@@ -628,7 +693,7 @@ def download_file(url: str, media_type='video'):
                         '-vf', f'crop=w=min(iw\\,ih*({video_width}/{video_height})):h=min(ih\\,iw*({video_height}/{video_width})):x=(iw-ow)/2:y=(ih-oh)/2',
                         os.path.join(data_dir, 'thumb.jpg')
                     ]
-                    if not FFMPEG(ffmpeg_command).success: raise RuntimeError('FFMPEG failed to crop thumbnail')
+                    if not FFMPEG(url, ffmpeg_command).success: raise RuntimeError('FFMPEG failed to crop thumbnail')
                     print(f"Thumbnail cropped to video aspect ratio {video_width}:{video_height} using ffmpeg")
                     os.remove(thumb_file)
                 else:
@@ -672,13 +737,13 @@ def download_file(url: str, media_type='video'):
             height_param = "" if media_type.startswith('video-best') else f'[height<={res}]'
             if timestamps:
                 if vid := check_res_at_least(url, res):
-                    FFMPEG(['-i', vid, "-ss", f'{start_time}', "-to", f'{end_time}', '-vf', f'scale=-2:{res}', os.path.join(get_data_dir(url), media_type + '.mp4')])
+                    FFMPEG(url, ['-i', vid, "-ss", f'{start_time}', "-to", f'{end_time}', '-vf', f'scale=-2:{res}', os.path.join(get_data_dir(url), media_type + '.mp4')])
                 else:
                     ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(data_dir, f'{media_type}.%(ext)s')})
                     YTDLP.download(url, ydl_opts)
             else:
                 if vid := check_res_at_least(url, res):
-                    FFMPEG(['-i', vid, '-vf', f'scale=-2:{res}', os.path.join(get_data_dir(url), media_type + '.mp4')])
+                    FFMPEG(url, ['-i', vid, '-vf', f'scale=-2:{res}', os.path.join(get_data_dir(url), media_type + '.mp4')])
                 else:
                     success = False
                     temp_video = None
@@ -687,7 +752,7 @@ def download_file(url: str, media_type='video'):
                         YTDLP.download(url, ydl_opts)
                         audio_file = check_media(url, 'audio') or download_file(url, 'audio')
                         temp_video = check_media(url, f'temp-{media_type}')
-                        success = FFMPEG(['-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]).success
+                        success = FFMPEG(url, ['-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]).success
                     except Exception as e:
                         pprint_exc(e)
                     finally:
@@ -768,15 +833,15 @@ def download_file(url: str, media_type='video'):
                 nonlocal video_file_path
                 try:
                     if not video_file_path:
-                        ff = FFMPEG()
+                        ff = FFMPEG(url)
                         Thread(target=ff.run, args=[ffmpeg_command]).start()
-                        time.sleep(10)
+                        time.sleep(2)
                         video_file_path = download_file(url, 'audio' if 'audio' in media_type else f'video-{res}')
                         if not video_file_path: raise RuntimeError('Could not download video')
                         ff.kill()
                         os.rename(m3u8_path, temp_m3u8_path)
                         download_file(url, media_type)
-                    elif FFMPEG(ffmpeg_command).success:
+                    elif FFMPEG(url, ffmpeg_command).success:
                         print(f"FFMPEG Finished HLS Conversion!")
                         os.remove(temp_m3u8_path)
                     else:
@@ -800,7 +865,7 @@ def download_file(url: str, media_type='video'):
                 '-preset', 'veryfast',
                 os.path.join(get_data_dir(get_url(request)), 'low.mp4')
             ]
-            FFMPEG(ffmpeg_command)
+            FFMPEG(url, ffmpeg_command)
 
 
         elif media_type.startswith('sub'):
@@ -868,7 +933,7 @@ def download_file(url: str, media_type='video'):
                 ]
 
                 try:
-                    if not FFMPEG(ffmpeg_command).success: raise RuntimeError('FFMPEG failed to extract sprite')
+                    if not FFMPEG(url, ffmpeg_command).success: raise RuntimeError('FFMPEG failed to extract sprite')
                     frame_files = sorted(os.listdir(sprite_dir))
                     num_frames = len(frame_files)
                     num_rows = math.ceil(num_frames / frames_per_row)

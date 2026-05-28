@@ -56,6 +56,7 @@ def delete_old_files():
         try:
             for item_name in os.listdir(download_path):
                 vid_path = os.path.join(download_path, item_name)
+                if not os.path.isdir(vid_path): continue
 
                 keepalive_file = os.path.join(vid_path, 'keepalive')
                 mtime = 0
@@ -74,6 +75,11 @@ def delete_old_files():
 
 
 if __name__ == '__main__':
+
+    for item_name in os.listdir(download_path):
+        item = os.path.join(download_path, item_name)
+        if not os.path.isdir(item): os.remove(item)
+
     Thread(target=delete_old_files, daemon=True).start()
     Thread(target=ytdlp_download, daemon=True).start()
     import uvicorn
