@@ -47,7 +47,7 @@ app_version = Downloader.get_app_version()
 
 def ytdlp_download():
     while True:
-        Downloader.downloader()
+        Downloader.download_ytdlp()
         time.sleep(86400) # 24 hours
 
 

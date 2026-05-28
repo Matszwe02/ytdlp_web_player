@@ -2,15 +2,8 @@ import pip
 import shlex
 import importlib
 import os
-import platform
-import requests
-import zipfile, tarfile
 import shutil
-import io
 import subprocess
-import re
-import random
-import time
 import yt_dlp
 try:
     import yt_dlp.version
@@ -25,6 +18,7 @@ class Downloader:
 
     @staticmethod
     def download_ytdlp():
+        print('Downloading latest yt-dlp...')
         global yt_dlp
         pip.main(shlex.split('install --upgrade yt-dlp'))
         try:
@@ -78,9 +72,3 @@ class Downloader:
             return yt_dlp.version.__version__ or '-'
         except:
             return '-'
-
-
-    @staticmethod
-    def downloader():
-        print('Downloading yt-dlp...')
-        Downloader.download_ytdlp()
