@@ -14,7 +14,7 @@ except:
 ffmpeg_version = '-'
 app_version = '-'
 
-class Downloader:
+class External:
 
     @staticmethod
     def download_ytdlp():

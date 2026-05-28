@@ -2,7 +2,7 @@ import os
 import time
 import shutil
 from threading import Thread
-from source_downloader import Downloader
+from external import External
 from dotenv import load_dotenv
 
 
@@ -41,18 +41,20 @@ elif not ffmpeg:
 ydl_global_opts = {'ffmpeg-location': ffmpeg, "noplaylist": True, 'playlistend': 0, "remote_components": ["ejs:github"], "concurrent_fragment_downloads": 2}
 if not shutil.which('deno'): ydl_global_opts["js_runtimes"] = {"node": {}}
 
-app_version = Downloader.get_app_version()
+app_version = External.get_app_version()
 
 
 
 def ytdlp_download():
     while True:
-        Downloader.download_ytdlp()
+        print(f"Running periodic yt-dlp update")
+        External.download_ytdlp()
         time.sleep(86400) # 24 hours
 
 
 def delete_old_files():
     while True:
+        print(f"Running periodic removal of old files")
         try:
             for item_name in os.listdir(download_path):
                 vid_path = os.path.join(download_path, item_name)
