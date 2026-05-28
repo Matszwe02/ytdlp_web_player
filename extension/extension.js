@@ -185,6 +185,7 @@ function createIframe(src='')
 function updateIframeGeometry(forceZero = false)
 {
     if (!tabEnabled) return;
+    if (document.fullscreenElement !== null) return;
     const rect = iframeContainer?.getBoundingClientRect();
     const vidRect = iframeContainer?.querySelector('video')?.getBoundingClientRect();
     const iframeRect = iframe ? iframe.getBoundingClientRect() : null;
@@ -238,7 +239,7 @@ function updateIframe(updateContainer = false)
     {
         if (iframe?.src != iframeSrc)
         {
-            console.log(`Chaning iframe src from ${iframe?.src} to ${iframeSrc}`);
+            console.log(`Changing iframe src from ${iframe?.src} to ${iframeSrc}`);
             iframe?.remove();
             createIframe(iframeSrc);
         }
