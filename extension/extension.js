@@ -235,6 +235,18 @@ function updateIframe(updateContainer = false)
     let srcUrl = new URL(src);
     let iframeEnabled = srcUrl.pathname != '/' || srcUrl.search || altSrc;
     let iframeSrc = `${playerUrl}/iframe?url=${encodeURIComponent(src)}`;
+    if (iframe?.src && iframe?.src != iframeSrc)
+    {
+        console.debug('Creating temporary cancellation iframe');
+        cancellingIframe = document.createElement('iframe');
+        cancellingIframe.src = iframe.src.replace('/iframe?', '/cancel?');
+        iframe.style.display = 'none';
+        document.body.appendChild(cancellingIframe);
+        setTimeout(() => {
+            cancellingIframe?.remove();
+            console.debug('Removed cancellation iframe');
+        }, 1000);
+    }
     if (iframeEnabled)
     {
         if (iframe?.src != iframeSrc)

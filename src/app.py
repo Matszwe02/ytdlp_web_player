@@ -61,6 +61,23 @@ class Processes:
         if os.path.exists(os.path.join(download_path, str(item))):
             os.remove(os.path.join(download_path, str(item)))
 
+    @staticmethod
+    def rm_all(url = None):
+        "Removes all processes for a given url (if provided) or the whole app"
+        print(f'Killing all processes{" for " + url if url else ""}')
+        cancelled_count = 0
+        for _ in range(10):
+            p = Processes.get()
+            for proc in p.keys():
+                try:
+                    if url == p[proc][0] or url is None:
+                        Processes.rm(proc, kill=True)
+                        cancelled_count += 1
+                except Exception as e:
+                    pprint_exc(e)
+            time.sleep(0.2)
+        return cancelled_count
+
 
 class YTDLP:
 
@@ -1224,6 +1241,14 @@ def cookies_endpoint():
 
     except Exception as e:
         return pprint_exc(e)
+
+
+@app.route('/cancel')
+def cancel_download():
+    url = get_url(request)
+    if not url: return jsonify({"error": "URL parameter is required"}), 400
+    cancelled_count = Processes.rm_all(url)
+    return jsonify({"message": f"Cancelled {cancelled_count} ongoing processes"}), 200
 
 
 @app.after_request
