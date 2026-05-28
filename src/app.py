@@ -16,6 +16,7 @@ from PIL import Image
 import math
 import mimetypes
 import json
+import traceback
 from starlette.middleware.wsgi import WSGIMiddleware
 
 
@@ -176,7 +177,7 @@ class FileCachingLock:
 
 def pprint_exc(e, code = 500):
     error = (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))
-    print(error)
+    traceback.print_exception(e)
     return error, code
 
 
@@ -781,7 +782,8 @@ def download_file(url: str, media_type='video'):
                     else:
                         print(f"An FFMPEG error occurred during HLS conversion")
                 except Exception as e:
-                    print(f"An unexpected error occurred during HLS conversion: {e}")
+                    print(f"An unexpected error occurred during HLS conversion")
+                    pprint_exc(e)
 
             Thread(target=download_hls_files, daemon=True).start()
 
