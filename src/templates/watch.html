@@ -14,7 +14,7 @@
         </style>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
         <!-- VideoJS CSS -->
-        <link href="https://vjs.zencdn.net/8.23.4/video-js.css" rel="stylesheet" />
+        <link rel="stylesheet" href="{{ url_for('static', filename='video-js.css') }}" type="text/css" />
         <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" type="text/css" />
         <link rel="stylesheet" href="{{ url_for('static', filename='videojs.css') }}" type="text/css" />
         <link rel="icon" type="image/png" href="/thumb?url={{original_url|urlencode}}">
@@ -82,10 +82,10 @@
         </div>
 
         <!-- VideoJS Script -->
-        <script src="https://vjs.zencdn.net/8.23.4/video.min.js"></script>
+        <script src="{{ url_for('static', filename='video.min.js') }}"></script>
         
         <!-- https://github.com/ctd1500/videojs-hotkeys -->
-        <script src="https://cdn.sc.gl/videojs-hotkeys/latest/videojs.hotkeys.min.js"></script>
+        <script src="{{ url_for('static', filename='videojs.hotkeys.min.js') }}"></script>
         
         <!-- https://github.com/humbertorodrigues/videojs-doubletap -->
         <script src="{{ url_for('static', filename='videojs.doubletapff.js') }}"></script>
