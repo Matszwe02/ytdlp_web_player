@@ -1,7 +1,7 @@
 // Thanks to https://github.com/lopiacode/audio-visualizer
 
-let visualizerActive = false;
-let visualizerPaused = false;
+var visualizerActive = false;
+var visualizerPaused = false;
 
 function enableVisualizer(player)
 {
