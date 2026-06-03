@@ -416,8 +416,7 @@ function setVideoQuality(height = 0, button = null)
                         console.debug(`Abandoning switching to ${height} as ${url.quality} is set`);
                         return;
                     }
-                    var segments = playlist.split('\n');
-                    var segNum = Math.min(Math.ceil(player.currentTime() / hls_segment_duration + 0.5), segments.length - 1);
+                    var segNum = Math.min(Math.ceil(player.currentTime() / hls_segment_duration + 0.5), Math.ceil((player.duration() || 1) / hls_segment_duration - 1));
                     var selectedSegment = `/hls_stream?url=${url.encodedUrl}&quality=${height}&seg=${segNum}`;
                     retryFetch(selectedSegment, undefined, 1, 1000, true, true)
                         .then(response => {
