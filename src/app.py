@@ -189,13 +189,13 @@ def download_hls():
         return pprint_exc(e)
 
 
-@app.route('/hls_stream')
-def hls_stream():
+@app.route('/hls_segment')
+def hls_segment():
     url = get_url(request)
     data_dir = get_data_dir(url)
     quality = request.args.get('quality')
     seg = request.args.get('seg')
-    file = os.path.join(data_dir, f'hls_playlist-{quality}/segment{seg:>0{4}}.ts')
+    file = os.path.join(data_dir, f'hls_segment-{quality}/segment{seg:>0{4}}.ts')
 
     if not os.path.exists(file):
         media_type = f'hls-{quality}'.removesuffix('-')

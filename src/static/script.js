@@ -417,7 +417,7 @@ function setVideoQuality(height = 0, button = null)
                         return;
                     }
                     var segNum = Math.min(Math.ceil(player.currentTime() / hls_segment_duration + 0.5), Math.ceil((player.duration() || 1) / hls_segment_duration - 1));
-                    var selectedSegment = `/hls_stream?url=${url.encodedUrl}&quality=${height}&seg=${segNum}`;
+                    var selectedSegment = `/hls_segment?url=${url.encodedUrl}&quality=${height}&seg=${segNum}`;
                     retryFetch(selectedSegment, undefined, 1, 1000, true, true)
                         .then(response => {
                             let timeout = hls_segment_duration + 1 - player.currentTime() % hls_segment_duration;

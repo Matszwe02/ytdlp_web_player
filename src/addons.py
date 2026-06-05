@@ -395,7 +395,7 @@ class MediaDownloader:
     def hls(self):
         if self.meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
         res_str = 'audio' if 'audio' in self.media_type else str(self.res)
-        hls_url_dir = os.path.join(gen_pathname(self.url), f"hls_playlist-{res_str}")
+        hls_url_dir = os.path.join(gen_pathname(self.url), f"hls_segment-{res_str}")
         hls_output_dir = os.path.join(download_path, hls_url_dir)
         hls_segment_duration = hls_audio_duration if res_str == 'audio' else hls_duration
         os.makedirs(hls_output_dir, exist_ok=True)
@@ -446,8 +446,8 @@ class MediaDownloader:
         seg_time = 0
         seg_num = 0
         duration = self.meta["duration"]
-        hls_url_dir = os.path.join(gen_pathname(self.url), f"hls_playlist-{res_str}")
-        seg_path = f"/hls_stream?url={quote_plus(self.url)}&quality={res_str}&seg="
+        hls_url_dir = os.path.join(gen_pathname(self.url), f"hls_segment-{res_str}")
+        seg_path = f"/hls_segment?url={quote_plus(self.url)}&quality={res_str}&seg="
 
         with open(m3u8_path, "w") as f:
             f.write(f"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:{hls_segment_duration}\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n")
