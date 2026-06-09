@@ -527,13 +527,8 @@ class PlayerButton extends videojs.getComponent('Button')
     {
         super(player, options);
         this.addClass('vjs-player-button');
-        this.el().innerHTML = `<img src="/favicon.svg" width="50%">`;
+        this.el().innerHTML = `<a href="${window.location.href.replace('iframe', 'watch')}" target="_blank"><img src="/favicon.svg" width="50%"></a>`;
         this.controlText(`Watch in ${document.querySelector('meta[property="og:site_name"]').getAttribute('content')}`);
-    }
-
-    handleClick(event, state = null)
-    {
-        window.open(window.location.href.replace('iframe', 'watch'), '_blank');
     }
 }
 videojs.registerComponent('PlayerButton', PlayerButton);
@@ -1326,8 +1321,6 @@ class TitleBar extends Component
     {
         return videojs.dom.createEl('div', {
             className: 'vjs-title-bar'
-        }, {
-            'aria-label': 'Video Title'
         });
     }
 

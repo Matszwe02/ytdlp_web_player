@@ -33,6 +33,7 @@
         <meta property="og:video:type" content="video.other">
         <meta property="og:video:width" content="{{ video_width }}">
         <meta property="og:video:height" content="{{ video_height }}">
+        <meta name="description" content="{{video_title}}">
         <meta name="twitter:card" content="player">
         <meta name="twitter:url" content="/watch?url={{original_url|urlencode}}">
         <meta name="twitter:title" content="{{video_title}}">
@@ -61,9 +62,8 @@
             </video>
         </div>
         
-        <!-- Expandable menu -->
         <div id="expandable-menu-container">
-            <button id="expand-button" class="expand-button">
+            <button id="expand-button" class="expand-button" aria-label="Menu">
                 <i class="fa-solid fa-chevron-up"></i>
             </button>
             <div id="expandable-content" class="expandable-content">
@@ -156,11 +156,13 @@
                 if (newState)
                 {
                     document.documentElement.style.setProperty('--theme-bg', '#000');
+                    document.documentElement.style.setProperty('--theme-fg', '#555');
                     document.documentElement.style.setProperty('--theme-bg-light', '#000');
                 }
                 else
                 {
                     document.documentElement.style.setProperty('--theme-bg', '#1a1a1a');
+                    document.documentElement.style.setProperty('--theme-fg', '#999');
                     document.documentElement.style.setProperty('--theme-bg-light', '#272727');
                 }
             }

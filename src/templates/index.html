@@ -17,6 +17,7 @@
             html {
                 --theme-bg: {{ "#000" if amoled_bg else "#1a1a1a" }};
                 --theme-bg-light: {{ "#000" if amoled_bg else "#272727" }};
+                --theme-fg: {{ "#555" if amoled_bg else "#999" }};
             }
         </style>
     </head>
@@ -27,16 +28,14 @@
             <h1 style="margin-top: 0; margin-bottom: 100px; color: {{ theme_color }};">{{ app_title }}</h1>
             <div id="main-input">
                 <input type="text" id="url" name="url" placeholder="type URL or search query or hit enter" autofocus/>
-                <!-- <input type="text" id="standard_url2" name="url" placeholder="type URL or search query or hit enter" autofocus/> -->
                 <button onclick="handlePlayButtonClick()" id="submit">
                     <i class="fa-solid fa-play"></i>
                 </button>
             </div>
         </div>
         
-        <!-- Expandable menu -->
         <div id="expandable-menu-container">
-            <button id="expand-button" class="expand-button">
+            <button id="expand-button" class="expand-button" aria-label="Menu">
                 <i class="fa-solid fa-chevron-up"></i>
             </button>
             <div id="expandable-content" class="expandable-content">

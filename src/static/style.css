@@ -77,7 +77,7 @@ body
 {
     padding: 10px 20px;
     background-color: var(--theme-bg);
-    color: #555;
+    color: var(--theme-fg);
     border: none;
     border-radius: 5px;
     cursor: pointer;
@@ -256,7 +256,7 @@ video
     height: 40px;
     border-radius: 50%;
     background-color: var(--theme-bg-light);
-    color: #555;
+    color: var(--theme-fg);
     border: none;
     cursor: pointer;
     display: flex;

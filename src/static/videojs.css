@@ -181,7 +181,7 @@
     order: 7;
     cursor: pointer;
 }
-.vjs-player-button > img {
+.vjs-player-button > a > img {
     filter: grayscale(1) brightness(5) contrast(10) blur(0.2px);
     mix-blend-mode: screen;
     height: stretch;
