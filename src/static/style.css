@@ -15,6 +15,7 @@ body
     width: 60%;
     margin: auto;
     display: flex;
+    justify-content: flex-end;
     height: 50px; 
     border-radius: 25px;
     text-align: center;
@@ -28,6 +29,7 @@ body
     border: none;
     padding: 0 15px;
     height: 100%;
+    width: 100%;
     font-size: 16pt;
     background-color: transparent;
     color: black;
