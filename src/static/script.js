@@ -1326,11 +1326,11 @@ class TitleBar extends Component
 
     updateTextContent(title, uploader)
     {
-        videojs.emptyEl(this.el());
-        videojs.appendContent(this.el(), videojs.dom.createEl('div', { className: 'vjs-title-bar-text' }, {}, title));
+        videojs.dom.emptyEl(this.el());
+        videojs.dom.appendContent(this.el(), videojs.dom.createEl('div', { className: 'vjs-title-bar-text' }, {}, title));
         if (uploader)
         {
-            videojs.appendContent(this.el(), videojs.dom.createEl('div', { className: 'vjs-uploader-text' }, {}, uploader));
+            videojs.dom.appendContent(this.el(), videojs.dom.createEl('div', { className: 'vjs-uploader-text' }, {}, uploader));
         }
     }
 }
@@ -1374,7 +1374,7 @@ class PlaylistComponent extends Component
             className: 'vjs-playlist-toggle-button',
             id: 'vjs-playlist-toggle-button'
         });
-        videojs.appendContent(button, videojs.dom.createEl('i', { className: 'fa-solid fa-list-ul' }));
+        videojs.dom.appendContent(button, videojs.dom.createEl('i', { className: 'fa-solid fa-list-ul' }));
 
         button.addEventListener('click', () => {
             this.toggleClass('active');
@@ -1392,7 +1392,7 @@ class PlaylistComponent extends Component
 
     updatePlaylist(playlistData)
     {
-        videojs.emptyEl(this.menu);
+        videojs.dom.emptyEl(this.menu);
         playlistData.forEach(item => {
             const listItem = videojs.dom.createEl('li', {
                 className: 'vjs-playlist-item'
@@ -1431,13 +1431,13 @@ class PlaylistComponent extends Component
                 className: 'vjs-playlist-duration'
             }, {}, formatTimeShort(item.duration));
 
-            videojs.appendContent(link, thumbnail);
-            videojs.appendContent(link, duration);
-            videojs.appendContent(link, info);
-            videojs.appendContent(listItem, link);
-            videojs.appendContent(info, title);
-            videojs.appendContent(info, uploader);
-            videojs.appendContent(this.menu, listItem);
+            videojs.dom.appendContent(link, thumbnail);
+            videojs.dom.appendContent(link, duration);
+            videojs.dom.appendContent(link, info);
+            videojs.dom.appendContent(listItem, link);
+            videojs.dom.appendContent(info, title);
+            videojs.dom.appendContent(info, uploader);
+            videojs.dom.appendContent(this.menu, listItem);
         });
     }
 }
@@ -1551,7 +1551,7 @@ function loadVideo()
     var url = getUrlInfo();
     if (url.urlParams.toString().length < 10) return;
     
-    videojs.options.languages.en = videojs.mergeOptions(videojs.options.languages.en, {
+    videojs.options.languages.en = videojs.obj.merge(videojs.options.languages.en, {
         "Play": "Play [Space]",
         "Pause": "Pause [Space]",
         "Fullscreen": "Fullscreen [f]",
