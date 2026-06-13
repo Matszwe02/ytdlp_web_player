@@ -141,12 +141,12 @@ def serve_subtitle():
     return host_file(get_url(request), f'sub-{request.args.get("lang")}')
 
 
-@app.route('/meta')
-def serve_meta():
+@app.route('/info')
+def serve_info():
     try:
         url = get_url(request)
         if not url: return jsonify({"error": "URL parameter is required"}), 400
-        return clean_meta(get_meta(url))
+        return get_video_info(get_meta(url))
     except Exception as e:
         return pprint_exc(e)
 

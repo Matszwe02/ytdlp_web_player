@@ -344,7 +344,7 @@ class MediaDownloader:
 
         for entry in input_entries:
             entry['original_url'] = normalize_url(entry['original_url'])
-            entries.append(clean_meta(entry))
+            entries.append(get_video_info(entry))
         for entry in input_entries:
             preload(meta=entry, playlist=entries)
 
@@ -932,35 +932,35 @@ def generate_chapters(meta: dict):
         return []
 
 
-def clean_meta(raw_meta: dict):
-    meta = {}
-    meta['title'] = raw_meta.get('title') or ''
-    meta['uploader'] = raw_meta.get('uploader') or ''
+def get_video_info(meta: dict):
+    info = {}
+    info['title'] = meta.get('title') or ''
+    info['uploader'] = meta.get('uploader') or ''
     try:
-        meta['formats'] = get_video_formats(meta=raw_meta)
+        info['formats'] = get_video_formats(meta=meta)
     except BaseException as e:
-        meta['formats'] = jsonify({'error': (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))}), 403
-    meta['duration'] = f'{raw_meta.get("duration") or 0}'
-    meta['subtitles'] = get_subtitles(raw_meta)
-    meta['width'] = raw_meta.get('width')
-    meta['height'] = raw_meta.get('height')
-    meta['url'] = raw_meta.get('original_url')
-    meta['default_quality'] = 'audio' if 'Music' in (raw_meta.get('categories') or []) and audio_visualizer else get_good_quality(meta['formats'])
-    meta['load_default_quality'] = load_default_quality
-    meta['generate_sprite_below'] = generate_sprite_below
-    meta['hls_duration'] = hls_duration
-    meta['hls_audio_duration'] = hls_audio_duration
-    meta['playlist_support'] = playlist_support
-    meta['auto_bg_playback'] = auto_bg_playback
-    meta['audio_visualizer'] = audio_visualizer
-    meta['autoskip_sb_segments'] = autoskip_sb_segments
-    meta['chapters'] = generate_chapters(raw_meta)
-    if raw_meta.get('is_live'):
-        meta['formats'] = []
-        meta['load_default_quality'] = False
-        meta['subtitles'] = []
-        meta['duration'] = '0'
-    return meta
+        info['formats'] = jsonify({'error': (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))}), 403
+    info['duration'] = f'{meta.get("duration") or 0}'
+    info['subtitles'] = get_subtitles(meta)
+    info['width'] = meta.get('width')
+    info['height'] = meta.get('height')
+    info['url'] = meta.get('original_url')
+    info['default_quality'] = 'audio' if 'Music' in (meta.get('categories') or []) and audio_visualizer else get_good_quality(info['formats'])
+    info['load_default_quality'] = load_default_quality
+    info['generate_sprite_below'] = generate_sprite_below
+    info['hls_duration'] = hls_duration
+    info['hls_audio_duration'] = hls_audio_duration
+    info['playlist_support'] = playlist_support
+    info['auto_bg_playback'] = auto_bg_playback
+    info['audio_visualizer'] = audio_visualizer
+    info['autoskip_sb_segments'] = autoskip_sb_segments
+    info['chapters'] = generate_chapters(meta)
+    if meta.get('is_live'):
+        info['formats'] = []
+        info['load_default_quality'] = False
+        info['subtitles'] = []
+        info['duration'] = '0'
+    return info
 
 
 def normalize_url(url):

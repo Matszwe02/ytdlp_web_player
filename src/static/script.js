@@ -1,7 +1,7 @@
 let player;
 let skipSegment;
 let skipTime = 0;
-let meta = null;
+let info = null;
 let activeFetches = 0; // Counter for active retryFetch calls
 let repeatMode = false;
 let repeatStartTime = 0;
@@ -179,7 +179,7 @@ function getUrlInfo()
     var quality = urlParams.get('quality');
     if (quality == '') quality = null;
     if (quality == 'null') quality = null;
-    if (meta && meta['height'] == null && meta['width'] == null) quality = 'audio';
+    if (info && info['height'] == null && info['width'] == null) quality = 'audio';
     return { quality: quality, originalUrl: originalUrl, encodedUrl:encodedUrl, urlParams:urlParams };
 }
 
@@ -271,9 +271,9 @@ function loadChapters()
         const scale = duration / progressControlWidth;
         const margin = 4; // px
         let chapterFound = false;
-        for (let i = 0; i < meta.chapters.length; i++)
+        for (let i = 0; i < info.chapters.length; i++)
         {
-            const chapter = meta.chapters[i];
+            const chapter = info.chapters[i];
             const diff = currentTime - chapter.time;
             if (diff > (-margin * scale) && diff < (margin * scale))
             {
@@ -315,12 +315,12 @@ function loadChapters()
     player.on('timeupdate', updateChapterTooltipOnPlayback);
 
 
-    for(let i=0; i<meta.chapters.length; i++)
+    for(let i=0; i<info.chapters.length; i++)
     {
         var el = document.createElement('div');
         el.className = 'vjs-marker';
-        el.style.left = `${(meta.chapters[i].time / duration * 100)}%`;
-        let label = meta.chapters[i].label;
+        el.style.left = `${(info.chapters[i].time / duration * 100)}%`;
+        let label = info.chapters[i].label;
         el.addEventListener('mouseover', ()=>{turnOnChapterLabel(label);});
         el.addEventListener('mouseout', turnOffChapterLabel);
         progressEl.appendChild(el);
@@ -367,12 +367,12 @@ function applyVideoQuality()
             posterEl.style.backgroundSize = 'cover';
             posterEl.style.backgroundRepeat = 'no-repeat';
             posterEl.style.backgroundPosition = 'center';
-            if (meta.audio_visualizer) enableVisualizer(player);
+            if (info.audio_visualizer) enableVisualizer(player);
         }
     }
     else
     {
-        if (meta.audio_visualizer) disableVisualizer(player);
+        if (info.audio_visualizer) disableVisualizer(player);
         if (videoEl) videoEl.style.display = 'block';
         if (posterEl)
         {
@@ -407,7 +407,7 @@ function setVideoQuality(height = 0, button = null)
         retryFetch(getVideoSource()[0])
             .then(response => response.text())
             .then(playlist => {
-                var hls_segment_duration = height == 'audio' ? meta.hls_audio_duration : meta.hls_duration;
+                var hls_segment_duration = height == 'audio' ? info.hls_audio_duration : info.hls_duration;
                 function tryToFetchHLS()
                 {
                     const url = getUrlInfo();
@@ -761,7 +761,7 @@ class DownloadButton extends videojs.getComponent('Button')
                 else
                 {
                     var url = getUrlInfo();
-                    const currentQuality = url.quality || meta.default_quality;
+                    const currentQuality = url.quality || info.default_quality;
                     var quality = option.quality;
                     if (option.quality == 'current') quality = currentQuality;
 
@@ -992,7 +992,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
 
     updateResolutions()
     {
-        let resolutions = meta.formats;
+        let resolutions = info.formats;
         if (!resolutions || resolutions.length < 1) return;
         this.el().style.display = '';
         this.menu.innerHTML = ''
@@ -1454,8 +1454,8 @@ function adjustVideoSize()
 {
     const videoElement = player.el_.querySelector('video');
 
-    const width = videoElement.videoWidth || parseInt(meta['width']) || 720;
-    const height = videoElement.videoHeight || parseInt(meta['height']) || 480;
+    const width = videoElement.videoWidth || parseInt(info['width']) || 720;
+    const height = videoElement.videoHeight || parseInt(info['height']) || 480;
     const innerWidth = window.innerWidth * 0.9;
     const innerHeight = window.innerHeight * 0.9;
     
@@ -1489,7 +1489,7 @@ function checkSponsorTime()
 
         if ( "mediaSession" in navigator)
         {
-            navigator.mediaSession.metadata.artist = meta.uploader;
+            navigator.mediaSession.metadata.artist = info.uploader;
             navigator.mediaSession.setActionHandler("nexttrack", null);
             navigator.mediaSession.setActionHandler("skipad", null);
         }
@@ -1502,14 +1502,14 @@ function checkSponsorTime()
         skipSegment.innerHTML = "skip <b>" + segmentShown.category.replaceAll('_', ' ') + '</b> <i class="fa-solid fa-angles-right"></i>';
         skipTime = segmentShown.end;
 
-        if (meta?.autoskip_sb_segments?.indexOf(segmentShown.category) >= 0)
+        if (info?.autoskip_sb_segments?.indexOf(segmentShown.category) >= 0)
         {
             if (currentTime < segmentShown.start + 1) skipclick();
         }
 
         if ( "mediaSession" in navigator)
         {
-            navigator.mediaSession.metadata.artist = meta.uploader + `    [${segmentShown.category.replaceAll('_', ' ')}]`;
+            navigator.mediaSession.metadata.artist = info.uploader + `    [${segmentShown.category.replaceAll('_', ' ')}]`;
             navigator.mediaSession.setActionHandler("nexttrack", () => {
                 skipclick();
             });
@@ -1691,7 +1691,7 @@ function loadVideo()
             });
         }
 
-        if (meta.chapters.length > 0)
+        if (info.chapters.length > 0)
             loadChapters();
 
         const volumePanel = player.el_.querySelector('.vjs-volume-panel');
@@ -1713,23 +1713,23 @@ function loadVideo()
         }, { passive: false });
 
     });
-    retryFetch(`/meta?url=${url.encodedUrl}`)
+    retryFetch(`/info?url=${url.encodedUrl}`)
         .then(response => response.json())
-        .then(metaData => {
-            meta = metaData;
-            if (meta["error"] !== undefined)
+        .then(rawInfo => {
+            info = rawInfo;
+            if (info["error"] !== undefined)
             {
-                displayPlayerError(meta['error']);
+                displayPlayerError(info['error']);
                 return;
             }
             if (player.controlBar && player.controlBar.SettingsButton)
             {
                 player.controlBar.SettingsButton.updateResolutions();
-                player.controlBar.SettingsButton.updateSubtitles(meta.subtitles);
+                player.controlBar.SettingsButton.updateSubtitles(info.subtitles);
 
-                if (url.quality == null && meta.load_default_quality)
+                if (url.quality == null && info.load_default_quality)
                 {
-                    setVideoQuality(meta.default_quality);
+                    setVideoQuality(info.default_quality);
                 }
                 else
                 {
@@ -1737,19 +1737,19 @@ function loadVideo()
                 }
             }
 
-            if (typeof meta.title == 'string' && meta.title != '')
+            if (typeof info.title == 'string' && info.title != '')
             {
                 const appTitle = document.querySelector('meta[property="og:site_name"]').getAttribute('content');
                 const titleLength = 80 - (' | ' + appTitle).length;
-                meta.shortTitle = meta.title.length > titleLength ? meta.title.substring(0, titleLength - 3) + "..." : meta.title;
-                player.addChild('TitleBar', { title: meta.title, uploader: meta.uploader });
-                document.title = meta.shortTitle + ' | ' + appTitle;
-                meta.uploader = meta.uploader? meta.uploader : appTitle;
+                info.shortTitle = info.title.length > titleLength ? info.title.substring(0, titleLength - 3) + "..." : info.title;
+                player.addChild('TitleBar', { title: info.title, uploader: info.uploader });
+                document.title = info.shortTitle + ' | ' + appTitle;
+                info.uploader = info.uploader? info.uploader : appTitle;
             }
 
             try
             {
-                if (parseFloat(meta.duration) < parseInt(meta.generate_sprite_below))
+                if (parseFloat(info.duration) < parseInt(info.generate_sprite_below))
                 {
                     player.spriteThumbnails({ url: `/sprite?url=${url.encodedUrl}`, width: 160, height: 90, columns: 10, interval: 10 });
                 }
@@ -1761,11 +1761,11 @@ function loadVideo()
                 const error = player.error();
                 if (error && error.code === 4)
                 {
-                    if (player.src().includes('/direct') && meta.formats.length > 1)
+                    if (player.src().includes('/direct') && info.formats.length > 1)
                     {
                         setTimeout(() => {
                             console.warn("Changing video quality due to unsupported format...");
-                            setVideoQuality(meta.default_quality);
+                            setVideoQuality(info.default_quality);
                         }, 500);
                     }
                 }
@@ -1776,7 +1776,7 @@ function loadVideo()
             }
             catch {}
 
-            if (meta.playlist_support == true && window.location.pathname != '/iframe')
+            if (info.playlist_support == true && window.location.pathname != '/iframe')
             {
                 retryFetch(`/playlist?url=${url.encodedUrl}`)
                     .then(response => response.json())
@@ -1790,13 +1790,13 @@ function loadVideo()
 
             setInterval(()=>{ retryFetch(getVideoSource()[0], {}, 0, undefined, false, true).then(response => response.ok); }, 120000); // Keepalive
 
-            if (meta.auto_bg_playback && navigator?.userAgentData?.mobile)
+            if (info.auto_bg_playback && navigator?.userAgentData?.mobile)
             {
                 document.addEventListener('visibilitychange', () => {
                     var url = getUrlInfo();
                     if (url.quality == 'audio')
                     {
-                        if (meta.audio_visualizer)
+                        if (info.audio_visualizer)
                         {
                             if (document.visibilityState === 'hidden') pauseVisualizer(player);
                             else resumeVisualizer(player);
@@ -1804,7 +1804,7 @@ function loadVideo()
                         return;
                     }
                     if (player.isInPictureInPicture()) return;
-                    if (parseFloat(meta.duration) == 0) return;
+                    if (parseFloat(info.duration) == 0) return;
                     if (document.visibilityState === 'hidden')
                     {
                         ps.save();
@@ -1849,8 +1849,8 @@ function loadMediaPlayer()
 
     var url = getUrlInfo();
     navigator.mediaSession.metadata = new MediaMetadata({
-        title: meta.shortTitle,
-        artist: meta.uploader,
+        title: info.shortTitle,
+        artist: info.uploader,
         album: "",
         artwork: [
             {
