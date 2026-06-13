@@ -411,7 +411,7 @@ function setVideoQuality(height = 0, button = null)
                 function tryToFetchHLS()
                 {
                     const url = getUrlInfo();
-                    if (height != url.quality)
+                    if (height != (url.quality || ''))
                     {
                         console.debug(`Abandoning switching to ${height} as ${url.quality} is set`);
                         return;
@@ -425,7 +425,7 @@ function setVideoQuality(height = 0, button = null)
                             if (player.paused()) timeout = 0;
                             setTimeout(() => {
                                 const url = getUrlInfo();
-                                if (height != url.quality)
+                                if (height != (url.quality || ''))
                                 {
                                     console.debug(`Abandoning switching to ${height} as ${url.quality} is set`);
                                     return;
@@ -450,7 +450,7 @@ function setVideoQuality(height = 0, button = null)
         retryFetch(getVideoSource()[0], undefined, undefined, undefined, undefined, true)
             .then(response => {
                 const url = getUrlInfo();
-                if (height != url.quality)
+                if (height != (url.quality || ''))
                 {
                     console.log(`Abandoning switching to ${height} as ${url.quality} is set`);
                     return;
@@ -464,7 +464,7 @@ function setVideoQuality(height = 0, button = null)
             })
             .catch(error => {
                 const url = getUrlInfo();
-                if (height != url.quality)
+                if (height != (url.quality || ''))
                 {
                     console.log(`Abandoning switching to ${height} as ${url.quality} is set`);
                     return;
