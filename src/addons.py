@@ -610,18 +610,23 @@ def stream_media_file(url):
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
+        if client_range := request.headers.get('Range'):
+            headers['Range'] = client_range
+
         response = requests.get(url, stream=True, headers=headers)
         response.raise_for_status()
-        file_size = response.headers.get('content-length')
-        mime_type = response.headers.get('content-type', 'application/octet-stream')
+        mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
         def generate():
             for chunk in response.iter_content(chunk_size=8192):
                 yield chunk
 
-        resp = Response(generate(), mimetype=mime_type)
-        if file_size:
-            resp.headers['Content-Length'] = file_size
+        resp = Response(generate(), status=response.status_code, mimetype=mime_type)
+
+        if 'Content-Length' in response.headers:
+            resp.headers['Content-Length'] = response.headers['Content-Length']
+        if 'Content-Range' in response.headers:
+            resp.headers['Content-Range'] = response.headers['Content-Range']
         resp.headers['Accept-Ranges'] = 'bytes'
         return resp
     except requests.exceptions.RequestException as e:
