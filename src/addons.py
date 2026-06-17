@@ -801,22 +801,14 @@ def get_sb(url: str):
     return None
 
 
-def get_video_formats(url = None, meta = None, protocol = None):
-    resolutions = []
-    if not meta:
-        meta = get_meta(url)
-    formats = meta.get('formats', [])
-    for f in formats:
-        if f.get('vcodec') != 'none' and f.get('height') and f.get('height') not in resolutions:
-            if protocol and protocol != f.get('protocol'): continue
-            resolutions.append(f['height'])
-    return resolutions
+def get_video_formats(url = None, meta = None, protocol = None, exts = []):
+    return sorted(list(set(int(i.split('a')[0]) for i in get_video_sources(url, meta, protocol, exts).keys() if i.split('a')[0])))
 
 
-def get_video_sources(url, protocol = None):
+def get_video_sources(url = None, meta = None, protocol = None, exts = []):
     sources = {}
     best_audio = 0
-    meta = get_meta(url)
+    meta = meta or get_meta(url)
     formats = meta.get('formats') or []
     for f in formats:
         video_name = ''
@@ -831,6 +823,7 @@ def get_video_sources(url, protocol = None):
         quality = float(f.get('quality') or 0)
         if not name: continue
         if protocol and protocol != f.get('protocol'): continue
+        if exts and f.get('ext') not in exts: continue
 
         if name.startswith('audio') and quality < best_audio:
             best_audio = quality
@@ -841,7 +834,7 @@ def get_video_sources(url, protocol = None):
 
 
 def check_res_at_least(url:str, res: int):
-    for f in sorted(get_video_formats(url)):
+    for f in get_video_formats(url):
         if type(f) == int and f >= res:
             if file := check_media(url, f'video-{f}'):
                 return file
