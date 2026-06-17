@@ -416,7 +416,7 @@ class MediaDownloader:
 
         if not video_file_path:
             audio_source = check_media(self.url, 'audio')
-            if res_str in sources:
+            if res_str in sources.keys():
                 if res_str == 'audio':
                     audio_source = audio_source or sources[res_str]
                 else:
