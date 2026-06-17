@@ -220,6 +220,7 @@ class FFMPEG:
         self.success = False
         self.start_time = time.time()
         self.url = url
+        self.affected_files = []
         if ffmpeg_command and self.ffmpeg:
             self.run(ffmpeg_command)
 
@@ -247,6 +248,11 @@ class FFMPEG:
                 raise TimeoutError()
         self._p.wait()
         Processes.rm(self.pid)
+        if self._p.returncode != 0:
+            self.success = False
+            for file in self.affected_files:
+                os.remove(file)
+            raise RuntimeError(f'FFMPEG exited unexpectedly with return code {self._p.returncode}')
         print(f'[FFMPEG {self.ff_id}] Finished')
         self.success = True
 
@@ -463,6 +469,7 @@ class MediaDownloader:
             try:
                 if not video_file_path:
                     ff = FFMPEG(self.url)
+                    ff.affected_files = [m3u8_path, temp_m3u8_path]
                     Thread(target=ff.run, args=[ffmpeg_command]).start()
                     time.sleep(2)
                     video_file_path = MediaDownloader(self.url, 'audio' if 'audio' in self.media_type else f'video-{self.res}').run()
@@ -471,11 +478,14 @@ class MediaDownloader:
                     ff.kill()
                     os.rename(m3u8_path, temp_m3u8_path)
                     MediaDownloader(self.url, self.media_type).run()
-                elif FFMPEG(self.url, ffmpeg_command).success:
-                    print(f"FFMPEG Finished HLS Conversion!")
-                    os.remove(temp_m3u8_path)
                 else:
-                    print(f"An FFMPEG error occurred during HLS conversion")
+                    ff = FFMPEG(self.url, ffmpeg_command)
+                    ff.affected_files = [m3u8_path, temp_m3u8_path]
+                    if ff.success:
+                        print(f"FFMPEG Finished HLS Conversion!")
+                        os.remove(temp_m3u8_path)
+                    else:
+                        print(f"An FFMPEG error occurred during HLS conversion")
             except Exception as e:
                 print(f"An unexpected error occurred during HLS conversion")
                 pprint_exc(e)
