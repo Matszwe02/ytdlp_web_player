@@ -1691,9 +1691,6 @@ function loadVideo()
             });
         }
 
-        if (info.chapters.length > 0)
-            loadChapters();
-
         const volumePanel = player.el_.querySelector('.vjs-volume-panel');
         let volumeScroll = false;
         volumePanel.addEventListener('mouseover', () => {
@@ -1722,6 +1719,10 @@ function loadVideo()
                 displayPlayerError(info['error']);
                 return;
             }
+
+            if (info.chapters.length > 0)
+                loadChapters();
+
             if (player.controlBar && player.controlBar.SettingsButton)
             {
                 player.controlBar.SettingsButton.updateResolutions();
