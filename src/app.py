@@ -127,7 +127,7 @@ def resp_direct_stream():
         if direct_quality := get_direct_quality(url):
             if direct_quality is True:
                 return host_file(url, 'direct')
-            return stream_media_file(direct_quality)
+            return stream_media_file(direct_quality[0], direct_quality[1], direct_quality[2])
 
         res = get_good_quality(get_video_formats(url)) 
         media_type = f'hls-{res}'.removesuffix('-')

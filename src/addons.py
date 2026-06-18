@@ -1,3 +1,4 @@
+import http.cookies
 import json
 import math
 import mimetypes
@@ -410,20 +411,21 @@ class MediaDownloader:
         m3u8_path = os.path.join(self.data_dir, f'{self.media_type}.m3u8')
 
         sources = get_video_sources(self.url)
-        video_url = None
+        video_source = None
         audio_source = None
         video_file_path = check_media(self.url, 'audio') if res_str == 'audio' else check_res_at_least(self.url, self.res)
 
         if not video_file_path:
-            audio_source = check_media(self.url, 'audio')
+            audio_media = check_media(self.url, 'audio')
+            audio_source = [audio_media] if audio_media else None
             if res_str in sources.keys():
                 if res_str == 'audio':
                     audio_source = audio_source or sources[res_str]
                 else:
-                    video_url = sources[res_str]
+                    video_source = sources[res_str]
                     audio_source = audio_source or sources.get('audio_drc') or sources.get('audio') or sources.get('audio_presumed')
 
-            if not video_url and not audio_source:
+            if not video_source and not audio_source:
                 print('Could not find any suitable streamable video format: Downloading the whole video')
                 video_file_path = MediaDownloader(self.url, 'audio' if 'audio' in self.media_type else f'video-{self.res}').run()
 
@@ -442,10 +444,10 @@ class MediaDownloader:
             temp_m3u8_path
         ]
 
-        if video_url:
-            ffmpeg_command = ['-i', video_url] + ffmpeg_command
+        if video_source:
+            ffmpeg_command = ['-i', video_source[0]] + ffmpeg_command
         if audio_source:
-            ffmpeg_command = ['-i', audio_source] + ffmpeg_command
+            ffmpeg_command = ['-i', audio_source[0]] + ffmpeg_command
         if video_file_path:
             ffmpeg_command = ['-i', video_file_path] + ffmpeg_command
 
@@ -613,17 +615,22 @@ def download_media_file(url: str, path_without_ext: str, ext: str|None = None):
             f.write(chunk)
 
 
+def load_http_cookies(cookies_str):
+    if not cookies_str: return None
+    c = http.cookies.SimpleCookie()
+    c.load(cookies_str)
+    return requests.utils.cookiejar_from_dict({k: v.value for k, v in c.items()})
 
-def stream_media_file(url):
+
+def stream_media_file(url, headers=None, cookies=None):
     """Stream raw file with requests.get"""
     try:
-        headers = {
+        headers = json.loads(headers) if headers else {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         if client_range := request.headers.get('Range'):
             headers['Range'] = client_range
-
-        response = requests.get(url, stream=True, headers=headers)
+        response = requests.get(url, stream=True, headers=headers, cookies=load_http_cookies(cookies))
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
@@ -806,6 +813,7 @@ def get_video_formats(url = None, meta = None, protocol = None, exts = []):
 
 
 def get_video_sources(url = None, meta = None, protocol = None, exts = []):
+    """-> dict[res, [url: str, headers: str, cookies: str, codec: str]]"""
     sources = {}
     best_audio = 0
     meta = meta or get_meta(url)
@@ -827,9 +835,11 @@ def get_video_sources(url = None, meta = None, protocol = None, exts = []):
 
         if name.startswith('audio') and quality < best_audio:
             best_audio = quality
-            sources[name] = f['url']
-        elif name not in sources:
-            sources[name] = f['url']
+        if name not in sources:
+            headers = json.dumps(f.get('http_headers') or {})
+            cookies = f.get('cookies') or ''
+            codec = f.get('vcodec') if name[0] != 'a' else f.get('acodec')
+            sources[name] = [f['url'], headers, cookies, codec]
     return sources
 
 
@@ -872,9 +882,9 @@ def get_direct_quality(url):
         hls_data = [
             '#EXTM3U',
             '#EXT-X-VERSION:3',
-            f'#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio_grp",NAME="English",DEFAULT=YES,AUTOSELECT=YES,URI="{sources[audio_src]}"' if audio_src else "",
+            f'#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio_grp",NAME="English",DEFAULT=YES,AUTOSELECT=YES,URI="{sources[audio_src][0]}"' if audio_src else "",
             f'#EXT-X-STREAM-INF:BANDWIDTH=1500000{",AUDIO=\"audio_grp\"" if audio_src else ""}',
-            f'{sources[vid_src]}'
+            f'{sources[vid_src][0]}'
         ]
         with open(os.path.join(get_data_dir(url), 'direct.m3u8'), 'w') as f:
             f.write('\n'.join(hls_data))
