@@ -252,7 +252,7 @@ class FFMPEG:
         if self._p.returncode != 0:
             self.success = False
             for file in self.affected_files:
-                os.remove(file)
+                if os.path.exists(file): os.remove(file)
             raise RuntimeError(f'FFMPEG exited unexpectedly with return code {self._p.returncode}')
         print(f'[FFMPEG {self.ff_id}] Finished')
         self.success = True
@@ -478,14 +478,14 @@ class MediaDownloader:
                     if not video_file_path: raise RuntimeError('Could not download video')
                     print(f'Killing FFMPEG {ff.ff_id} due to local media availability')
                     ff.kill()
-                    os.rename(m3u8_path, temp_m3u8_path)
+                    if os.path.exists(m3u8_path): os.rename(m3u8_path, temp_m3u8_path)
                     MediaDownloader(self.url, self.media_type).run()
                 else:
                     ff = FFMPEG(self.url, ffmpeg_command)
                     ff.affected_files = [m3u8_path, temp_m3u8_path]
                     if ff.success:
                         print(f"FFMPEG Finished HLS Conversion!")
-                        os.remove(temp_m3u8_path)
+                        if os.path.exists(temp_m3u8_path): os.remove(temp_m3u8_path)
                     else:
                         print(f"An FFMPEG error occurred during HLS conversion")
             except Exception as e:
