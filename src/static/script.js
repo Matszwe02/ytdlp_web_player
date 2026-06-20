@@ -1480,6 +1480,12 @@ function checkSponsorTime()
         {
             segmentShown = segment;
         }
+        if (currentTime > segment.start - 1 && currentTime < segment.start)
+        {
+            setTimeout(() => {
+                if (!player.paused) checkSponsorTime();
+            }, (segment.start - currentTime + .01) * 1000 / player.playbackRate());
+        }
     });
     
     if (segmentShown == null)
