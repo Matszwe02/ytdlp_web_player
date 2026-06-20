@@ -1683,7 +1683,7 @@ function loadVideo()
         player.el_.querySelector('img').classList.add('loaded-img');
         adjustVideoSize();
         window.addEventListener('resize', adjustVideoSize);
-        setTimeout(() => {player.el_.style.transitionDuration = '0s';}, 10);
+        setTimeout(() => {player.el_.style.transitionDuration = '0s';}, 100);
         player.controls(true);
         errorDisplay.classList.remove('spinner-parent');
         errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
