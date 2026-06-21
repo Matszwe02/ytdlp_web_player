@@ -707,6 +707,7 @@ def preload(url = None, meta = None, playlist = None):
     print('Running preload')
 
     if meta:
+        if meta.get('entries'): meta = meta['entries'][0]
         try:
             os.makedirs(get_data_dir(url), exist_ok=True)
             with open(os.path.join(get_data_dir(url), 'meta.json'), 'w') as f:
@@ -785,6 +786,7 @@ def get_meta(url: str):
         ydl_opts.update(ydl_global_opts)
         if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["cookiefile"] = cookies
         info = YTDLP.get_info(url, ydl_opts)
+        if info.get('entries'): info = info['entries'][0]
         info['original_url'] = url
         with open(os.path.join(get_data_dir(url), 'meta.json'), 'w') as f:
             json.dump(info, f)
