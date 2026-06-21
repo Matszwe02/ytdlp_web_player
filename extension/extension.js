@@ -78,7 +78,7 @@ function unblockVideos()
 
 function getIframeContainer()
 {
-    const allVideos = Array.from(document.querySelectorAll('video, .html5-video-player'));
+    const allVideos = Array.from(document.querySelectorAll('video, .html5-video-player, shreddit-player'));
     console.debug(`Total videos found: ${allVideos.length}`);
 
 
