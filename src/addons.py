@@ -294,8 +294,9 @@ class MediaDownloader:
         self.timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', self.media_type)
         self.start_time = None
         self.end_time = None
-        self.res = int((re.search(r'(\d+)', self.media_type) and re.search(r'(\d+)', self.media_type).group(1) or str(default_quality)))
-        
+        selected_res = re.search(r'(\d+)', self.media_type) and re.search(r'(\d+)', self.media_type).group(1)
+        self.res = int(selected_res or get_good_quality(get_video_formats(meta=self.meta)))
+
         if self.timestamps:
             try:
                 self.start_time = float(self.timestamps.group(1))
