@@ -622,15 +622,15 @@ def load_http_cookies(cookies_str):
     return requests.utils.cookiejar_from_dict({k: v.value for k, v in c.items()})
 
 
-def stream_media_file(url, headers=None, cookies=None):
+def stream_media_file(url: str, headers: str|None = None, cookies: str|None = None):
     """Stream raw file with requests.get"""
     try:
-        headers = json.loads(headers) if headers else {
+        headers_dict = json.loads(headers) if headers else {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         if client_range := request.headers.get('Range'):
-            headers['Range'] = client_range
-        response = requests.get(url, stream=True, headers=headers, cookies=load_http_cookies(cookies))
+            headers_dict['Range'] = client_range
+        response = requests.get(url, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies))
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
