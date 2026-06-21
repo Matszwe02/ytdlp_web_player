@@ -129,9 +129,12 @@ function getIframeContainer()
         while (a.parentElement !== document.body)
         {
             a = a.parentElement;
-            if (a.tagName == "A") altSrc = a.href;
         }
-
+        let left = Math.max(Math.min(window.innerWidth - 10, rect.left + rect.width / 2), 10);
+        let top = Math.max(Math.min(window.innerHeight - 10, rect.top + rect.height / 2), 10);
+        document.elementsFromPoint(left, top).forEach((el, i) => {
+            if (el.tagName == "A") altSrc = el.href;
+        });
         while (bestVideo.parentElement !== document.body)
         {
             const parentRect = bestVideo.parentElement.getBoundingClientRect();
