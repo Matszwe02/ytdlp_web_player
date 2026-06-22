@@ -334,13 +334,15 @@ function getVideoSource()
     console.log(`Video quality: ${url.quality}`);
 
     let downloadUrl = `/direct?url=${url.encodedUrl}`;
-    let videoType = 'video/mp4';
+    let videoType = info.sources[info.default_quality];
 
     if (url.quality)
     {
         downloadUrl = `/hls?url=${url.encodedUrl}&quality=${url.quality}`;
         videoType = 'application/x-mpegURL';
     }
+
+    console.log(`Video source: src=${downloadUrl} type=${videoType}`);
     return [downloadUrl, videoType];
 }
 
@@ -1675,8 +1677,6 @@ function loadVideo()
 
     player.el_.querySelector('.vjs-poster').style.filter = '';
 
-    player.src({ src: `/direct?url=${url.encodedUrl}`, type: 'video/mp4' });
-
     // When video is loaded
     player.on('loadeddata', () => {
         player.el_.style.transitionDuration = '0.5s';
@@ -1740,7 +1740,7 @@ function loadVideo()
                 }
                 else
                 {
-                    setVideoQuality();
+                    player.src({ src: `/direct?url=${url.encodedUrl}`, type: info.sources[info.default_quality] });
                 }
             }
 

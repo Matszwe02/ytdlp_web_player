@@ -8,6 +8,7 @@ import subprocess
 import time
 import traceback
 import requests
+import struct
 from PIL import Image
 from datetime import datetime
 from hashlib import sha1
@@ -273,10 +274,10 @@ class MediaDownloader:
             self._load_variables()
             if   self.media_type.startswith('thumb'): self.thumb()
             elif self.media_type.startswith('playlist'): self.playlist()
-            elif self.media_type.startswith('playlist'): self.playlist()
             elif self.media_type.startswith('audio'): self.audio()
             elif self.media_type.startswith('video'): self.video()
             elif self.media_type.startswith('hls'): self.hls()
+            elif self.media_type.startswith('direct'): self.direct()
             elif self.media_type.startswith('low'): self.low()
             elif self.media_type.startswith('sub'): self.sub()
             elif self.media_type.startswith('sprite'): self.sprite()
@@ -494,6 +495,10 @@ class MediaDownloader:
                 pprint_exc(e)
 
         Thread(target=download_hls_files, daemon=True).start()
+
+
+    def direct(self):
+        get_direct(self.url, self.meta, self.res if 'audio' not in self.media_type else None)
 
 
     def low(self):
@@ -811,12 +816,20 @@ def get_sb(url: str):
     return None
 
 
-def get_video_formats(url = None, meta = None, protocol = None, exts = []):
-    return sorted(list(set(int(i.split('a')[0]) for i in get_video_sources(url, meta, protocol, exts).keys() if i.split('a')[0])))
+def get_video_formats(url = None, meta = None, protocols = None, exts = []):
+    """
+    Generates a list of all resolutions for video
+    """
+    return sorted(list(set(int(i.split('a')[0]) for i in get_video_sources(url, meta, protocols, exts).keys() if i.split('a')[0])))
 
 
-def get_video_sources(url = None, meta = None, protocol = None, exts = []):
-    """-> dict[res, [url: str, headers: str, cookies: str, codec: str]]"""
+def get_video_sources(url = None, meta = None, protocols = [], exts = []):
+    """
+    Aggregates all possible sources for video
+
+    Returns:
+        dict[res, List[url, headers, cookies, codec]]
+    """
     sources = {}
     best_audio = 0
     meta = meta or get_meta(url)
@@ -833,7 +846,7 @@ def get_video_sources(url = None, meta = None, protocol = None, exts = []):
         name = video_name + audio_name
         quality = float(f.get('quality') or 0)
         if not name: continue
-        if protocol and protocol != f.get('protocol'): continue
+        if protocols and f.get('protocol') not in protocols: continue
         if exts and f.get('ext') not in exts: continue
 
         if name.startswith('audio') and quality < best_audio:
@@ -862,36 +875,132 @@ def get_subtitles(meta: dict):
     return all_subtitles
 
 
-def get_direct_quality(url):
-    sources = get_video_sources(url, protocol='https')
-    preferred_quality = get_good_quality(get_video_formats(url, protocol='https'))
-    for s in sources:
-        if s.startswith(f'{preferred_quality}audio'):
-            return sources[s]
-    for s in sources:
-        if 'audio' in s and not s.startswith('audio'):
-            return sources[s]
-    sources = get_video_sources(url, protocol='m3u8_native')
-    q = get_good_quality(get_video_formats(url, protocol='m3u8_native'))
-    vid_src = None
-    audio_src = None
+def generate_hls(audio_source, video_source):
+
+    def get_url(s):
+        if requests.head(url=s[0], headers=json.loads(s[1]) | {'Origin': 'http://example.com'}, cookies=load_http_cookies(s[2])).status_code >= 400:
+            print(f'Responded with status code > 400: redirecting to external')
+            return f'/external?url={quote_plus(s[0])}&headers={quote_plus(s[1])}&cookies={quote_plus(s[2])}'
+        return s[0]
+
+    audio_url = get_url(audio_source) if audio_source and audio_source != video_source else None
+    video_url = get_url(video_source) if video_source else None
+
+    return '\n'.join([
+        '#EXTM3U',
+        '#EXT-X-VERSION:3',
+        f'#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio_grp",NAME="English",DEFAULT=YES,AUTOSELECT=YES,URI="{audio_url}"' if audio_url and video_url else "",
+        f'#EXT-X-STREAM-INF:BANDWIDTH=1500000{",AUDIO=\"audio_grp\"" if audio_url and video_url else ""}',
+        f'{video_url}' if video_url else f'{audio_url}'
+    ])
+
+
+def generate_dash(audio_source, video_source, duration):
+    def get_mp4_dash_ranges(source):
+        headers_dict = json.loads(source[1]) | {"Range": "bytes=0-60000"}
+        response = requests.get(source[0], headers=headers_dict, cookies=load_http_cookies(source[2]))
+        response.raise_for_status()
+        data = response.content
+        offset = 0
+
+        while offset < len(data):
+            if offset + 8 > len(data): break
+
+            box_size, box_type = struct.unpack(">I4s", data[offset : offset + 8])
+
+            if box_size == 1:
+                if offset + 16 > len(data): break
+                box_size = struct.unpack(">Q", data[offset + 8 : offset + 16])[0]
+
+            # The 'sidx' box contains the segment index map required by DASH
+            if box_type.decode("utf-8", errors="ignore") == "sidx":
+                return f"0-{offset - 1}", f"{offset}-{offset + box_size - 1}"
+
+            if box_size == 0: break
+            offset += box_size
+
+        raise ValueError('Could not locate sidx box')
+
+    mpd_src = lambda src, ranges, mediatype: '\n'.join([
+       f'        <AdaptationSet mimeType="{mediatype}/mp4" codecs="{src[3]}" subsegmentAlignment="true" subsegmentStartsWithSAP="1">',
+       f'          <Representation id="{mediatype}_track" bandwidth="1000000">',
+       f'            <BaseURL><![CDATA[/external?url={quote_plus(src[0])}&headers={quote_plus(src[1])}&cookies={quote_plus(src[2])}]]></BaseURL>',
+       f'            <SegmentBase indexRange="{ranges[1]}" indexRangeExact="true">',
+       f'              <Initialization range="{ranges[0]}" />',
+        '            </SegmentBase>',
+        '          </Representation>',
+        '        </AdaptationSet>'
+    ]) if src else ''
+
+    return '\n'.join([
+        '<?xml version="1.0" encoding="utf-8"?>',
+        '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" '
+        '    profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" ',
+        '    type="static"',
+       f'    mediaPresentationDuration="PT{float(duration):.3f}S">',
+        '    <Period>',
+        mpd_src(video_source, get_mp4_dash_ranges(video_source), 'video'),
+        mpd_src(audio_source, get_mp4_dash_ranges(audio_source), 'audio'),
+        '    </Period>',
+        '</MPD>'
+    ])
+
+
+def choose_sources_for_res(sources: dict, res = None):
+    """
+    Chooses (audio_source, video_source) among sources, needed for playback with specific resolution.
+    """
+    res = str(res) if res else ''
+    video_source = None
+    audio_source = None
     for s in sources.keys():
-        if not audio_src and 'audio' in s: audio_src = s
-        if not vid_src and str(q) in s:
-            vid_src = s
-            if 'audio' in s: audio_src = s
-    if vid_src and audio_src:
-        if audio_src == vid_src: audio_src = None
-        hls_data = [
-            '#EXTM3U',
-            '#EXT-X-VERSION:3',
-            f'#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio_grp",NAME="English",DEFAULT=YES,AUTOSELECT=YES,URI="{sources[audio_src][0]}"' if audio_src else "",
-            f'#EXT-X-STREAM-INF:BANDWIDTH=1500000{",AUDIO=\"audio_grp\"" if audio_src else ""}',
-            f'{sources[vid_src][0]}'
-        ]
-        with open(os.path.join(get_data_dir(url), 'direct.m3u8'), 'w') as f:
-            f.write('\n'.join(hls_data))
-        return True
+        if not audio_source and 'audio' in s: audio_source = s
+        if res and not video_source and res in s:
+            video_source = s
+        if 'audio' in s and res in s:
+            audio_source = s
+            video_source = s
+            break
+    if (video_source or not res) and audio_source:
+        return sources.get(audio_source) or None, sources.get(video_source) or None
+    return [], []
+
+
+def get_direct(url = None, meta = None, res = None, simulate = False):
+
+    sources = get_video_sources(url, meta, protocols=['http', 'https'])
+    a, v = choose_sources_for_res(sources, res)
+    if a and (not res or a == v):
+        if not simulate:
+            with open(os.path.join(get_data_dir(url), f'direct-{res or "audio"}.url'), 'w') as f:
+                f.write(a[0] + '\n' + a[1] + '\n' + a[2])
+        return 'video/mp4' if res else 'audio/mpeg'
+
+    sources = get_video_sources(url, meta, protocols=['m3u8_native'])
+    a, v = choose_sources_for_res(sources, res)
+    if a or v:
+        if not simulate:
+            print(f'Generating HLS direct for {res}')
+            try:
+                content = generate_hls(a, v)
+                with open(os.path.join(get_data_dir(url), f'direct-{res or "audio"}.m3u8'), 'w') as f:
+                    f.write(content)
+            except Exception as e:
+                pprint_exc(e)
+        return 'application/x-mpegURL'
+
+    sources = get_video_sources(url, meta, protocols=['http', 'https'], exts=['mp4', 'm4a'])
+    a, v = choose_sources_for_res(sources, res)
+    if a or v:
+        if not simulate:
+            print(f'Generating MPD direct for {res}')
+            try:
+                content = generate_dash(a, v, meta['duration'])
+                with open(os.path.join(get_data_dir(url), f'direct-{res or "audio"}.mpd'), 'w') as f:
+                    f.write(content)
+            except Exception as e:
+                pprint_exc(e)
+        return 'application/dash+xml'
     return None
 
 
@@ -961,6 +1070,10 @@ def get_video_info(meta: dict):
         info['formats'] = get_video_formats(meta=meta)
     except BaseException as e:
         info['formats'] = jsonify({'error': (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))}), 403
+    info['sources'] = {}
+    for res in info['formats'] + [0]:
+        src = get_direct(meta=meta, res=res, simulate=True)
+        if src: info['sources'][res] = src
     info['duration'] = f'{meta.get("duration") or 0}'
     info['subtitles'] = get_subtitles(meta)
     info['width'] = meta.get('width')

@@ -116,24 +116,25 @@ def download_low_quality():
 
 
 @app.route('/direct')
-def resp_direct_stream():
+def resp_direct():
     try:
+        res = request.args.get('quality') or ''
+        media_type = f'direct-{res}'.removesuffix('-')
         url = get_url(request)
-
-        if check_media(url, 'video'):
-            return host_file(url, 'video')
-        if check_media(url, 'direct'):
-            return host_file(url, 'direct')
-        if direct_quality := get_direct_quality(url):
-            if direct_quality is True:
-                return host_file(url, 'direct')
-            return stream_media_file(direct_quality[0], direct_quality[1], direct_quality[2])
-
-        res = get_good_quality(get_video_formats(url)) 
-        media_type = f'hls-{res}'.removesuffix('-')
-        return host_file(get_url(request), media_type)
+        media = check_media(url, media_type)
+        if media and media.endswith('.url'):
+            with open(media, 'r') as f:
+                return stream_media_file(f.readline().rstrip('\n'), f.readline().rstrip('\n'), f.readline().rstrip('\n'))
+        return host_file(url, media_type)
     except Exception as e:
         return pprint_exc(e)
+
+
+@app.route('/external')
+def serve_external():
+    url = request.args.get('url')
+    if not url: return jsonify({"error": "URL parameter is required"}), 400
+    return stream_media_file(url, request.args.get('headers'), request.args.get('cookies'))
 
 
 @app.route('/subtitle')
