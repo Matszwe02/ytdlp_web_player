@@ -1678,7 +1678,8 @@ function loadVideo()
     player.el_.querySelector('.vjs-poster').style.filter = '';
 
     // When video is loaded
-    player.on('loadeddata', () => {
+    function playerReady() {
+        if (player.controls()) return;
         player.el_.style.transitionDuration = '0.5s';
         player.el_.querySelector('img').classList.add('loaded-img');
         adjustVideoSize();
@@ -1715,7 +1716,7 @@ function loadVideo()
             }
         }, { passive: false });
 
-    });
+    }
     retryFetch(`/info?url=${url.encodedUrl}`)
         .then(response => response.json())
         .then(rawInfo => {
@@ -1725,6 +1726,8 @@ function loadVideo()
                 displayPlayerError(info['error']);
                 return;
             }
+            player.on('durationchange', () => {if (player.duration() > 0) playerReady()});
+            player.on('loadeddata', () => {playerReady()});
 
             if (info.chapters.length > 0)
                 loadChapters();
