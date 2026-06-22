@@ -89,6 +89,9 @@
                 {
                     try
                     {
+                        const expression = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi;
+                        if (!url.match(new RegExp(expression))) throw TypeError();
+                        if (!url.startsWith('http')) url = 'https://' + url;
                         new URL(url);
                         window.location.href = '/watch?url=' + encodeURIComponent(url);
                     }
