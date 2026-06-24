@@ -1782,7 +1782,7 @@ function loadVideo()
             });
             try
             {
-                loadMediaPlayer();
+                loadMediaSession();
             }
             catch {}
 
@@ -1853,7 +1853,7 @@ function loadVideo()
 }
 
 
-function loadMediaPlayer()
+function loadMediaSession()
 {
     if (! "mediaSession" in navigator) return;
 
