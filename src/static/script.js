@@ -18,6 +18,7 @@ class PlayerState
         this.ongoing = false;
         this.switchTime = 0;
         this.isPlaying = false;
+        this.speed = 1;
         this.tracks = null;
         this.suspend = false;
     }
@@ -31,6 +32,7 @@ class PlayerState
         this.ongoing = false;
         this.switchTime = player.currentTime();
         this.isPlaying = !player.paused();
+        this.speed = player.playbackRate();
         this.tracks = [];
         const textTracks = player.textTracks();
         for (let i = 0; i < textTracks.length; i++)
@@ -49,6 +51,7 @@ class PlayerState
     apply()
     {
         player.currentTime(this.switchTime);
+        player.playbackRate(this.speed);
         if (this.isPlaying) player.play();
         for (let i = 0; i < this.tracks.length; i++)
         {
