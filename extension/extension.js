@@ -25,8 +25,8 @@ var playerUrl = '';
 var iframe = null;
 var iframeContainer = null;
 var cookies = false;
-var isPosFixed = false;
-var posUpdatesInRow = 0;
+var lastContainerRect = null;
+var lastBodyRect = null;
 var tabEnabled = true;
 var altSrc = "";
 
@@ -154,13 +154,12 @@ function createIframe(src='')
     iframe = document.createElement('iframe');
     iframe.id = 'ytdlp-player';
     iframe.style.border = 'none';
-    iframe.style.position = 'absolute';
+    iframe.style.position = 'fixed';
     iframe.style.zIndex = '9999';
     iframe.style.top = '0px';
     iframe.style.left = '0px';
     iframe.allowFullscreen = true;
     iframe.src = src;
-    isPosFixed = false;
     document.body.appendChild(iframe);
     setTimeout(() => {
         iframe.focus();
@@ -189,12 +188,13 @@ function updateIframeGeometry(forceZero = false)
 {
     if (!tabEnabled) return;
     if (document.fullscreenElement !== null) return;
-    const rect = iframeContainer?.getBoundingClientRect();
+    const containerRect = iframeContainer?.getBoundingClientRect();
     const vidRect = iframeContainer?.querySelector('video')?.getBoundingClientRect();
     const iframeRect = iframe ? iframe.getBoundingClientRect() : null;
+    const bodyRect = document.body.getBoundingClientRect();
     if (!iframeRect) return;
-    const width = Math.max(rect?.width || 0, vidRect?.width || 0);
-    const height = Math.max(rect?.height || 0, vidRect?.height || 0);
+    const width = Math.max(containerRect?.width || 0, vidRect?.width || 0);
+    const height = Math.max(containerRect?.height || 0, vidRect?.height || 0);
 
     if ((width == 0 || height == 0) && iframe.style.width && iframe.style.height && !forceZero)
     {
@@ -204,29 +204,29 @@ function updateIframeGeometry(forceZero = false)
     iframe.style.width = `${width}px`;
     iframe.style.height = `${height}px`;
 
-    if (isPosFixed)
+    if (containerRect && lastContainerRect && bodyRect && lastBodyRect)
     {
-        iframe.style.top = `${rect?.top || 0}px`;
-        iframe.style.left = `${rect?.left || 0}px`;
+        var fixedChange = Math.abs(containerRect.top - lastContainerRect.top) + Math.abs(containerRect.left - lastContainerRect.left);
+        var absoluteChange = Math.abs((containerRect.top - lastContainerRect.top) - (bodyRect.top - lastBodyRect.top))
+            + Math.abs((containerRect.left - lastContainerRect.left) - (bodyRect.left - lastBodyRect.left));
+
+        if (absoluteChange > fixedChange + 1) iframe.style.position = 'fixed';
+        if (absoluteChange < fixedChange - 1) iframe.style.position = 'absolute';
+    }
+
+    lastContainerRect = containerRect;
+    lastBodyRect = bodyRect;
+
+    if (iframe.style.position == 'fixed')
+    {
+        iframe.style.top = `${containerRect?.top || 0}px`;
+        iframe.style.left = `${containerRect?.left || 0}px`;
+        
     }
     else
     {
-        const top = (rect?.top || 0) - iframeRect.top + parseFloat(iframe.style.top || 0);
-        const left = (rect?.left || 0) - iframeRect.left + parseFloat(iframe.style.left || 0);
-        if (Math.abs((parseFloat(iframe.style.top) - top) + Math.abs(parseFloat(iframe.style.left) - left)) > 50)
-        {
-            posUpdatesInRow ++;
-            console.debug(`Update ${posUpdatesInRow}/10 : ${iframe.style.top}, ${iframe.style.left} -> ${top}, ${left}`);
-        }
-        else posUpdatesInRow = 0;
-        if (posUpdatesInRow > 9)
-        {
-            isPosFixed = true;
-            iframe.style.position = 'fixed';
-            console.log(`Could not stabilize iframe in position absolute. Changing to position fixed.`);
-        }
-        iframe.style.top = `${top}px`;
-        iframe.style.left = `${left}px`;
+        iframe.style.top = `${(containerRect?.top || 0) - iframeRect.top + parseFloat(iframe.style.top || 0)}px`;
+        iframe.style.left = `${(containerRect?.left || 0) - iframeRect.left + parseFloat(iframe.style.left || 0)}px`;
     }
 }
 
