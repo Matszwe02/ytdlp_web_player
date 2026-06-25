@@ -1865,6 +1865,7 @@ function loadVideo()
                     if (parseFloat(info.duration) == 0) return;
                     if (document.visibilityState === 'hidden')
                     {
+                        if (player.currentTime() + 10 > parseFloat(info.duration)) return;
                         ps.save();
                         player.src({ src: `/hls?url=${url.encodedUrl}&quality=audio`, type: 'application/x-mpegURL' });
                         ps.apply();
