@@ -52,7 +52,7 @@ class PlayerState
     }
     apply()
     {
-        player.currentTime(this.switchTime);
+        if (this.switchTime > 0) player.currentTime(this.switchTime);
         player.playbackRate(this.speed);
         if (this.isPlaying) player.play();
         for (let i = 0; i < this.tracks.length; i++)
