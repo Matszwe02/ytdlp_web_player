@@ -1701,6 +1701,10 @@ function loadVideo()
 
     player.on('playing', () => {
         isBuffering = false;
+        if (info && parseFloat(info.duration) == 0 && player.currentTime() < 1)
+        {
+            player.currentTime(99999999);
+        }
     });
 
     player.on('waiting', () => {
@@ -1807,7 +1811,7 @@ function loadVideo()
 
             try
             {
-                if (parseFloat(info.duration) < parseInt(info.generate_sprite_below))
+                if (parseFloat(info.duration) < parseInt(info.generate_sprite_below) && parseFloat(info.duration) > 0)
                 {
                     player.spriteThumbnails({ url: `/sprite?url=${url.encodedUrl}`, width: 160, height: 90, columns: 10, interval: 10 });
                 }
