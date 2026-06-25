@@ -6,6 +6,8 @@ let activeFetches = 0; // Counter for active retryFetch calls
 let repeatMode = false;
 let repeatStartTime = 0;
 let repeatEndTime = 0;
+let isBuffering = false;
+let usesHls = false;
 let audioContext = null;
 let audioSource = null;
 
@@ -182,7 +184,11 @@ function getUrlInfo()
     var quality = urlParams.get('quality');
     if (quality == '') quality = null;
     if (quality == 'null') quality = null;
-    if (info && info['height'] == null && info['width'] == null) quality = 'audio';
+    if (info)
+    {
+        if (quality == null) quality = `${info.default_quality}`;;
+        if (info['height'] == null && info['width'] == null) quality = 'audio';
+    }
     return { quality: quality, originalUrl: originalUrl, encodedUrl:encodedUrl, urlParams:urlParams };
 }
 
@@ -336,10 +342,10 @@ function getVideoSource()
     var url = getUrlInfo();
     console.log(`Video quality: ${url.quality}`);
 
-    let downloadUrl = `/direct?url=${url.encodedUrl}`;
-    let videoType = info.sources[info.default_quality];
+    let downloadUrl = `/direct?url=${url.encodedUrl}&quality=${url.quality}`;
+    let videoType = info.sources[url.quality];
 
-    if (url.quality)
+    if (usesHls)
     {
         downloadUrl = `/hls?url=${url.encodedUrl}&quality=${url.quality}`;
         videoType = 'application/x-mpegURL';
@@ -359,6 +365,11 @@ function applyVideoQuality()
     const posterEl = player.el_.querySelector('.vjs-poster');
     ps.save();
     if (ps.suspend) return;
+    if (player.src() == videoSource[0])
+    {
+        console.log('Preventing switching to the same source');
+        return;
+    }
     player.src({ src: videoSource[0], type: videoSource[1] });
     ps.apply();
 
@@ -387,71 +398,82 @@ function applyVideoQuality()
     }
 }
 
-
-function setVideoQuality(height = 0, button = null)
+async function pingHlsSegment(height = null)
 {
-    console.log(`Setting video quality to ${height}`)
+    var hls_segment_duration = height == 'audio' ? info.hls_audio_duration : info.hls_duration;
+    const url = getUrlInfo();
+    var segNum = Math.min(Math.ceil(player.currentTime() / hls_segment_duration + 0.5), Math.ceil((player.duration() || 1) / hls_segment_duration - 1));
+    var selectedSegment = `/hls_segment?url=${url.encodedUrl}&quality=${height}&seg=${segNum}`;
+    try
+    {
+        let response = await retryFetch(selectedSegment, undefined, 1, 1000, true, true);
+        if (!response.ok) return false;
+        let timeout = hls_segment_duration + 1 - player.currentTime() % hls_segment_duration;
+        if (timeout > hls_segment_duration / 2) timeout = 0;
+        if (player.paused()) timeout = 0;
+        await new Promise(resolve => setTimeout(resolve, timeout * 1000));
+        return true;
+    }
+    catch (error)
+    {
+        return false;
+    }
+}
+
+
+function setVideoQuality(height = null, button = null)
+{
     let menu = player.controlBar.SettingsButton.resolutionSwitcher.menu;
     var url = getUrlInfo();
+    if (height === null) height = url.quality;
+    if (height !== null) height = `${height}`;
+    console.log(`Setting video quality to ${height}`);
     const buttons = menu.querySelectorAll('.vjs-resolution-option');
-    if (height === 0)
-    {
-        height = url.quality;
-    }
     url.urlParams.set('quality', height);
     if (button == null)
     {
         buttons.forEach(b => {
-            if ((b.textContent.toLowerCase().includes(height)) || (b.textContent == 'Direct' && height == '')) button = b;
+            if ((b.textContent.toLowerCase().includes(`${height}`))) button = b;
         });
     }
     history.replaceState(null, '', `${window.location.pathname}?${url.urlParams.toString()}`);
-    const hlsEnabled = height != null && height != '' && height != 'null';
-    if (hlsEnabled)
+
+    if (usesHls)
     {
+        console.log('Fetching HLS...');
         retryFetch(getVideoSource()[0])
             .then(response => response.text())
             .then(playlist => {
-                var hls_segment_duration = height == 'audio' ? info.hls_audio_duration : info.hls_duration;
-                function tryToFetchHLS()
-                {
-                    const url = getUrlInfo();
-                    if (`${height}` != `${url.quality}`)
-                    {
-                        console.debug(`Abandoning switching to ${height} as ${url.quality} is set`);
-                        return;
-                    }
-                    var segNum = Math.min(Math.ceil(player.currentTime() / hls_segment_duration + 0.5), Math.ceil((player.duration() || 1) / hls_segment_duration - 1));
-                    var selectedSegment = `/hls_segment?url=${url.encodedUrl}&quality=${height}&seg=${segNum}`;
-                    retryFetch(selectedSegment, undefined, 1, 1000, true, true)
-                        .then(response => {
-                            let timeout = hls_segment_duration + 1 - player.currentTime() % hls_segment_duration;
-                            if (timeout > hls_segment_duration / 2) timeout = 0;
-                            if (player.paused()) timeout = 0;
-                            setTimeout(() => {
-                                const url = getUrlInfo();
-                                if (`${height}` != `${url.quality}`)
-                                {
-                                    console.debug(`Abandoning switching to ${height} as ${url.quality} is set`);
-                                    return;
-                                }
+                let requestCount = 0;
+                x = setInterval(() => {
+                    requestCount ++;
+                    if (requestCount > 30) clearInterval(x);
+                    pingHlsSegment(height)
+                        .then(success => {
+                            const url = getUrlInfo();
+                            if (`${height}` != `${url.quality}`)
+                            {
+                                console.debug(`Abandoning switching to ${height} as ${url.quality} is set`);
+                                return;
+                            }
+                            if (success)
+                            {
                                 applyVideoQuality();
                                 buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
                                 button?.classList?.add('vjs-menu-option-selected');
-                            }, timeout * 1000);
-                        })
-                        .catch(error => {
-                            console.log('HLS not ready. Retrying fetching...');
-                            setTimeout(() => {
-                                tryToFetchHLS();
-                            }, 500);
-                        });
-                }
-                tryToFetchHLS();
+                                clearInterval(x);
+                            }
+                            else
+                            {
+                                console.log('HLS not ready. Retrying fetching...');
+                            }
+                    });
+                }, 2000);
         });
     }
     else
     {
+        console.log('Fetching Direct...');
         retryFetch(getVideoSource()[0], undefined, undefined, undefined, undefined, true)
             .then(response => {
                 const url = getUrlInfo();
@@ -464,8 +486,17 @@ function setVideoQuality(height = 0, button = null)
                 buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
                 button?.classList?.add('vjs-menu-option-selected');
 
-                buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
-                button?.classList?.add('vjs-menu-option-selected');
+                if (info && info.always_transcode)
+                {
+                    x = setInterval(() => {
+                        if (!isBuffering)
+                        {
+                            clearInterval(x);
+                            usesHls = true;
+                            setVideoQuality(height);
+                        }
+                    }, 100);
+                }
             })
             .catch(error => {
                 const url = getUrlInfo();
@@ -475,6 +506,8 @@ function setVideoQuality(height = 0, button = null)
                     return;
                 }
                 console.error('Error fetching new quality:', error);
+                usesHls = true;
+                setVideoQuality(height);
             });
     }
 }
@@ -1004,17 +1037,16 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
         
         resolutions.sort((a, b) => (b.height || b) - (a.height || a)); // Sort descending
         if (!resolutions.includes('audio')) resolutions.push('audio');
-        if (!resolutions.includes('direct')) resolutions.push('direct');
         
         resolutions.forEach(resItem => {
-            const height = resItem === 'audio' ? 'audio' : resItem === 'direct' ? '' : (resItem.height || resItem);
-            if (typeof height !== 'number' && height !== 'audio' && height !== '') return;
+            const height = resItem === 'audio' ? 'audio' : (resItem.height || resItem);
+            if (typeof height !== 'number' && height !== 'audio') return;
             
             const button = document.createElement('button');
-            button.textContent = height === 'audio' ? 'Audio' : height === '' ? 'Direct' : `${height}p`;
+            button.textContent = height === 'audio' ? 'Audio' : `${height}p`;
             button.classList.add('vjs-resolution-option');
             var url = getUrlInfo();
-            if (url.quality == height || (url.quality == null && height == ''))
+            if (url.quality == height)
             {
                 button.classList.add('vjs-menu-option-selected');
             }
@@ -1037,6 +1069,7 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
 
             button.onclick = (event) => {
                 tryStopPropagation(event);
+                usesHls = false;
                 setVideoQuality(height, button);
                 this.handleCloseMenu(true);
             };
@@ -1666,6 +1699,25 @@ function loadVideo()
         }
     });
 
+    player.on('playing', () => {
+        isBuffering = false;
+    });
+
+    player.on('waiting', () => {
+        isBuffering = true;
+        setTimeout(() => {
+            const url = getUrlInfo();
+            if (!usesHls) return;
+            if (!isBuffering) return;
+            pingHlsSegment(url.quality)
+                .then(success => {
+                    if (success) return;
+                    usesHls = false;
+                    setVideoQuality(url.quality);
+                });
+        }, 1000);
+    });
+
     const errorDisplay = player.el_.querySelector('.vjs-error-display');
     errorDisplay.classList.add('spinner-parent');
     errorDisplay.querySelector('.vjs-modal-dialog-content').classList.add('spinner-body');
@@ -1740,14 +1792,7 @@ function loadVideo()
                 player.controlBar.SettingsButton.updateResolutions();
                 player.controlBar.SettingsButton.updateSubtitles(info.subtitles);
 
-                if (url.quality == null && info.load_default_quality)
-                {
-                    setVideoQuality(info.default_quality);
-                }
-                else
-                {
-                    player.src({ src: `/direct?url=${url.encodedUrl}`, type: info.sources[info.default_quality] });
-                }
+                setVideoQuality(url.quality || info.default_quality);
             }
 
             if (typeof info.title == 'string' && info.title != '')
@@ -1772,15 +1817,11 @@ function loadVideo()
             player.load();
             player.on('error', () => {
                 const error = player.error();
-                if (error && error.code === 4)
+                if (error)
                 {
-                    if (player.src().includes('/direct') && info.formats.length > 1)
-                    {
-                        setTimeout(() => {
-                            console.warn("Changing video quality due to unsupported format...");
-                            setVideoQuality(info.default_quality);
-                        }, 500);
-                    }
+                    console.warn(`EROROR ${error.code} - Changing video source in order to resolve it`);
+                    usesHls = !usesHls;
+                    setVideoQuality();
                 }
             });
             try
