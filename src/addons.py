@@ -834,9 +834,12 @@ def get_video_sources(url = None, meta = None, protocols = [], exts = []):
     best_audio = 0
     meta = meta or get_meta(url)
     formats = meta.get('formats') or []
+    language = meta.get('language')
+    formats.sort(key=lambda f: f.get('source_preference') or 0, reverse=True)
     for f in formats:
         video_name = ''
         audio_name = ''
+        if language and f.get('language') and (f.get('language') != language): continue
         if (f.get('vcodec') or 'none').lower() != 'none' or ((f.get('video_ext') or 'none').lower() != 'none'):
             video_name = f"{(f.get('height') or '')}"
         if f.get('acodec', 'none') != 'none':
