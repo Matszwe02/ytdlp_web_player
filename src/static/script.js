@@ -1749,11 +1749,10 @@ function loadVideo()
         errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
         player.el_.querySelector('.vjs-control-bar').classList.add('display-flex');
 
-        if (player.spriteThumbnails != null)
+        if (parseFloat(info.duration) < parseInt(info.generate_sprite_below) && parseFloat(info.duration) > 0)
         {
-            player.spriteThumbnails().setState({ready: false});
             retryFetch(`/sprite?url=${url.encodedUrl}`, {}, 100, undefined, false).then(response => {
-                player.spriteThumbnails().setState({ready: true});
+                    player.spriteThumbnails({ url: `/sprite?url=${url.encodedUrl}`, width: 160, height: 90, columns: 10, interval: 10, initOnDemand: true });
             });
         }
 
@@ -1808,15 +1807,6 @@ function loadVideo()
                 document.title = info.shortTitle + ' | ' + appTitle;
                 info.uploader = info.uploader? info.uploader : appTitle;
             }
-
-            try
-            {
-                if (parseFloat(info.duration) < parseInt(info.generate_sprite_below) && parseFloat(info.duration) > 0)
-                {
-                    player.spriteThumbnails({ url: `/sprite?url=${url.encodedUrl}`, width: 160, height: 90, columns: 10, interval: 10 });
-                }
-            }
-            catch {}
 
             player.load();
             player.on('error', () => {
