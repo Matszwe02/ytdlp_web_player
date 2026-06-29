@@ -13,7 +13,7 @@ from PIL import Image
 from datetime import datetime
 from hashlib import sha1
 from multiprocessing import Process, Queue
-from urllib.parse import parse_qs, quote_plus, unquote, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qs, quote_plus, unquote, urlencode, urljoin, urlparse, urlunparse
 from flask import Response, jsonify, request, send_file
 
 from external import yt_dlp
@@ -640,6 +640,29 @@ def stream_media_file(url: str, headers: str|None = None, cookies: str|None = No
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
+        if 'mpegurl' in mime_type.lower():
+            lines = []
+            url_regex = re.compile(r'(URI=["\'])([^"\']*)(["\'])')
+
+            def replace_url(match):
+                prefix, orig_url, suffix = match.groups()
+                new_url = f'/external?url={quote_plus(urljoin(url, orig_url))}&headers={quote_plus(headers)}&cookies={quote_plus(cookies)}'
+                return f'{prefix}{new_url}{suffix}'
+            
+            for line in response.content.decode('utf-8', errors='ignore').splitlines():
+                line_str = line.strip()
+                if not line_str:
+                    lines.append(line)
+                    continue
+
+                if line_str.startswith('#'):
+                    lines.append(url_regex.sub(replace_url, line))
+                else:
+                    lines.append(f'/external?url={quote_plus(urljoin(url, line_str))}&headers={quote_plus(headers)}&cookies={quote_plus(cookies)}')
+
+            resp = Response('\n'.join(lines), status=response.status_code, mimetype=mime_type)
+            return resp
+
         def generate():
             for chunk in response.iter_content(chunk_size=8192):
                 yield chunk
@@ -880,11 +903,7 @@ def get_subtitles(meta: dict):
 
 def generate_hls(audio_source, video_source):
 
-    def get_url(s):
-        if requests.head(url=s[0], headers=json.loads(s[1]) | {'Origin': 'http://example.com'}, cookies=load_http_cookies(s[2])).status_code >= 400:
-            print(f'Responded with status code > 400: redirecting to external')
-            return f'/external?url={quote_plus(s[0])}&headers={quote_plus(s[1])}&cookies={quote_plus(s[2])}'
-        return s[0]
+    get_url = lambda s: f'/external?url={quote_plus(s[0])}&headers={quote_plus(s[1])}&cookies={quote_plus(s[2])}'
 
     audio_url = get_url(audio_source) if audio_source and audio_source != video_source else None
     video_url = get_url(video_source) if video_source else None
