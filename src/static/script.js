@@ -8,6 +8,7 @@ let repeatStartTime = 0;
 let repeatEndTime = 0;
 let isBuffering = false;
 let usesHls = false;
+let ongoingRequest = null;
 let audioContext = null;
 let audioSource = null;
 
@@ -445,23 +446,18 @@ function setVideoQuality(height = null, button = null)
             .then(response => response.text())
             .then(playlist => {
                 let requestCount = 0;
-                x = setInterval(() => {
+                clearInterval(ongoingRequest);
+                ongoingRequest = setInterval(() => {
                     requestCount ++;
-                    if (requestCount > 30) clearInterval(x);
+                    if (requestCount > 30) clearInterval(ongoingRequest);
                     pingHlsSegment(height)
                         .then(success => {
-                            const url = getUrlInfo();
-                            if (`${height}` != `${url.quality}`)
-                            {
-                                console.debug(`Abandoning switching to ${height} as ${url.quality} is set`);
-                                return;
-                            }
                             if (success)
                             {
+                                clearInterval(ongoingRequest);
                                 applyVideoQuality();
                                 buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
                                 button?.classList?.add('vjs-menu-option-selected');
-                                clearInterval(x);
                             }
                             else
                             {
@@ -477,21 +473,17 @@ function setVideoQuality(height = null, button = null)
         retryFetch(getVideoSource()[0], undefined, undefined, undefined, undefined, true)
             .then(response => {
                 const url = getUrlInfo();
-                if (`${height}` != `${url.quality}`)
-                {
-                    console.log(`Abandoning switching to ${height} as ${url.quality} is set`);
-                    return;
-                }
                 applyVideoQuality();
                 buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
                 button?.classList?.add('vjs-menu-option-selected');
 
                 if (info && info.always_transcode)
                 {
-                    x = setInterval(() => {
+                    clearInterval(ongoingRequest);
+                    ongoingRequest = setInterval(() => {
                         if (!isBuffering)
                         {
-                            clearInterval(x);
+                            clearInterval(ongoingRequest);
                             usesHls = true;
                             setVideoQuality(height);
                         }
@@ -1857,6 +1849,7 @@ function loadVideo()
                     {
                         if (player.currentTime() + 10 > parseFloat(info.duration)) return;
                         ps.save();
+                        clearInterval(ongoingRequest);
                         player.src({ src: `/hls?url=${url.encodedUrl}&quality=audio`, type: 'application/x-mpegURL' });
                         ps.apply();
                         ps.suspend = true;
