@@ -611,7 +611,6 @@ class MediaDownloader:
 
 def download_media_file(url: str, path_without_ext: str, ext: str|None = None):
     """Download raw file with requests.get with selected filename"""
-    proxies = {proxy.split('://')[0]: proxy} if proxy else None
     response = requests.get(url, stream=True, proxies=proxies)
     response.raise_for_status()
     if not ext:
@@ -639,7 +638,7 @@ def stream_media_file(url: str, headers: str|None = None, cookies: str|None = No
         }
         if client_range := request.headers.get('Range'):
             headers_dict['Range'] = client_range
-        response = requests.get(url, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies))
+        response = requests.get(url, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies), proxies=proxies)
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
@@ -923,7 +922,7 @@ def generate_hls(audio_source, video_source):
 def generate_dash(audio_source, video_source, duration):
     def get_mp4_dash_ranges(source):
         headers_dict = json.loads(source[1]) | {"Range": "bytes=0-60000"}
-        response = requests.get(source[0], headers=headers_dict, cookies=load_http_cookies(source[2]))
+        response = requests.get(source[0], headers=headers_dict, cookies=load_http_cookies(source[2]), proxies=proxies)
         response.raise_for_status()
         data = response.content
         offset = 0
@@ -1065,7 +1064,7 @@ def get_sprite(url = None, meta = None, simulate = False):
             height = 0
 
             for i, img_url in enumerate(image_urls):
-                response = requests.get(img_url)
+                response = requests.get(img_url, proxies=proxies)
                 response.raise_for_status()
                 img = Image.open(io.BytesIO(response.content))
 

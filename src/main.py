@@ -42,6 +42,7 @@ ydl_global_opts = {'ffmpeg-location': ffmpeg, "noplaylist": True, 'playlistend':
 if not shutil.which('deno'): ydl_global_opts["js_runtimes"] = {"node": {}}
 
 app_version = External.get_app_version()
+proxies = {proxy.split('://')[0]: proxy} if proxy else None
 
 
 
