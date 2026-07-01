@@ -652,6 +652,13 @@ class SettingsButton extends videojs.getComponent('Button')
     {
         this.subtitleSwitcher.updateSubtitles(subtitleList);
     }
+
+    enableNonLiveControls()
+    {
+        this.downloadButton.el().style.display = '';
+        this.repeatButton.el().style.display = '';
+        this.playbackSpeedButton.el().style.display = '';
+    }
 }
 videojs.registerComponent('SettingsButton', SettingsButton);
 
@@ -706,13 +713,15 @@ class DownloadButton extends videojs.getComponent('Button')
         super(player, options);
         this.addClass('menu-button');
         this.controlText('Download');
+        this.el().innerHTML = '<span class="fa-solid fa-download"></span>';
+        this.el().style.display = 'none';
+
         this.startTime = null;
         this.endTime = null;
         this.startBtn = null;
         this.endBtn = null;
         this.parent = null;
         this.menu = this.createDownloadMenu();
-        this.el().innerHTML = '<span class="fa-solid fa-download"></span>';
         this.el().appendChild(this.menu);
     }
 
@@ -854,6 +863,8 @@ class RepeatButton extends videojs.getComponent('Button')
         this.addClass('menu-button');
         this.controlText('Repeat');
         this.el().innerHTML = '<i class="fa-solid fa-repeat"></i>';
+        this.el().style.display = 'none';
+
         this.repeatActive = false;
         this.repeatStartTime = null;
         this.repeatEndTime = null;
@@ -1246,6 +1257,7 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
         this.addClass('menu-button');
         this.controlText('Playback Speed');
         this.el().innerHTML = '<i class="fa-solid fa-forward"></i>';
+        this.el().style.display = 'none';
 
         this.parent = null;
         this.menu = this.createPlaybackSpeedMenu();
@@ -1786,6 +1798,7 @@ function loadVideo()
             {
                 player.controlBar.SettingsButton.updateResolutions();
                 player.controlBar.SettingsButton.updateSubtitles(info.subtitles);
+                if (parseFloat(info.duration) > 0) player.controlBar.SettingsButton.enableNonLiveControls();
 
                 setVideoQuality(url.quality || info.default_quality);
             }
