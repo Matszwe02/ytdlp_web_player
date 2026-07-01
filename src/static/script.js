@@ -1756,7 +1756,8 @@ function loadVideo()
         if (parseFloat(info.duration) < parseInt(info.generate_sprite_below) && parseFloat(info.duration) > 0)
         {
             retryFetch(`/sprite?url=${url.encodedUrl}`, {}, 100, undefined, false).then(response => {
-                    player.spriteThumbnails({ url: `/sprite?url=${url.encodedUrl}`, width: 160, height: 90, columns: 10, interval: 10, initOnDemand: true });
+                let s = info.sprite;
+                player.spriteThumbnails({ url: `/sprite?url=${url.encodedUrl}`, width: s[0], height: s[1], columns: s[2], interval: s[3], initOnDemand: true });
             });
         }
 

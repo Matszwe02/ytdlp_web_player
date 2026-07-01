@@ -7,7 +7,9 @@ import re
 import subprocess
 import time
 import traceback
+import io
 import requests
+import shutil
 import struct
 from PIL import Image
 from datetime import datetime
@@ -560,6 +562,7 @@ class MediaDownloader:
 
     def sprite(self):
         if self.meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
+        if get_sprite(self.url, self.meta): return
         if self.meta["duration"] > generate_sprite_below: raise ValueError(f"Video too long to generate sprite! ({self.meta["duration"]}s)")
         if not self.meta.get('height') and not self.meta.get('width'): raise TypeError('Sprite not available on non-video media!')
         video_path = check_media(url=self.url, media_type='video')
@@ -1037,6 +1040,54 @@ def get_good_quality(formats: list):
     return sorted_formats[-1]
 
 
+def get_sprite(url = None, meta = None, simulate = False):
+    """[width, height, columns, duration]"""
+    try:
+        format = None
+        formats = meta.get('formats') or []
+        formats.sort(key=lambda f: f.get('width') or 0)
+
+        for f in formats:
+            if not f.get('columns'): continue
+            format = f
+            if (f.get('width') or 0) >= 150 or (f.get('height') or 0) >= 150: break
+
+        if not simulate:
+            image_urls = []
+            if format.get('fragments'):
+                for fragment in format['fragments']:
+                    image_urls.append(fragment['url'])
+            else:
+                image_urls.append(format['url'])
+
+            downloaded_images = []
+            width = 0
+            height = 0
+
+            for i, img_url in enumerate(image_urls):
+                response = requests.get(img_url)
+                response.raise_for_status()
+                img = Image.open(io.BytesIO(response.content))
+
+                if i == 0: width = img.width
+                height += img.height
+
+                downloaded_images.append(img)
+
+            final_sprite = Image.new('RGB', (width, height))
+            current_y = 0
+            for img in downloaded_images:
+                final_sprite.paste(img, (0, current_y))
+                current_y += img.height
+
+            final_sprite.save(os.path.join(get_data_dir(url), 'sprite.jpg'))
+
+        return [format['width'], format['height'], format['columns'], 1 / format['fps']]
+    except Exception as e:
+        pprint_exc(e)
+        return None
+
+
 def search(query, search_engine='auto'):
     print(f'Searching for {query}')
     ydl_opts = {'quiet': True, 'skip_download': True, 'default_search': search_engine}
@@ -1111,6 +1162,7 @@ def get_video_info(meta: dict):
     info['audio_visualizer'] = audio_visualizer
     info['autoskip_sb_segments'] = autoskip_sb_segments
     info['chapters'] = generate_chapters(meta)
+    info['sprite'] = get_sprite(info['url'], meta, True) or [160, 90, 10, 10]
     if meta.get('is_live'):
         info['subtitles'] = []
         info['duration'] = '0'
