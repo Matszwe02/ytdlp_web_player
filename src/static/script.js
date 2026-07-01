@@ -1864,7 +1864,15 @@ function loadVideo()
                         if (player.currentTime() + 10 > parseFloat(info.duration)) return;
                         ps.save();
                         clearInterval(ongoingRequest);
-                        player.src({ src: `/hls?url=${url.encodedUrl}&quality=audio`, type: 'application/x-mpegURL' });
+                        if (!info.disable_transcoding)
+                            player.src({ src: `/hls?url=${url.encodedUrl}&quality=audio`, type: 'application/x-mpegURL' });
+                        else if (info.sources['audio'])
+                            player.src({ src: `/direct?url=${url.encodedUrl}&quality=audio`, type: info.sources['audio'] });
+                        else
+                        {
+                            console.log('No supported audio formats - cannot turn on bg playback');
+                            return;
+                        }
                         ps.apply();
                         ps.suspend = true;
                     }
