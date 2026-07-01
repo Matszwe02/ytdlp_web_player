@@ -472,7 +472,6 @@ function setVideoQuality(height = null, button = null)
         console.log('Fetching Direct...');
         retryFetch(getVideoSource()[0], undefined, undefined, undefined, undefined, true)
             .then(response => {
-                const url = getUrlInfo();
                 applyVideoQuality();
                 buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
                 button?.classList?.add('vjs-menu-option-selected');
@@ -484,6 +483,7 @@ function setVideoQuality(height = null, button = null)
                         if (!isBuffering)
                         {
                             clearInterval(ongoingRequest);
+                            if (info.disable_transcoding) return;
                             usesHls = true;
                             setVideoQuality(height);
                         }
@@ -491,13 +491,9 @@ function setVideoQuality(height = null, button = null)
                 }
             })
             .catch(error => {
-                const url = getUrlInfo();
-                if (`${height}` != `${url.quality}`)
-                {
-                    console.log(`Abandoning switching to ${height} as ${url.quality} is set`);
-                    return;
-                }
+                clearInterval(ongoingRequest);
                 console.error('Error fetching new quality:', error);
+                if (info.disable_transcoding) return;
                 usesHls = true;
                 setVideoQuality(height);
             });
@@ -1819,6 +1815,11 @@ function loadVideo()
                 const error = player.error();
                 if (error)
                 {
+                    if (info.disable_transcoding)
+                    {
+                        console.warn(`EROROR ${error.code}`);
+                        return;
+                    }
                     console.warn(`EROROR ${error.code} - Changing video source in order to resolve it`);
                     usesHls = !usesHls;
                     setVideoQuality();
