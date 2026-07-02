@@ -750,7 +750,7 @@ def preload(url = None, meta = None, playlist = None):
         Thread(target=get_meta, args=[url]).start()
     if not check_media(url, 'thumb'):
         Thread(target=MediaDownloader(url, 'thumb').run).start()
-    if not check_media(url, 'hls-audio'):
+    if not disable_transcoding and not check_media(url, 'hls-audio'):
         Thread(target=MediaDownloader(url, 'hls-audio').run).start()
     if playlist and not check_media(url, 'playlist'):
         with open(os.path.join(get_data_dir(url), 'playlist.json'), 'w') as f:
