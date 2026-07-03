@@ -24,7 +24,7 @@
 </head>
 <body>
     <label for="playerUrl">YT-DLP Player URL:</label>
-    <input type="url" id="playerUrl" pattern="https://.*" placeholder="https://example.com" title="YT-DLP player URL with HTTPS endpoint">
+    <input type="url" id="playerUrl" pattern="^(https:\/\/.*|http:\/\/localhost.*|http:\/\/127\.0\.0\.1.*)$" placeholder="http://localhost:5000" title="YT-DLP player URL with HTTPS endpoint">
     <label for="cookies">Send cookies with requests:</label>
     <input type="checkbox" id="cookies" title="If enabled, every replaced video will be played with your browser's cookies">
     

@@ -64,7 +64,7 @@ function saveOptions()
 function restoreOptions()
 {
     chrome.storage.sync.get({ playerUrl: '', cookies: false, allowedDomains: '' }, (items) => {
-        document.getElementById('playerUrl').value = items.playerUrl;
+        document.getElementById('playerUrl').value = items.playerUrl || 'http://localhost:5000';
         document.getElementById('cookies').checked = items.cookies;
         document.getElementById('allowedDomains').value = items.allowedDomains;
         renderAllowedDomains(items.allowedDomains.split(',').map(domain => domain.trim()).filter(domain => domain.length > 0));
