@@ -43,7 +43,7 @@ elif not ffmpeg:
 js_runtime = shutil.which('node') or shutil.which('deno') or External.download_deno()
 
 ydl_global_opts = {'ffmpeg-location': ffmpeg, "noplaylist": True, 'playlistend': 0, "remote_components": ["ejs:github"], "concurrent_fragment_downloads": 2}
-if 'deno' not in subprocess.check_output([js_runtime, '--version']).decode(): ydl_global_opts["js_runtimes"] = {"node": {}}
+if js_runtime and 'deno' not in subprocess.check_output([js_runtime, '--version']).decode(): ydl_global_opts["js_runtimes"] = {"node": {}}
 
 app_version = External.get_app_version()
 proxies = {proxy.split('://')[0]: proxy} if proxy else None
