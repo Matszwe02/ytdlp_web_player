@@ -140,6 +140,8 @@ class YTDLP:
     def _ydl_runner(url, opts, with_info, arg, queue, yt_id = None):
         logger = YTDLP.Logger(url, opts, 'download', yt_id)
         try:
+            if ffmpeg: os.environ['PATH'] += os.path.dirname(ffmpeg)
+            if js_runtime: os.environ['PATH'] += os.path.dirname(js_runtime)
             with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
                 if with_info:
                     ydl.download_with_info_file(arg)
@@ -192,6 +194,7 @@ class YTDLP:
     def get_info(url, opts):
         if (proxy): opts["proxy"] = proxy
         logger = YTDLP.Logger(url, opts, 'extract_info')
+        if js_runtime: os.environ['PATH'] += os.path.dirname(js_runtime)
         try:
             with yt_dlp.YoutubeDL(json.loads(json.dumps(opts)) | {'logger': logger}) as ydl:
                 return ydl.sanitize_info(ydl.extract_info(url, download=False))

@@ -36,6 +36,36 @@ class External:
 
 
     @staticmethod
+    def download_ffmpeg() -> str|None:
+        try:
+            if pip.main(['show', 'pyffmpeg']) > 0:
+                print('Installing "pyffmpeg" to project\'s environment')
+                pip.main(shlex.split('install --upgrade pyffmpeg'))
+            try:
+                importlib.reload(pyffmpeg)
+            except Exception:
+                import pyffmpeg # type: ignore
+            return pyffmpeg.FFmpeg().get_ffmpeg_bin()
+        except Exception:
+            return None
+
+
+    @staticmethod
+    def download_deno() -> str|None:
+        try:
+            if pip.main(['show', 'deno']) > 0:
+                print('Installing "deno" to project\'s environment')
+                pip.main(shlex.split('install --upgrade deno'))
+            try:
+                importlib.reload(deno)
+            except Exception:
+                import deno # type: ignore
+            return deno.find_deno_bin()
+        except Exception:
+            return None
+
+
+    @staticmethod
     def get_ffmpeg_version(ffmpeg_path):
         global ffmpeg_version
         if ffmpeg_version != '-': return ffmpeg_version

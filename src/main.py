@@ -1,6 +1,7 @@
 import os
 import time
 import shutil
+import subprocess
 from threading import Thread
 from external import External
 from dotenv import load_dotenv
@@ -34,12 +35,15 @@ os.makedirs(download_path, exist_ok=True)
 ffmpeg = shutil.which("ffmpeg")
 if disable_transcoding:
     ffmpeg = None
-    print("Running in no-transcoding mode. Resolution selection will not work, and some videos will fail to load!")
 elif not ffmpeg:
-    raise RuntimeError("FFMPEG can not be detected in your system. Install FFMPEG or disable transcoding.")
+    ffmpeg = External.download_ffmpeg()
+    if not ffmpeg:
+        raise RuntimeError("FFMPEG can not be detected nor installed in your system. Install FFMPEG or disable transcoding.")
+
+js_runtime = shutil.which('node') or shutil.which('deno') or External.download_deno()
 
 ydl_global_opts = {'ffmpeg-location': ffmpeg, "noplaylist": True, 'playlistend': 0, "remote_components": ["ejs:github"], "concurrent_fragment_downloads": 2}
-if not shutil.which('deno'): ydl_global_opts["js_runtimes"] = {"node": {}}
+if 'deno' not in subprocess.check_output([js_runtime, '--version']).decode(): ydl_global_opts["js_runtimes"] = {"node": {}}
 
 app_version = External.get_app_version()
 proxies = {proxy.split('://')[0]: proxy} if proxy else None
