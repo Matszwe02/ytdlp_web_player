@@ -22,105 +22,97 @@
 
 
 ## Features
+- **Daily auto update of yt-dlp to immediately support new yt-dlp codecs and sites**
 - everything you would expect a modern player to have
-- fast loading speed (most videos load within 4s)
+- fast loading speed (most videos load in 3s)
+- livestream support
+- minimalistic UI, configurable theme color
 - paste video URL / type search query / auto pasting from clipboard
 - zoom to fill for all devices
 - download, repeat videos
-- audio visualizer for music
-- PWA support with "share with" target for Android and IOS
-- clean UI, configurable theme color
-- basic livestream support
-- browser extension to allow including this player on every website, which also adds `Open link in YT-DLP Player` browser-wide context menu
-- embedding using `/iframe?url=...` endpoint
+- optional music visualizer
+- browser extension
+- PWA
+
 
 some of these features are off by default and need to be turned on in `.env`
 
-**Daily auto update of yt-dlp to immediately support new yt-dlp codecs and sites**
+---
+<table align="center">
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <b>Main Page (PWA)</b><br>Paste URL, seach for a video or click enter - when input field is empty, it will auto-fill from clipboard
+      <br><br><img src=".github/images/main.png" alt="Main Page" />
+    </td>
+    <td align="center" valign="top" width="50%">
+      <b>Vertical Video Support</b><br>Player automatically adjusts its aspect ratio to each video, in fullscreen you can zoom to fill
+      <br><br><img src=".github/images/vert.png" alt="Vertical Video Support" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <b>Phone App</b><br>Installable as PWA app - native phone experience, opening links with "share with YT-DLP Player"
+      <br><br><img src=".github/images/app.png" alt="Phone App" />
+    </td>
+    <td align="center" valign="top" width="50%">
+      <b>Browser Extension</b><br>Replace all videos seamlessly - consistent UI across every website, no irritating autoplay
+      <br><br><img src=".github/images/stream.png" alt="Browser Extension" />
+    </td>
+  </tr>
+</table>
 
-## Technologies used
-- HLS for shorter load times and better performance
-- videojs to support custom video elements
-- yt-dlp for video download
-- ffmpeg for better format support
-- sponsorblock for supported sites (currently YouTube)
-- Media Session API integration for system playback controls
-- Audio Context API for audio over-amplification and audio visualizer
 
 ## Planned
 - video quality changing without interrupts
-- high quality playback without transcoding
 - user-side player configuration
 
 
 ## Limitations
 - only YT-DLP supported videos work
 - video loading times and fallbacks:
-    - most videos load in less than 4 seconds, skipping transcoding until it starts ("Direct" in resolution seleciton)
-    - if it fails, most of remaining videos load in ~10s, when transcoding starts
+    - most videos load in around 3 seconds
+    - if it fails, transcoding starts and video loads in around 10s
     - if it also fails, the whole video is getting downloaded until it becomes available
-- all videos are being transcoded to HLS in realtime, so you need a machine that could handle that
-    - transcoding works from start of the videos, so you need to wait for later parts to buffer. For now the only alternative is to switch to "Direct" in resolution selection
 - project is under heavy development - you may expect bugs and issues
 
 
-
-## Images
-
-### Main Page
-![image](.github/images/main.png)
-### Vertical Video Support
-![vertical](.github/images/vert.png)
-### Obligatory Big Buck Bunny
-![big buck bunny](.github/images/bbb.png)
-### Browser Extension
-![Extension](.github/images/ext.png)
-### Phone App
-![PWA](.github/images/app.png)
-
-
-## DEMO
-
-### Demo server
-
-Low performance due to this server's limitations
-
-[https://ytdlp-web-player.vercel.app](https://ytdlp-web-player.vercel.app)
-
-### Proof-of-Concept YT-DLP Web Player inside Invidious
-
-[Docker Hub repo](https://hub.docker.com/r/matszwe02/invidious_ytdlp_web_player)
+## Technologies used
+- yt-dlp as a video downloader
+- videojs as a robust player
+- HLS transcoding for the most reliable playback
+- ffmpeg for better format support
+- node / deno for solving YT-DLP's js challenges
+- sponsorblock integration
+- Media Session API integration for system playback controls
+- Audio Context API for audio over-amplification and music visualizer
 
 
 ## How to run
 
-App should be accessible at [http://localhost:5000](http://localhost:5000)
+App should be accessible at http://localhost:5000
 
-### 1. Docker (preferred)
+### Docker
+- `docker run -p 5000:5000 matszwe02/ytdlp_web_player`
 
-- Run
-  ```sh
-  docker compose up
-  ```
+OR
+
+- Clone repo
+- Copy `src/example.env` to `src/.env`, modify as needed
+- Run `docker compose up`
 - For automatic app updates, see `compose.yml`
 - To enable HTTPS, see `compose.yml`
-  - then you can access the app with `https://localhost:5001`
-  - your browser will warn you about not secure connection, you need to click on allow
+  - then you can access the HTTPS app with https://localhost:5001
+  - your browser will warn you about not secure connection, you need to click on "allow"
 
-### 2. Run locally
-
-- Create and activate a virtual environment in `src/` and install `requirements.txt`
-- Install and ensure you have `ffmpeg` in PATH (typing `ffmpeg` in console should display ffmpeg info)
-  - Install and ensure you have `deno` or `node` in PATH (optional)
-- run with `python3 main.py`
-
-
-## Configure
+### Run locally (Python)
 
 - Copy `src/example.env` to `src/.env`, modify as needed
-- See `compose.yml` for additional configuration mentioned in [Docker section](#1-docker-preferred)
+- Create and activate a virtual environment in `src/` and install `requirements.txt`
+- optionally install `ffmpeg` and `node`/`deno`, otherwise they will be automatically installed to your venv
+- run `main.py`
 
-### Cookies
+
+## Cookies
 
 Some videos need cookies to work. With cookies you will be logged in to the video streaming's website while using the app.
 
@@ -136,34 +128,56 @@ I do not guarantee that cookies file is completly secure from accessing it throu
 
 ## Browser Extension
 
-### What it does
+Replaces every video in allowed (in extension settings) domains with YT-DLP Player. That results with all of the default video players to be seamlessly replaced with YT-DLP Player
 
-1. Adds `Open in YT-DLP Player` context menu for all links. So you can right-click any supported link and it is opened in YT-DLP Player directly.
+- This extension will disable all media playback on the website, disable native player and create YT-DLP Player's iframe in its place
 
-2. Replaces every video in allowed (in extension settings) domains with YT-DLP Player. That results with all of the default video players to be seamlessly replaced with YT-DLP Player.
+### Chromium Browser Extension
 
-### Installation
+Additionally adds `Open in YT-DLP Player` context menu for all links. So you can right-click any supported link and it is opened in YT-DLP Player directly
 
-- You can install the extension by downloading repo and selecting `/extension` path to import into browser's extensions
-- Alternatively you can load `/extension/extension.js` (or copy extension js from Web UI) with tampermonkey, or paste it into dev tools console
-    - For some websites you need to have one of `disable CSM` extensions
+- Install the extension by downloading repo and selecting `/extension` path to import into browser's extensions. You need to enable developer mode in `chrome://extensions`
+- Put player's URL in extension settings
+- In extension settings: enable/disable domains or start/stop temporarily
 
-### Working principle
+### Tampermonkey script
 
-- This extension will disable all media playback on selected websites
-    - it's by design, so keep in mind that no playback will be possible while the extension is active
-- It will spawn iframe directly in `<body>` and search for the best container to hover that iframe above it
-    - it is designed like that so DOM won't be significantly altered
-    - it sends your website's cookies to the server with each request, then tries to mark video as watched (if enabled)
-- That container gets opacity:0 and pointer-events:none so it can't be interacted with
-- It will watch for any change to update iframe's position or container
+- Create a new script and copy extension js from player's dropdown menu (or `/extension/extension.js`)
+- In script settings: enable/disable domains or start/stop temporarily
+- For some websites you need to install one of `disable CSM` extensions
+
+### Developer Tools script
+
+- copy extension js from player's dropdown menu (or `/extension/extension.js`) and paste into developer tools
+- For some websites you need to install one of `disable CSM` extensions
+
+
+## Demo, other use cases
+
+### Demo server
+
+Low performance and may be IP blacklisted due to this server's limitations
+
+https://ytdlp-web-player.vercel.app
+
+### Proof-of-Concept YT-DLP Web Player inside Invidious
+
+https://hub.docker.com/r/matszwe02/invidious_ytdlp_web_player
+
+### Sharing
+
+This player fully supports `Open Graph` - sharing it through social media and messaging apps shows video's title, thumbnail, and allows for direct playback
+
+### Embedding player
+
+If you want to embed this player, use `/iframe?url=...` endpoint
 
 
 ## Troubleshooting
 
 ### I can't install PWA / embed it as an iframe / extension does not load
 
-You need HTTPS for this, see [Docker section](#1-docker-preferred)
+You need HTTPS for this, see in [How to run](#how-to-run)
 
 ### I can't play some videos
 
@@ -172,12 +186,6 @@ Please check if it's supported by yt-dlp [here](https://github.com/yt-dlp/yt-dlp
 Also check [yt-dlp's issues](https://github.com/yt-dlp/yt-dlp/issues).
 
 If it appears to be supported, fill in a bug report with app logs.
-
-### Livestream doesn't work
-
-YT-DLP Web Player is very limited with this feature.
-
-Try using cookies or waiting 30s for the video to buffer before hitting play.
 
 ### Can this app do XYZ?
 
