@@ -37,7 +37,7 @@
 
 some of these features are off by default and need to be turned on in `.env`
 
----
+
 <table align="center">
   <tr>
     <td align="center" valign="top" width="50%">
