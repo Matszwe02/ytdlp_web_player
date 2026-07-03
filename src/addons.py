@@ -1165,7 +1165,6 @@ def get_video_info(meta: dict):
     info['default_quality'] = 'audio' if 'Music' in (meta.get('categories') or []) and audio_visualizer else get_good_quality(info['formats'])
     info['always_transcode'] = always_transcode
     info['disable_transcoding'] = disable_transcoding
-    info['generate_sprite_below'] = generate_sprite_below
     info['hls_duration'] = hls_duration
     info['hls_audio_duration'] = hls_audio_duration
     info['playlist_support'] = playlist_support
@@ -1173,7 +1172,9 @@ def get_video_info(meta: dict):
     info['audio_visualizer'] = audio_visualizer
     info['autoskip_sb_segments'] = autoskip_sb_segments
     info['chapters'] = generate_chapters(meta)
-    info['sprite'] = get_sprite(info['url'], meta, True) or [160, 90, 10, 10]
+    auto_sprite = get_sprite(info['url'], meta, True)
+    info['generate_sprite_below'] = max_video_duration if (auto_sprite and generate_sprite_below > 0) else generate_sprite_below
+    info['sprite'] = auto_sprite or [160, 90, 10, 10]
     if meta.get('is_live'):
         info['subtitles'] = []
         info['duration'] = '0'
