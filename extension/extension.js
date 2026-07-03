@@ -433,10 +433,10 @@ else
         GM_registerMenuCommand("Start", start);
         GM_registerMenuCommand("Stop", stop);
 
-        playerUrl = GM_getValue("playerUrl", null);
+        playerUrl = playerUrl || GM_getValue("playerUrl", null);
         if (!playerUrl)
         {
-            playerUrl = prompt("Enter YT-DLP Web Player URL:");
+            playerUrl = prompt("Enter YT-DLP Web Player URL (it will be saved in tampermonkey storage):");
             GM_setValue("playerUrl", playerUrl);
         }
 
