@@ -650,11 +650,19 @@ def stream_media_file(url: str, headers: str|None = None, cookies: str|None = No
                 prefix, orig_url, suffix = match.groups()
                 new_url = f'/external?url={quote_plus(urljoin(url, orig_url))}&headers={quote_plus(headers)}&cookies={quote_plus(cookies)}'
                 return f'{prefix}{new_url}{suffix}'
-            
-            for line in response.content.decode('utf-8', errors='ignore').splitlines():
+            raw_lines = response.content.decode('utf-8', errors='ignore').splitlines()
+            skipline = False
+            for idx, line in enumerate(raw_lines):
                 line_str = line.strip()
                 if not line_str:
                     lines.append(line)
+                    continue
+                if skipline:
+                    skipline = False
+                    continue
+                if line_str.startswith('#EXTINF:0.0') and idx > (len(raw_lines) - 6):
+                    print(f'Removing last short segment: {line_str}')
+                    skipline = True
                     continue
 
                 if line_str.startswith('#'):
