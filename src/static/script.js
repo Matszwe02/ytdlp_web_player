@@ -1505,6 +1505,12 @@ function adjustVideoSize()
     
     player.el_.style.width = width * scaling + 'px';
     player.el_.style.height = height * scaling + 'px';
+
+    const vidAspect = (parseInt(info['width']) || 0) / (parseInt(info['height']) || 1);
+    const playerAspect = player.el_.clientWidth / player.el_.clientHeight;
+
+    if (Math.abs(vidAspect - playerAspect) > 0.02) player.el_.classList.add('fit-contain');
+    else player.el_.classList.remove('fit-contain');
 }
 
 
