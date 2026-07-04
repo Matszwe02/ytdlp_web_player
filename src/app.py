@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, jsonify, Response, send_file
+from flask import Flask, render_template, request, jsonify, Response
 import cairosvg
 from io import BytesIO
 from starlette.middleware.wsgi import WSGIMiddleware
