@@ -83,43 +83,31 @@ function getIframeContainer()
 
 
     let maxArea = 0;
+    let bestVideo = null;
+    let maxDisplayScore = -Infinity;
+
     allVideos.forEach(video => {
         const rect = video.getBoundingClientRect();
         const area = rect.width * rect.height;
-        console.debug(`  - top:${rect.top}, left:${rect.left}, w:${rect.width}, h:${rect.height}`);
+        const closeX = Math.min(rect.left - 0, window.innerWidth - rect.right);
+        const closeY = Math.min(rect.top - 0, window.innerHeight - rect.bottom);
+        const visibilityScore = Math.min(closeX, closeY);
+        const displayScore = Math.sqrt(area) + visibilityScore;
         if (area > maxArea) maxArea = area;
-    });
 
+        console.debug(`  - Display Score: ${displayScore.toFixed(0)}, top:${rect.top}, left:${rect.left}, w:${rect.width}, h:${rect.height}`);
+
+        if (displayScore >= maxDisplayScore)
+        {
+            maxDisplayScore = displayScore;
+            bestVideo = video;
+        }
+    });
     if (maxArea === 0)
     {
         if (iframeContainer) videoResizeObserver.unobserve(iframeContainer);
         return;
     }
-
-    const potentialCandidates = allVideos.filter(video => {
-        const rect = video.getBoundingClientRect();
-        const area = rect.width * rect.height;
-        return area >= maxArea * 0.80;
-    });
-    console.debug(`Potential candidates: ${potentialCandidates.length}`);
-
-    let bestVideo = null;
-    let maxVisibilityScore = -Infinity;
-
-    potentialCandidates.forEach(video => {
-        const rect = video.getBoundingClientRect();
-        const closeX = Math.min(rect.left - 0, window.innerWidth - rect.right);
-        const closeY = Math.min(rect.top - 0, window.innerHeight - rect.bottom);
-        const visibilityScore = Math.min(closeX, closeY);
-
-        console.debug(`  - Visibility ${visibilityScore.toFixed(0)}, top:${rect.top}, left:${rect.left}, w:${rect.width}, h:${rect.height}`);
-
-        if (visibilityScore >= maxVisibilityScore)
-        {
-            maxVisibilityScore = visibilityScore;
-            bestVideo = video;
-        }
-    });
     if (bestVideo)
     {
         const rect = bestVideo.getBoundingClientRect();
