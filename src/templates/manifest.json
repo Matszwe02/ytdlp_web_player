@@ -14,33 +14,58 @@
             "src": "favicon.svg",
             "sizes": "480x480",
             "type": "image/svg+xml"
+        },
+        {
+            "src": "favicon72.png",
+            "sizes": "72x72",
+            "type": "image/png"
+        },
+        {
+            "src": "favicon128.png",
+            "sizes": "128x128",
+            "type": "image/png"
+        },
+        {
+            "src": "favicon144.png",
+            "sizes": "144x144",
+            "type": "image/png"
+        },
+        {
+            "src": "favicon192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "favicon512.png",
+            "sizes": "512x512",
+            "type": "image/png"
         }
     ],
     "screenshots": [
         {
             "src": "https://github.com/Matszwe02/ytdlp_web_player/raw/main/.github/images/app.png",
-            "sizes": "1280x720",
+            "sizes": "960x613",
             "type": "image/png",
             "platform": "wide",
             "label": "Phone App"
         },
         {
             "src": "https://github.com/Matszwe02/ytdlp_web_player/raw/main/.github/images/main.png",
-            "sizes": "1280x720",
+            "sizes": "991x628",
             "type": "image/png",
             "platform": "wide",
             "label": "Main Page"
         },
         {
             "src": "https://github.com/Matszwe02/ytdlp_web_player/raw/main/.github/images/vert.png",
-            "sizes": "1280x720",
+            "sizes": "1920x943",
             "type": "image/png",
             "platform": "wide",
             "label": "Vertical Video"
         },
         {
-            "src": "https://github.com/Matszwe02/ytdlp_web_player/raw/main/.github/images/bbb.png",
-            "sizes": "1280x720",
+            "src": "https://github.com/Matszwe02/ytdlp_web_player/raw/main/.github/images/stream.png",
+            "sizes": "675x455",
             "type": "image/png",
             "platform": "wide",
             "label": "Big Buck Bunny"
