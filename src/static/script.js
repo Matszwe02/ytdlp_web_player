@@ -767,7 +767,7 @@ class DownloadButton extends videojs.getComponent('Button')
         const options = [
             { quality: 'best', title: 'Highest Quality' },
             { quality: 'current', title: 'Current Quality' },
-            { quality: 'audio', title: 'Audio Only' },
+            { quality: 'audio', title: 'Audio' },
             { quality: 'trim', title: 'Trim' }
         ];
 
