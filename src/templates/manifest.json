@@ -1,44 +1,65 @@
 {
-    "id": "ytdlp_web_player",
+    "id": "/ytdlp_web_player",
     "name": "{{ app_title }}",
     "short_name": "{{ app_title }}",
     "description": "Internet video player powered by yt-dlp",
+    "categories": ["video"],
     "start_url": "/",
     "display": "standalone",
     "orientation": "any",
+    "dir": "ltr",
     "lang": "en",
+    "scope": "/",
     "theme_color": "{{ theme_color }}",
     "background_color": "{{ '#000' if amoled_bg else '#222' }}",
     "icons": [
         {
             "src": "favicon.svg",
             "sizes": "480x480",
-            "type": "image/svg+xml"
+            "type": "image/svg+xml",
+            "purpose": "any"
         },
         {
             "src": "favicon72.png",
             "sizes": "72x72",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
         },
         {
             "src": "favicon128.png",
             "sizes": "128x128",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
         },
         {
             "src": "favicon144.png",
             "sizes": "144x144",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
         },
         {
             "src": "favicon192.png",
             "sizes": "192x192",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "favicon192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
         },
         {
             "src": "favicon512.png",
             "sizes": "512x512",
-            "type": "image/png"
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "favicon512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
         }
     ],
     "screenshots": [
@@ -46,29 +67,25 @@
             "src": "https://github.com/Matszwe02/ytdlp_web_player/raw/main/.github/images/app.png",
             "sizes": "960x613",
             "type": "image/png",
-            "platform": "wide",
             "label": "Phone App"
         },
         {
             "src": "https://github.com/Matszwe02/ytdlp_web_player/raw/main/.github/images/main.png",
             "sizes": "991x628",
             "type": "image/png",
-            "platform": "wide",
             "label": "Main Page"
         },
         {
             "src": "https://github.com/Matszwe02/ytdlp_web_player/raw/main/.github/images/vert.png",
             "sizes": "1920x943",
             "type": "image/png",
-            "platform": "wide",
             "label": "Vertical Video"
         },
         {
             "src": "https://github.com/Matszwe02/ytdlp_web_player/raw/main/.github/images/stream.png",
             "sizes": "675x455",
             "type": "image/png",
-            "platform": "wide",
-            "label": "Big Buck Bunny"
+            "label": "Browser Extension"
         }
     ],
     "share_target": {

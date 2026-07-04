@@ -156,7 +156,8 @@ def serve_info():
 
 @app.route('/manifest.json')
 def serve_manifest():
-    return render_template('manifest.json', app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg)
+    manifest = render_template('manifest.json', app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg)
+    return Response(manifest.encode('utf-8'), mimetype='application/manifest+json')
 
 
 @app.route('/playlist')
