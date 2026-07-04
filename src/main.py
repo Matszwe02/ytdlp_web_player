@@ -15,6 +15,7 @@ generate_sprite_below = int(os.environ.get('GENERATE_SPRITE_BELOW', '1800'))
 max_video_age = int(os.environ.get('MAX_VIDEO_AGE', '3600'))
 max_video_duration = int(os.environ.get('MAX_VIDEO_DURATION', '36000'))
 default_quality = int(os.environ.get('DEFAULT_QUALITY', '720'))
+max_quality = int(os.environ.get('MAX_QUALITY', '2160'))
 always_transcode = (os.environ.get('ALWAYS_TRANSCODE', 'False')).lower() == 'true'
 autoskip_sb_segments = [seg for seg in (os.environ.get('AUTOSKIP_SB_SEGMENTS') or '').split(',') if seg != '']
 cookies_only_on_failure = (os.environ.get('COOKIES_ONLY_ON_FAILURE', 'True')).lower() == 'true'
