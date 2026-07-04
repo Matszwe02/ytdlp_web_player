@@ -330,14 +330,27 @@ class MediaDownloader:
                     YTDLP.download(self.url, self.ydl_opts)
                     thumb_file = check_media(url=self.url, media_type='thumb-orig')
 
-                ffmpeg_command = [
-                    '-y',
-                    '-i', thumb_file,
-                    '-vf', f'crop=w=min(iw\\,ih*({video_width}/{video_height})):h=min(ih\\,iw*({video_height}/{video_width})):x=(iw-ow)/2:y=(ih-oh)/2',
-                    os.path.join(self.data_dir, 'thumb.jpg')
-                ]
-                if not FFMPEG(self.url, ffmpeg_command).success: raise RuntimeError('FFMPEG failed to crop thumbnail')
-                print(f"Thumbnail cropped to video aspect ratio {video_width}:{video_height} using ffmpeg")
+                with Image.open(thumb_file) as im:
+                    im = im.convert("RGB")
+
+                    in_w, in_h = im.size
+                    target_ar = video_width / video_height
+                    if in_w / in_h > target_ar:
+                        new_w = int(in_h * target_ar)
+                        new_h = in_h
+                    else:
+                        new_h = int(in_w / target_ar)
+                        new_w = in_w
+
+                    left = (in_w - new_w) // 2
+                    top = (in_h - new_h) // 2
+                    right = left + new_w
+                    bottom = top + new_h
+
+                    im = im.crop((left, top, right, bottom))
+                    im.save(os.path.join(self.data_dir, 'thumb.jpg'), quality=95)
+
+                print(f"Thumbnail cropped using PIL")
                 os.remove(thumb_file)
             else:
                 print("Video dimensions not found in meta, skipping thumbnail cropping.")
