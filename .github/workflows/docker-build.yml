@@ -25,8 +25,16 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push Docker image
         run: |
           docker buildx build --platform linux/amd64,linux/arm64 \
+            -t ghcr.io/matszwe02/ytdlp_web_player:latest \
             -t matszwe02/ytdlp_web_player:latest \
             --push .
