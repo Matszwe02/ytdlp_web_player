@@ -387,9 +387,8 @@ class MediaDownloader:
 
     def video(self):
         if self.meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
-        if cookies := check_media(self.url, 'cookies') or get_global_cookies_file():
-            mark_watched = lambda: YTDLP.get_info(self.url, ydl_global_opts | {'mark_watched': True, 'cookiefile': cookies})
-            Thread(target=mark_watched).start()
+        mark_watched(self.url)
+
         height_param = "" if self.media_type.startswith('video-best') else f'[height<={self.res}]'
         if self.timestamps:
             if vid := check_res_at_least(self.url, self.res):
@@ -421,6 +420,8 @@ class MediaDownloader:
 
     def hls(self):
         if self.meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
+        mark_watched(self.url)
+
         res_str = 'audio' if 'audio' in self.media_type else str(self.res)
         hls_url_dir = os.path.join(gen_pathname(self.url), f"hls_segment-{res_str}")
         hls_output_dir = os.path.join(download_path, hls_url_dir)
@@ -516,6 +517,7 @@ class MediaDownloader:
 
 
     def direct(self):
+        mark_watched(self.url)
         get_direct(self.url, self.meta, self.res if 'audio' not in self.media_type else None)
 
 
@@ -780,6 +782,13 @@ def preload(url = None, meta = None, playlist = None):
         with open(os.path.join(get_data_dir(url), 'playlist.json'), 'w') as f:
             json.dump(playlist, f)
 
+
+def mark_watched(url):
+    if check_media(url, 'watched'): return
+    if cookies := check_media(url, 'cookies') or get_global_cookies_file():
+        mark_watched = lambda: YTDLP.get_info(url, ydl_global_opts | {'mark_watched': True, 'cookiefile': cookies})
+        Thread(target=mark_watched).start()
+        open(os.path.join(get_data_dir(url), 'watched'), 'w').close()
 
 
 def pprint_exc(e, code = 500):
