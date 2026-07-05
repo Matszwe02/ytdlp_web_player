@@ -224,7 +224,6 @@ def hls_segment():
 @app.route('/search')
 def serve_search():
     try:
-        if demo := (os.environ.get('DEMO_VIDEO')): return demo
         query = request.args.get('q')
         meta = search(query)[0]
         url = meta.get('original_url') or ''

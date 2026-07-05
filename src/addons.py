@@ -1218,7 +1218,6 @@ def normalize_url(url):
 
 
 def get_url(req):
-    if demo := (os.environ.get('DEMO_VIDEO')): return demo
     url = req.args.get('v') or req.args.get('url') or None
     if url is None or len(url) < 3: return None
     return normalize_url(url)
