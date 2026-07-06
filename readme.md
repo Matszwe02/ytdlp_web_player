@@ -177,13 +177,15 @@ If you want to embed this player, use `/iframe?url=...` endpoint
 
 ### I can't install PWA / embed it as an iframe / extension does not load
 
-You need HTTPS for this, see in [How to run](#how-to-run)
+You need a working HTTPS for this, see in [How to run](#how-to-run)
 
 ### I can't play some videos
 
 Please check if it's supported by yt-dlp [here](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md).
 
 Also check [yt-dlp's issues](https://github.com/yt-dlp/yt-dlp/issues).
+
+You can even try to download yt-dlp and download that video with it, to ensure there is a way to download it.
 
 If it appears to be supported, fill in a bug report with app logs.
 
