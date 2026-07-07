@@ -225,6 +225,7 @@ class FFMPEG:
         self.ffmpeg = ffmpeg
         self.ff_id = sha1(f'{time.time()}'.encode()).hexdigest()[:6]
         self.success = False
+        self.stdout = ''
         self.start_time = time.time()
         self.url = url
         self.affected_files = []
@@ -248,7 +249,9 @@ class FFMPEG:
         self.pid = self._p.pid
         Processes.setitem(self.pid, [self.url, f'FFMPEG {self.ff_id}', time.time()])
         for line in self._p.stdout:
-            print(f'[FFMPEG {self.ff_id}] {line.decode().strip()}')
+            line_out = line.decode().strip()
+            print(f'[FFMPEG {self.ff_id}] {line_out}')
+            self.stdout += line_out + '\n'
             if time.time() - self.start_time > 3600:
                 self.kill()
                 self.success = False
@@ -474,14 +477,14 @@ class MediaDownloader:
 
         seg_time = 0
         seg_num = 0
-        duration = self.meta["duration"]
+        duration = get_media_duration(self.url, self.meta, ffmpeg_command[1])
         hls_url_dir = os.path.join(gen_pathname(self.url), f"hls_segment-{res_str}")
         seg_path = f"/hls_segment?url={quote_plus(self.url)}&quality={res_str}&seg="
 
         with open(m3u8_path, "w") as f:
             f.write(f"#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:{hls_segment_duration}\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:VOD\n")
             while seg_time < duration:
-                time_to_add = min(hls_segment_duration, self.meta["duration"] - seg_time)
+                time_to_add = min(hls_segment_duration, duration - seg_time)
                 f.write(f"#EXTINF:{time_to_add:.6f},\n{seg_path}{seg_num}\n")
                 seg_time += time_to_add
                 seg_num += 1
@@ -791,6 +794,21 @@ def mark_watched(url):
         open(os.path.join(get_data_dir(url), 'watched'), 'w').close()
 
 
+def get_media_duration(url, meta, media):
+    if d := meta.get("duration"): return d
+    ffmpeg_command = ['-i', media, '-hide_banner', '-f', 'null', '-stats']
+    ff = FFMPEG(url)
+    try: ff.run(ffmpeg_command)
+    except Exception: pass
+    info = ff.stdout
+    for line in info.splitlines():
+        if line.strip().startswith('Duration:'):
+            duration = line.split('Duration:')[-1].split(', start:')[0].strip()
+            h, m, s = duration.split(":")
+            return int(h)*3600 + int(m)*60 + float(s)
+    raise RuntimeError('Media duration impossible to gather - report this bug')
+
+
 def pprint_exc(e, code = 500):
     error = (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))
     traceback.print_exception(e)
@@ -1025,40 +1043,42 @@ def choose_sources_for_res(sources: dict, res = None):
 
 
 def get_direct(url = None, meta = None, res = None, simulate = False):
+    try:
+        sources = get_video_sources(url, meta, protocols=['http', 'https'])
+        a, v = choose_sources_for_res(sources, res)
+        if a and (not res or a == v):
+            if not simulate:
+                with open(os.path.join(get_data_dir(url), f'direct-{res or "audio"}.url'), 'w') as f:
+                    f.write(a[0] + '\n' + a[1] + '\n' + a[2])
+            return 'video/mp4' if res else 'audio/mpeg'
 
-    sources = get_video_sources(url, meta, protocols=['http', 'https'])
-    a, v = choose_sources_for_res(sources, res)
-    if a and (not res or a == v):
-        if not simulate:
-            with open(os.path.join(get_data_dir(url), f'direct-{res or "audio"}.url'), 'w') as f:
-                f.write(a[0] + '\n' + a[1] + '\n' + a[2])
-        return 'video/mp4' if res else 'audio/mpeg'
+        sources = get_video_sources(url, meta, protocols=['m3u8_native'])
+        a, v = choose_sources_for_res(sources, res)
+        if a or v:
+            if not simulate:
+                print(f'Generating HLS direct for {res}')
+                try:
+                    content = generate_hls(a, v)
+                    with open(os.path.join(get_data_dir(url), f'direct-{res or "audio"}.m3u8'), 'w') as f:
+                        f.write(content)
+                except Exception as e:
+                    pprint_exc(e)
+            return 'application/x-mpegURL'
 
-    sources = get_video_sources(url, meta, protocols=['m3u8_native'])
-    a, v = choose_sources_for_res(sources, res)
-    if a or v:
-        if not simulate:
-            print(f'Generating HLS direct for {res}')
-            try:
-                content = generate_hls(a, v)
-                with open(os.path.join(get_data_dir(url), f'direct-{res or "audio"}.m3u8'), 'w') as f:
-                    f.write(content)
-            except Exception as e:
-                pprint_exc(e)
-        return 'application/x-mpegURL'
-
-    sources = get_video_sources(url, meta, protocols=['http', 'https'], exts=['mp4', 'm4a'])
-    a, v = choose_sources_for_res(sources, res)
-    if a or v:
-        if not simulate:
-            print(f'Generating MPD direct for {res}')
-            try:
-                content = generate_dash(a, v, meta['duration'])
-                with open(os.path.join(get_data_dir(url), f'direct-{res or "audio"}.mpd'), 'w') as f:
-                    f.write(content)
-            except Exception as e:
-                pprint_exc(e)
-        return 'application/dash+xml'
+        sources = get_video_sources(url, meta, protocols=['http', 'https'], exts=['mp4', 'm4a'])
+        a, v = choose_sources_for_res(sources, res)
+        if a or v:
+            if not simulate:
+                print(f'Generating MPD direct for {res}')
+                try:
+                    content = generate_dash(a, v, get_media_duration(url, meta, a[0] if a else v[0]))
+                    with open(os.path.join(get_data_dir(url), f'direct-{res or "audio"}.mpd'), 'w') as f:
+                        f.write(content)
+                except Exception as e:
+                    pprint_exc(e)
+            return 'application/dash+xml'
+    except Exception as e:
+        pprint_exc(e)
     return None
 
 
