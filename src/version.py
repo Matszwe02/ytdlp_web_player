@@ -8,8 +8,15 @@ pip.main(shlex.split('install --upgrade GitPython'))
 
 git = importlib.import_module('git')
 path = os.path.abspath('.').removesuffix('/src')
-latest_commit = git.Repo(path).head.commit
+repo = git.Repo(path)
+latest_commit = repo.head.commit
 commit_date = datetime.fromtimestamp(latest_commit.committed_date)
 commit_sha = latest_commit.hexsha[:4]
+version_string = commit_date.strftime('%Y-%m-%d') + ':' + commit_sha
+
+for tag in repo.tags or []:
+    if tag.commit == latest_commit:
+        version_string = str(tag)
+
 with open('version.txt', 'w') as f:
-    f.write(commit_date.strftime('%Y-%m-%d') + ':' + commit_sha)
+    f.write(version_string)
