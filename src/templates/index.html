@@ -41,10 +41,15 @@
             </button>
             <div id="expandable-content" class="expandable-content">
                 <ul>
-                    <li><a href="javascript:void(0)" onclick="copyExtensionScript(event)" id="script-copy"><i class="fa-solid fa-file-code"></i> Copy extension js</a></li>
-                    <li><a href="https://github.com/yt-dlp/yt-dlp" target="_blank"><i class="fa-solid fa-download"></i> YT-DLP version:<br><b>{{ydl_version}}</b></a></li>
-                    <li><a href="https://ffmpeg.org" target="_blank"><i class="fa-solid fa-cogs"></i> FFmpeg version:<br><b>{{ffmpeg_version}}</b></a></li>
-                    <li><a href="https://github.com/Matszwe02/ytdlp_web_player" target="_blank"><i class="fa-brands fa-github"></i></i> App version:<br><b>{{app_version}}</b></a></li>
+                    <li><a href="javascript:void(0)" onclick="copyExtensionScript(event)" id="script-copy"><i class="fa-solid fa-file-code"></i> Copy extension JS</a></li>
+                    <li>
+                        <a href="https://github.com/Matszwe02/ytdlp_web_player" target="_blank">
+                            <span title="{{app_version}}"><i class="fa-solid fa-circle-info"></i> Version:<br><b>{{app_version}}</b><br></span>
+                            <span title="{{ydl_version}}">YT-DLP: <b>{{ydl_version}}</b><br></span>
+                            <span title="{{js_runtime_version[4:]}}">{{js_runtime_version[:4]}}: <b>{{js_runtime_version[4:]}}</b><br></span>
+                            <span title="{{ffmpeg_version}}">FFmpeg: <b>{{ffmpeg_version}}</b><br></span>
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>

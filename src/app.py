@@ -18,15 +18,17 @@ wsgi = WSGIMiddleware(app)
 def index():
     print('Started serving root')
     ydl_version = External.get_ytdlp_version()
+    js_runtime_version = External.get_js_runtime_version(js_runtime)
     ffmpeg_version = External.get_ffmpeg_version(ffmpeg)
     print('Stopped serving root')
-    return render_template('index.html', ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg)
+    return render_template('index.html', ydl_version=ydl_version, app_version=app_version, js_runtime_version=js_runtime_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg)
 
 
 @app.route('/watch')
 def watch():
     print('Started serving watch')
     ydl_version = External.get_ytdlp_version()
+    js_runtime_version = External.get_js_runtime_version(js_runtime)
     ffmpeg_version = External.get_ffmpeg_version(ffmpeg)
     url = get_url(request)
     
@@ -42,7 +44,7 @@ def watch():
     preload(url)
 
     print('Stopped serving watch')
-    return render_template('watch.html', original_url=url, ydl_version=ydl_version, app_version=app_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg, video_width=video_width, video_height=video_height, video_title=video_title)
+    return render_template('watch.html', original_url=url, ydl_version=ydl_version, app_version=app_version, js_runtime_version=js_runtime_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg, video_width=video_width, video_height=video_height, video_title=video_title)
 
 
 @app.route('/iframe')

@@ -317,6 +317,9 @@ video
     text-decoration: none;
     display: block;
     cursor: pointer;
+    text-overflow: ellipsis;
+    text-wrap-mode: nowrap;
+    overflow-x: hidden;
 }
 
 .expandable-content i {

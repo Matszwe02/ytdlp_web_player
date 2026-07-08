@@ -12,6 +12,7 @@ except:
 
 
 ffmpeg_version = '-'
+js_runtime_version = 'Node-'
 app_version = '-'
 
 class External:
@@ -63,6 +64,19 @@ class External:
             return deno.find_deno_bin()
         except Exception:
             return None
+
+
+    @staticmethod
+    def get_js_runtime_version(js_runtime_path):
+        global js_runtime_version
+        if js_runtime_version != 'Node-': return js_runtime_version
+        try:
+            ver_str = subprocess.run([js_runtime_path, '--version'], capture_output=True).stdout.splitlines()[0].decode()
+            js_runtime_version = ver_str.split("(")[0].split("deno")[-1].strip() or 'Node-'
+            js_runtime_version = ('Deno' if 'deno' in ver_str.lower() else 'Node') + js_runtime_version
+        except Exception:
+            js_runtime_version = 'Node-'
+        return js_runtime_version
 
 
     @staticmethod
