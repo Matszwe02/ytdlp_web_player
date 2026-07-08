@@ -147,6 +147,7 @@ function createIframe(src='')
     iframe.style.top = '0px';
     iframe.style.left = '0px';
     iframe.allowFullscreen = true;
+    iframe.allow = 'autoplay';
     iframe.src = src;
     document.body.appendChild(iframe);
     setTimeout(() => {

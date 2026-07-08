@@ -1781,6 +1781,11 @@ function loadVideo()
             }
         }, { passive: false });
 
+        if (info.autoplay)
+        {
+            player.play();
+        }
+
     }
     retryFetch(`/info?url=${url.encodedUrl}`)
         .then(response => response.json())

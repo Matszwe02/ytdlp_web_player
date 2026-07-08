@@ -16,7 +16,9 @@ max_video_age = int(os.environ.get('MAX_VIDEO_AGE', '3600'))
 max_video_duration = int(os.environ.get('MAX_VIDEO_DURATION', '36000'))
 default_quality = int(os.environ.get('DEFAULT_QUALITY', '720'))
 max_quality = int(os.environ.get('MAX_QUALITY', '2160'))
+autoplay = (os.environ.get('AUTOPLAY', 'False')).lower() == 'true'
 always_transcode = (os.environ.get('ALWAYS_TRANSCODE', 'False')).lower() == 'true'
+disable_transcoding = os.environ.get('DISABLE_TRANSCODING', 'False').lower() == 'true'
 autoskip_sb_segments = [seg for seg in (os.environ.get('AUTOSKIP_SB_SEGMENTS') or '').split(',') if seg != '']
 cookies_only_on_failure = (os.environ.get('COOKIES_ONLY_ON_FAILURE', 'True')).lower() == 'true'
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
@@ -24,7 +26,6 @@ playlist_support = os.environ.get('PLAYLIST_SUPPORT', 'True').lower() == 'true'
 auto_bg_playback = os.environ.get('AUTO_BG_PLAYBACK', 'True').lower() == 'true'
 audio_visualizer = os.environ.get('AUDIO_VISUALIZER', 'False').lower() == 'true'
 download_path = os.environ.get('DOWNLOAD_PATH', './download')
-disable_transcoding = os.environ.get('DISABLE_TRANSCODING', 'False').lower() == 'true'
 proxy = os.environ.get('PROXY', '')
 port = int(os.environ.get('PORT', '5000'))
 

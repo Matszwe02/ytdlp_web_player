@@ -1206,6 +1206,7 @@ def get_video_info(meta: dict):
     info['height'] = meta.get('height')
     info['url'] = meta.get('original_url')
     info['default_quality'] = 'audio' if 'Music' in (meta.get('categories') or []) and audio_visualizer else get_good_quality(info['formats'])
+    info['autoplay'] = autoplay
     info['always_transcode'] = always_transcode
     info['disable_transcoding'] = disable_transcoding
     info['hls_duration'] = hls_duration
