@@ -487,6 +487,14 @@ video
     width: fit-content;
 }
 
+.vjs-layout-tiny .vjs-title-bar-text, .vjs-layout-x-small .vjs-title-bar-text, .vjs-layout-small .vjs-title-bar-text {
+    pointer-events: none !important;
+}
+
+.vjs-layout-tiny .vjs-uploader-text, .vjs-layout-x-small .vjs-uploader-text, .vjs-layout-small .vjs-uploader-text {
+    pointer-events: none !important;
+}
+
 .vjs-text-track-display > div
 {
     display: flex;
