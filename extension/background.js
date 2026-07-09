@@ -1,11 +1,14 @@
 var playerUrl = '';
 
+const storage = (typeof browser !== 'undefined' && browser.storage) ? browser.storage : (typeof chrome !== 'undefined' ? chrome.storage : null);
+const storageSync = storage.sync || storage.local;
 
-chrome.storage.sync.get({ playerUrl: '' }, (items) => {
+
+storageSync.get({ playerUrl: '' }, (items) => {
     playerUrl = items.playerUrl;
 });
 
-chrome.storage.onChanged.addListener((changes, namespace) => {
+storage.onChanged.addListener((changes, namespace) => {
     if (namespace === 'sync' && changes.playerUrl) {
         playerUrl = changes.playerUrl.newValue;
     }
@@ -23,14 +26,26 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId != "open-in-app" || !info.linkUrl) return;
-
-    chrome.windows.create({
-        incognito: true,
-        url: `${playerUrl}/watch?url=${encodeURIComponent(info.linkUrl)}`,
-        type: "popup",
-        focused: true,
-        state: "maximized"
-    });
+    try
+    {
+        chrome.windows.create({
+            incognito: true,
+            url: `${playerUrl}/watch?url=${encodeURIComponent(info.linkUrl)}`,
+            type: "popup",
+            focused: true,
+            state: "maximized"
+        });
+    }
+    catch
+    {
+        chrome.windows.create({
+            incognito: false,
+            url: `${playerUrl}/watch?url=${encodeURIComponent(info.linkUrl)}`,
+            type: "popup",
+            focused: true,
+            state: "maximized"
+        });
+    }
 });
 
 

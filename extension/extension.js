@@ -30,6 +30,9 @@ var lastBodyRect = null;
 var tabEnabled = true;
 var altSrc = "";
 
+const storage = (typeof browser !== 'undefined' && browser.storage) ? browser.storage : (typeof chrome !== 'undefined' ? chrome.storage : null);
+const storageSync = storage.sync || storage.local;
+
 
 function blockVideos()
 {
@@ -343,12 +346,12 @@ function tryStart()
 {
     if (!playerUrl)
     {
-        chrome.storage.sync.get({ playerUrl: '', cookies: false }, (items) => {
+        storageSync.get({ playerUrl: '', cookies: false }, (items) => {
             playerUrl = items.playerUrl;
             cookies = items.cookies;
             tryStart();
         });
-        chrome.storage.onChanged.addListener((changes, namespace) => {
+        storage.onChanged.addListener((changes, namespace) => {
             if (namespace !== 'sync' || !changes.playerUrl) return;
             playerUrl = changes.playerUrl.newValue;
         });
@@ -392,14 +395,14 @@ function updateAllowedDomains(allowedDomains)
 }
 
 
-if ((typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id))
+if (storage !== null)
 {
-    chrome.storage.sync.get({ allowedDomains: '' }, (items) => {
+    storageSync.get({ allowedDomains: '' }, (items) => {
         if (!items.allowedDomains) return;
         updateAllowedDomains(items.allowedDomains);
     });
 
-    chrome.storage.onChanged.addListener((changes, namespace) => {
+    storage.onChanged.addListener((changes, namespace) => {
         if (namespace !== 'sync' || !changes.allowedDomains) return;
         updateAllowedDomains(changes.allowedDomains.newValue);
     });

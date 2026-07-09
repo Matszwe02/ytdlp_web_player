@@ -1,3 +1,6 @@
+const storage = (typeof browser !== 'undefined' && browser.storage) ? browser.storage : (typeof chrome !== 'undefined' ? chrome.storage : null);
+const storageSync = storage.sync || storage.local;
+
 
 function renderAllowedDomains(domainsArray)
 {
@@ -58,12 +61,12 @@ function saveOptions()
     const playerUrl = document.getElementById('playerUrl').value.replace(/\/$/, '');
     const cookies = document.getElementById('cookies').checked;
     const allowedDomainsString = document.getElementById('allowedDomains').value;
-    chrome.storage.sync.set({ playerUrl: playerUrl, cookies: cookies, allowedDomains: allowedDomainsString }, () => {});
+    storageSync.set({ playerUrl: playerUrl, cookies: cookies, allowedDomains: allowedDomainsString }, () => {});
 }
 
 function restoreOptions()
 {
-    chrome.storage.sync.get({ playerUrl: '', cookies: false, allowedDomains: '' }, (items) => {
+    storageSync.get({ playerUrl: '', cookies: false, allowedDomains: '' }, (items) => {
         document.getElementById('playerUrl').value = items.playerUrl || 'http://localhost:5000';
         document.getElementById('cookies').checked = items.cookies;
         document.getElementById('allowedDomains').value = items.allowedDomains;

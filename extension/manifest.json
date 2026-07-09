@@ -3,6 +3,17 @@
   "description": "Replaces videos with YT-DLP Player and adds context menu",
   "version": "1.0.0",
   "manifest_version": 3,
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "ytdlp-web-player@matszwe02",
+        "data_collection_permissions": {
+          "required": [
+            "none"
+          ]
+        },
+      "strict_min_version": "126.0"
+    }
+  },
   "permissions": [
     "declarativeNetRequest",
     "storage",
@@ -13,7 +24,8 @@
     "<all_urls>"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
   },
   "action": {
     "default_icon": {
@@ -29,8 +41,8 @@
     }
   ],
   "icons": {
-    "48": "favicon.png",
-    "128": "favicon.png"
+    "48": "favicon48.png",
+    "128": "favicon128.png"
   },
   "options_page": "options.html"
 }
