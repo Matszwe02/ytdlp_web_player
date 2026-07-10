@@ -29,7 +29,7 @@
   },
   "action": {
     "default_icon": {
-      "16": "favicon.png"
+      "48": "favicon48.png"
     },
     "default_popup": "options.html"
   },
