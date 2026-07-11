@@ -92,7 +92,10 @@ some of these features are off by default and need to be turned on in `.env`
 App should be accessible at http://localhost:5000
 
 ### Docker
-- `docker run -p 5000:5000 matszwe02/ytdlp_web_player`
+- `docker run -p 5000:5000 matszwe02/ytdlp_web_player:stable`
+    - if you want stable version, ready for everyday use
+- `docker run -p 5000:5000 matszwe02/ytdlp_web_player:latest`
+    - if you want latest version - may have new and experimental features, it may also contain more bugs
 
 OR
 
