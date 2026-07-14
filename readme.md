@@ -129,17 +129,20 @@ Some videos need cookies to work. With cookies you will be logged in to the vide
 I do not guarantee that cookies file is completly secure from accessing it through the player. Additionally yt-dlp uses them when playing videos on behalf of the provided account. So I only recommend putting throwaway accounts here.
 
 
-## Browser Extension
+## Extension
 
-Replaces every video in allowed (in extension settings) domains with YT-DLP Player. That results with all of the default video players to be seamlessly replaced with YT-DLP Player
+YT-DLP Web Player provides an extension that replaces every video in allowed (in extension settings) domains with YT-DLP Player. That results with all of the default video players to be seamlessly replaced with YT-DLP Player
 
 - This extension will disable all media playback on the website, disable native player and create YT-DLP Player's iframe in its place
 
-### Chromium Browser Extension
+There are 3 ways of running this extension:
 
-Additionally adds `Open in YT-DLP Player` context menu for all links. So you can right-click any supported link and it is opened in YT-DLP Player directly
+### Browser Extension
 
-- Install the extension by downloading repo and selecting `/extension` path to import into browser's extensions. You need to enable developer mode in `chrome://extensions`
+Additionally adds `Open in YT-DLP Player` context menu for all links. So you can right-click any link and it is opened in YT-DLP Player directly
+
+- Extension available in [Chrome Web Store](https://chromewebstore.google.com/detail/yt-dlp-web-player/gnpabpjkhecpnecnlljfjlbbcokccgbj) and [Firefox Add-ons](https://addons.mozilla.org/en-GB/firefox/addon/yt-dlp-web-player/)
+    - alternatively, you can clone this repo and load it from `/extension` directory
 - Put player's URL in extension settings
 - In extension settings: enable/disable domains or start/stop temporarily
 
@@ -151,6 +154,7 @@ Additionally adds `Open in YT-DLP Player` context menu for all links. So you can
 
 ### Developer Tools script
 
+It is a temporary solution, every page reload clears it
 - copy extension js from player's dropdown menu (or `/extension/extension.js`) and paste into developer tools
 - For some websites you need to install one of `disable CSM` extensions
 
@@ -180,7 +184,7 @@ If you want to embed this player, use `/iframe?url=...` endpoint
 
 ### I can't install PWA / embed it as an iframe / extension does not load
 
-You need a working HTTPS for this, see in [How to run](#how-to-run)
+You need a working HTTPS for this, see in [How to run](#how-to-run). Some features will work when you run through HTTP from localhost, but it may not work properly.
 
 ### I can't play some videos
 
