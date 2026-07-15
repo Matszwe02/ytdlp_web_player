@@ -870,6 +870,18 @@ def get_meta(url: str):
                     resp = stream_media_file(src[0], src[1], src[2])
                     if isinstance(resp, Response):
                         if resp.status_code > 399: raise ConnectionError(resp.response)
+
+                        mime_type = resp.headers.get('Content-Type') or ''
+                        if 'mpegurl' in mime_type.lower():
+
+                            raw_lines = resp.data.decode('utf-8', errors='ignore').splitlines()
+                            for line in raw_lines:
+                                line_str = line.strip()
+                                if not line_str or line_str.startswith('#'): continue
+                                resp = stream_media_file(urljoin(url, line_str), src[1], src[2])
+                                if not isinstance(resp, Response) or resp.status_code > 399: raise ConnectionError('Can not send a HLS request')
+                                break
+
                     else: raise ConnectionError('Can not send a request')
                     meta['timestamp'] = int(time.time())
                     with open(cache, 'w') as f:
