@@ -143,6 +143,13 @@ document.getElementById('addCurrentDomainButton').addEventListener('click', addC
 document.getElementById('removeCurrentDomainButton').addEventListener('click', removeCurrentDomain);
 document.getElementById('startCurrentTabButton').addEventListener('click', () => sendMsg('start'));
 document.getElementById('stopCurrentTabButton').addEventListener('click', () => sendMsg('stop'));
-document.getElementById('playerUrl').addEventListener('input', saveOptions);
+let playerUrlTimeoutId = null;
+document.getElementById('playerUrl').addEventListener('input', () => {
+    if (playerUrlTimeoutId) clearTimeout(playerUrlTimeoutId);
+    playerUrlTimeoutId = setTimeout(() => {
+        saveOptions();
+        playerUrlTimeoutId = null;
+    }, 1000);
+});
 document.getElementById('cookies').addEventListener('input', saveOptions);
 document.getElementById('allowedDomains').addEventListener('input', saveOptions);
