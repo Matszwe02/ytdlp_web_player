@@ -860,9 +860,29 @@ def get_meta(url: str):
         print(cache)
         if cache:
             try:
-                with open(cache, 'r') as f: return json.load(f)
-            except:
+                with open(cache, 'r') as f:
+                    meta = json.load(f)
+                max_meta_age = 60 if meta.get('is_live') else 600
+                if time.time() - meta.get('timestamp') > max_meta_age:
+                    print('Checking metadata validity...')
+                    srcs = choose_sources_for_res(get_video_sources(url, meta), get_good_quality(get_video_formats(url, meta)))
+                    src = srcs[0] or srcs[1]
+                    resp = stream_media_file(src[0], src[1], src[2])
+                    if isinstance(resp, Response):
+                        if resp.status_code > 399: raise ConnectionError(resp.response)
+                    else: raise ConnectionError('Can not send a request')
+                    meta['timestamp'] = int(time.time())
+                    with open(cache, 'w') as f:
+                        json.dump(meta, f)
+                    print('Metadata still valid')
+                return meta
+            except Exception as e:
+                pprint_exc(e)
                 print('Meta file invalid - Regenerating...')
+                data_dir = get_data_dir(url)
+                for file in os.listdir(data_dir):
+                    if os.path.isdir(os.path.join(data_dir, file)): continue
+                    os.remove(os.path.join(data_dir, file))
         print(f'downloading meta for {url}')
         ydl_opts = {'skip_download': True}
         ydl_opts.update(ydl_global_opts)
@@ -870,6 +890,7 @@ def get_meta(url: str):
         info = YTDLP.get_info(url, ydl_opts)
         if info.get('entries'): info = info['entries'][0]
         info['original_url'] = url
+        info['timestamp'] = int(time.time())
         with open(os.path.join(get_data_dir(url), 'meta.json'), 'w') as f:
             json.dump(info, f)
             return info
