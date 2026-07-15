@@ -81,8 +81,16 @@ function unblockVideos()
 
 function getIframeContainer()
 {
-    const allVideos = Array.from(document.querySelectorAll('video, .html5-video-player, shreddit-player'));
-    console.debug(`Total videos found: ${allVideos.length}`);
+    let ordered_video_types = ['.html5-video-player', 'shreddit-player', 'video', 'img'];
+    let allVideos = [];
+    for (let index = 0; index < ordered_video_types.length; index++) {
+        allVideos = Array.from(document.querySelectorAll(ordered_video_types[index]));
+        if (allVideos.length > 0)
+        {
+            console.debug(`Total videos of type "${ordered_video_types[index]}" found: ${allVideos.length}`);
+            break;
+        }
+    }
 
 
     let maxArea = 0;
@@ -94,8 +102,9 @@ function getIframeContainer()
         const area = rect.width * rect.height;
         const closeX = Math.min(rect.left - 0, window.innerWidth - rect.right);
         const closeY = Math.min(rect.top - 0, window.innerHeight - rect.bottom);
-        const visibilityScore = Math.min(closeX, closeY);
-        const displayScore = Math.sqrt(area) + visibilityScore;
+        const visibilityScore = Math.max(Math.min(Math.min(closeX, closeY), (window.innerHeight + window.innerWidth) / 4), -(window.innerHeight + window.innerWidth) / 8);
+        console.debug(`Visibility score: ${visibilityScore}`);
+        const displayScore = Math.sqrt(area) + visibilityScore * 2;
         if (area > maxArea) maxArea = area;
 
         console.debug(`  - Display Score: ${displayScore.toFixed(0)}, top:${rect.top}, left:${rect.left}, w:${rect.width}, h:${rect.height}`);
