@@ -1494,22 +1494,17 @@ function adjustVideoSize()
 
     const width = videoElement.videoWidth || parseInt(info['width']) || 720;
     const height = videoElement.videoHeight || parseInt(info['height']) || 480;
-    const innerWidth = window.innerWidth * 0.9;
+    const innerWidth = window.innerWidth * 0.95;
     const innerHeight = window.innerHeight * 0.9;
-    
-    const min_dim = Math.min(innerWidth, innerHeight);
-    const min_width = (min_dim + innerWidth) / 2;
-    const min_height = (min_dim + innerHeight) / 2;
-    
-    const scaling = Math.min(min_width / width, min_height / height);
-    
+    const scaling = Math.min(innerWidth / width, innerHeight / height);
+
     player.el_.style.width = width * scaling + 'px';
     player.el_.style.height = height * scaling + 'px';
 
     const vidAspect = (parseInt(info['width']) || 0) / (parseInt(info['height']) || 1);
     const playerAspect = player.el_.clientWidth / player.el_.clientHeight;
 
-    if (Math.abs(vidAspect - playerAspect) > 0.02) player.el_.classList.add('fit-contain');
+    if (Math.abs(vidAspect - playerAspect) > 0.01) player.el_.classList.add('fit-contain');
     else player.el_.classList.remove('fit-contain');
 }
 
