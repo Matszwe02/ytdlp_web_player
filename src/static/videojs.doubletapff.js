@@ -2,12 +2,42 @@ function doubleTapFF(options)
 {
 	var videoElement = this;
 	var videoElementId = this.id();
+	document.getElementById(videoElementId).addEventListener("mousedown", clickHandler);
+	document.getElementById(videoElementId).addEventListener("mouseup", clickEndHandler);
 	document.getElementById(videoElementId).addEventListener("touchstart", tapHandler);
 	document.getElementById(videoElementId).addEventListener("touchmove", moveHandler);
 	document.getElementById(videoElementId).addEventListener("touchend", tapEndHandler);
 	var tappedTwice = false;
     var tapTimer = null;
+    var holdTimer = null;
+    var playbackRate = null;
     var initialMoveDistance = null;
+
+    function clearHoldTimer(e)
+    {
+        clearTimeout(holdTimer);
+        if (playbackRate)
+        {
+            e.preventDefault();
+            setTimeout(() => {
+                videoElement.play();
+            }, 50)
+            videoElement.playbackRate(playbackRate);
+            window.navigator?.vibrate?.(10);
+        }
+        playbackRate = null;;
+    }
+
+    function setHoldTimer()
+    {
+        if (videoElement.paused()) return;
+        holdTimer = setTimeout(() => {
+            if (playbackRate) return;
+            playbackRate = videoElement.playbackRate();
+            videoElement.playbackRate(playbackRate * 2);
+            window.navigator?.vibrate?.(10);
+        }, 500);
+    }
 
     function getTapTimer()
     {
@@ -40,26 +70,39 @@ function doubleTapFF(options)
         }, 300);
     }
 
+    function clickHandler(e)
+    {
+        if (e.target?.tagName?.toLowerCase() != 'video' || e.target?.classList.contains('vjs-poster')) return;
+        e.preventDefault();
+        if (!getTapTimer()) setHoldTimer();
+    }
+
+    function clickEndHandler(e)
+    {
+        clearHoldTimer(e);
+    }
+
 	function tapHandler(e)
     {
-        if (e.target?.tagName?.toLowerCase() != 'video' || e.target?.classList.contains('vjs-poster'))
-        {
-            return false;
-        }
+        if (!(videoElement.hasClass('vjs-user-active') || videoElement.paused())) e.preventDefault();
+        if (e.target?.tagName?.toLowerCase() != 'video' || e.target?.classList.contains('vjs-poster')) return;
+
         if (e.touches.length > 1)
         {
             clearTapTimer();
+            clearHoldTimer();
             initialMoveDistance = null;
+        }
+        else
+        {
+            if (!getTapTimer()) setHoldTimer();
         }
 
         var br = document.getElementById(videoElementId).getBoundingClientRect();
         var x = e.touches[0].clientX - br.left;
         var y = e.touches[0].clientY - br.top;
         
-        if (y > br.height * 0.8 || y < br.height * 0.2)
-        {
-            return false;
-        }
+        if (y > br.height * 0.8 || y < br.height * 0.2) return;
         
         if (x > br.width * 0.33 && x < br.width * 0.67)
         {
@@ -94,6 +137,7 @@ function doubleTapFF(options)
         if (e.touches.length > 1)
         {
             clearTapTimer();
+            clearHoldTimer();
         }
         if (e.touches.length === 2)
         {
@@ -125,6 +169,7 @@ function doubleTapFF(options)
 
     function tapEndHandler(e)
     {
+        clearHoldTimer(e);
         videoElement.el().querySelector('video').style.scale = 1;
     }
 
