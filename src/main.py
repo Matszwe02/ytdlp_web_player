@@ -35,15 +35,13 @@ hls_audio_duration = 10
 
 
 os.makedirs(download_path, exist_ok=True)
-ffmpeg = shutil.which("ffmpeg")
+ffmpeg = External.download_ffmpeg()
 if disable_transcoding:
     ffmpeg = None
 elif not ffmpeg:
-    ffmpeg = External.download_ffmpeg()
-    if not ffmpeg:
-        raise RuntimeError("FFMPEG can not be detected nor installed in your system. Install FFMPEG or disable transcoding.")
+    raise RuntimeError("FFMPEG can not be detected nor installed in your system. Install FFMPEG or disable transcoding.")
 
-js_runtime = shutil.which('node') or shutil.which('deno') or External.download_deno()
+js_runtime = External.download_deno()
 
 ydl_global_opts = {'ffmpeg-location': ffmpeg, "noplaylist": True, 'playlistend': 0, "remote_components": ["ejs:github"], "concurrent_fragment_downloads": 2}
 if js_runtime and 'deno' not in subprocess.check_output([js_runtime, '--version']).decode(): ydl_global_opts["js_runtimes"] = {"node": {}}
