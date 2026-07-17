@@ -1,6 +1,5 @@
 import os
 from flask import Flask, render_template, request, jsonify, Response
-import cairosvg
 from io import BytesIO
 from starlette.middleware.wsgi import WSGIMiddleware
 
@@ -185,6 +184,7 @@ def serve_favicon_png(size=512):
     favicon = favicon.replace('#ff7300', theme_color)
 
     favicon_png = BytesIO()
+    import cairosvg
     cairosvg.svg2png(bytestring=favicon.encode('utf-8'), write_to=favicon_png, output_width=size, output_height=size)
     favicon_png.seek(0)
     return Response(favicon_png, mimetype='image/png')
