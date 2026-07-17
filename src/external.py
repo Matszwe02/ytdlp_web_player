@@ -2,11 +2,6 @@ import os
 import shutil
 import subprocess
 import sys
-import yt_dlp
-try:
-    import yt_dlp.version
-except:
-    print('Warning: ytdlp does not support version')
 
 
 ffmpeg_version = '-'
@@ -14,6 +9,16 @@ js_runtime_version = 'Node-'
 app_version = '-'
 
 class External:
+
+
+    @staticmethod
+    def yt_dlp():
+        import yt_dlp
+        try:
+            import yt_dlp.version
+        except:
+            print('Warning: ytdlp does not support version')
+        return yt_dlp
 
 
     @staticmethod
@@ -127,6 +132,6 @@ class External:
     @staticmethod
     def get_ytdlp_version():
         try:
-            return yt_dlp.version.__version__ or '-'
+            return External.yt_dlp().version.__version__ or '-'
         except:
             return '-'

@@ -17,11 +17,11 @@ from hashlib import sha1
 from multiprocessing import Process, Queue
 from urllib.parse import parse_qs, quote_plus, unquote, urlencode, urljoin, urlparse, urlunparse
 from flask import Response, jsonify, request, send_file
-
-from external import yt_dlp
+from external import External
 from main import *
 from sb import SponsorBlock
 
+yt_dlp = External.yt_dlp()
 
 
 class FileCachingLock:
