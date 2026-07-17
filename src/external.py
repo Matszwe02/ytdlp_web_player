@@ -1,9 +1,7 @@
-import pip
-import shlex
-import importlib
 import os
 import shutil
 import subprocess
+import sys
 import yt_dlp
 try:
     import yt_dlp.version
@@ -17,34 +15,43 @@ app_version = '-'
 
 class External:
 
+
+    @staticmethod
+    def _pip_install(package):
+        if getattr(sys, 'frozen', False): raise RuntimeError('This environment does not allow installing packages')
+        python = sys.executable or 'python3'
+        try:
+            subprocess.run([python, '-m', 'pip', 'install', '--upgrade', package], capture_output=True, text=True, timeout=120, check=True)
+        except Exception as e:
+            print(f'Warning: pip install of {package} failed: {e}')
+
+
     @staticmethod
     def download_ytdlp():
         print('Downloading latest yt-dlp...')
-        global yt_dlp
-        pip.main(shlex.split('install --upgrade yt-dlp'))
         try:
-            importlib.reload(yt_dlp)
+            global yt_dlp
+            External._pip_install('yt-dlp')
             try:
+                import importlib
+                importlib.reload(yt_dlp)
                 importlib.reload(yt_dlp.version)
+                importlib.util
             except:
-                print('Warning: ytdlp does not support version')
-        except:
-            import yt_dlp
-            try:
+                import yt_dlp
                 import yt_dlp.version
-            except:
-                print('Warning: ytdlp does not support version')
+        except Exception as e:
+            print(f'Warning: yt-dlp update failed: {e}')
 
 
     @staticmethod
     def download_ffmpeg() -> str|None:
         try:
-            if pip.main(['show', 'pyffmpeg']) > 0:
-                print('Installing "pyffmpeg" to project\'s environment')
-                pip.main(shlex.split('install --upgrade pyffmpeg'))
             try:
-                importlib.reload(pyffmpeg)
+                import pyffmpeg # type: ignore
             except Exception:
+                print('Installing "pyffmpeg" to project\'s environment')
+                External._pip_install('pyffmpeg')
                 import pyffmpeg # type: ignore
             return pyffmpeg.FFmpeg().get_ffmpeg_bin()
         except Exception:
@@ -54,12 +61,11 @@ class External:
     @staticmethod
     def download_deno() -> str|None:
         try:
-            if pip.main(['show', 'deno']) > 0:
-                print('Installing "deno" to project\'s environment')
-                pip.main(shlex.split('install --upgrade deno'))
             try:
-                importlib.reload(deno)
+                import deno # type: ignore
             except Exception:
+                print('Installing "deno" to project\'s environment')
+                External._pip_install('deno')
                 import deno # type: ignore
             return deno.find_deno_bin()
         except Exception:

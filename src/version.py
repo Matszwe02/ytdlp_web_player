@@ -1,10 +1,9 @@
 from datetime import datetime
 import os
-import shlex
-import pip
 import importlib
+from external import External
 
-pip.main(shlex.split('install --upgrade GitPython'))
+External._pip_install('GitPython')
 
 git = importlib.import_module('git')
 path = os.path.abspath('.').removesuffix('/src')
