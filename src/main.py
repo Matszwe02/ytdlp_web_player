@@ -6,6 +6,7 @@ from threading import Thread
 from external import External
 from dotenv import load_dotenv
 
+os.chdir(os.path.dirname(__file__))
 
 load_dotenv()
 
@@ -25,7 +26,7 @@ amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
 playlist_support = os.environ.get('PLAYLIST_SUPPORT', 'True').lower() == 'true'
 auto_bg_playback = os.environ.get('AUTO_BG_PLAYBACK', 'True').lower() == 'true'
 audio_visualizer = os.environ.get('AUDIO_VISUALIZER', 'False').lower() == 'true'
-download_path = os.environ.get('DOWNLOAD_PATH', './download')
+download_path = os.path.abspath(os.environ.get('DOWNLOAD_PATH', './download'))
 proxy = os.environ.get('PROXY', '')
 port = int(os.environ.get('PORT', '5000'))
 

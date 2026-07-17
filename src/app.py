@@ -172,7 +172,7 @@ def serve_playlist():
 
 @app.route('/favicon.svg')
 def serve_favicon():
-    with open('static/favicon.svg', 'r') as f:
+    with open(os.path.join(app.static_folder, 'favicon.svg'), 'r') as f:
         favicon = f.read()
     favicon = favicon.replace('#ff7300', theme_color)
     return Response(favicon, mimetype='image/svg+xml')
@@ -180,7 +180,7 @@ def serve_favicon():
 
 @app.route('/favicon<int:size>.png')
 def serve_favicon_png(size=512):
-    with open('static/favicon.svg', 'r') as f:
+    with open(os.path.join(app.static_folder, 'favicon.svg'), 'r') as f:
         favicon = f.read()
     favicon = favicon.replace('#ff7300', theme_color)
 
@@ -192,7 +192,7 @@ def serve_favicon_png(size=512):
 
 @app.route('/sw.js')
 def serve_sw():
-    with open('static/sw.js', 'r') as f:
+    with open(os.path.join(app.static_folder, 'sw.js'), 'r') as f:
         sw = f.read()
     return Response(sw, mimetype='text/javascript')
 
