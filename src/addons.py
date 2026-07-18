@@ -584,7 +584,7 @@ class MediaDownloader:
     def sprite(self):
         if self.meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
         if get_sprite(self.url, self.meta): return
-        if self.meta["duration"] > generate_sprite_below: raise ValueError(f"Video too long to generate sprite! ({self.meta["duration"]}s)")
+        if self.meta["duration"] > generate_sprite_below: raise ValueError(f"Video too long to generate sprite! ({self.meta['duration']}s)")
         if not self.meta.get('height') and not self.meta.get('width'): raise TypeError('Sprite not available on non-video media!')
         video_path = check_media(url=self.url, media_type='video')
         sprite_dir = os.path.join(self.data_dir, 'temp_sprite')
@@ -994,12 +994,13 @@ def generate_hls(audio_source, video_source):
 
     audio_url = get_url(audio_source) if audio_source and audio_source != video_source else None
     video_url = get_url(video_source) if video_source else None
+    audio_grp = ',AUDIO="audio_grp"'
 
     return '\n'.join([
         '#EXTM3U',
         '#EXT-X-VERSION:3',
         f'#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio_grp",NAME="English",DEFAULT=YES,AUTOSELECT=YES,URI="{audio_url}"' if audio_url and video_url else "",
-        f'#EXT-X-STREAM-INF:BANDWIDTH=1500000{",AUDIO=\"audio_grp\"" if audio_url and video_url else ""}',
+        f'#EXT-X-STREAM-INF:BANDWIDTH=1500000{audio_grp if audio_url and video_url else ""}',
         f'{video_url}' if video_url else f'{audio_url}'
     ])
 
