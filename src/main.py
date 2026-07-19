@@ -5,6 +5,7 @@ import subprocess
 from threading import Thread
 from external import External
 from dotenv import load_dotenv
+import sys
 
 os.chdir(os.path.dirname(__file__))
 
@@ -89,10 +90,10 @@ if __name__ == '__main__':
         if not os.path.isdir(item): os.remove(item)
 
     Thread(target=delete_old_files, daemon=True).start()
-    Thread(target=ytdlp_download, daemon=True).start()
     import uvicorn
-    try:
-        uvicorn.run("app:wsgi", host='0.0.0.0', port=port, workers=4, lifespan='off')
-    except Exception:
+    if getattr(sys, 'frozen', False):
         from app import wsgi
         uvicorn.run(wsgi, host='0.0.0.0', port=port, workers=1, lifespan='off')
+    else:
+        Thread(target=ytdlp_download, daemon=True).start()
+        uvicorn.run("app:wsgi", host='0.0.0.0', port=port, workers=4, lifespan='off')
