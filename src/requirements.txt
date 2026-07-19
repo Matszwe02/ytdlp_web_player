@@ -5,4 +5,3 @@ yt-dlp
 pillow
 uvicorn
 starlette
-cairosvg

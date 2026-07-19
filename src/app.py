@@ -179,13 +179,22 @@ def serve_favicon():
 
 @app.route('/favicon<int:size>.png')
 def serve_favicon_png(size=512):
-    with open(os.path.join(app.static_folder, 'favicon.svg'), 'r') as f:
-        favicon = f.read()
-    favicon = favicon.replace('#ff7300', theme_color)
+
+    from PIL import Image
+
+    img = Image.open(os.path.join(app.static_folder, 'favicon-template.png')).convert('RGBA')
+    color = tuple(int(theme_color[i:i+2], 16) / 255 for i in (1, 3, 5))
+
+    data = img.getdata()
+    new_data = []
+    for item in data:
+        new_data.append((item[0] * color, item[1] * color, item[2] * color, item[3]))
+
+    img.putdata(new_data)
+    img = img.resize((size, size), Image.Resampling.BICUBIC)
 
     favicon_png = BytesIO()
-    import cairosvg
-    cairosvg.svg2png(bytestring=favicon.encode('utf-8'), write_to=favicon_png, output_width=size, output_height=size)
+    img.save(favicon_png, format='PNG')
     favicon_png.seek(0)
     return Response(favicon_png, mimetype='image/png')
 
