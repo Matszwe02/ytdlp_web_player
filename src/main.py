@@ -9,7 +9,14 @@ import sys
 
 os.chdir(os.path.dirname(__file__))
 
+print('Loading configuration from environment, env file and command line arguments')
+
 load_dotenv()
+
+for arg in sys.argv[1:]:
+    if arg.startswith('-') and '=' in arg:
+        key, value = arg.split('=', 1)
+        os.environ[key.upper().lstrip('-')] = value
 
 app_title = os.environ.get('APP_TITLE', 'YT-DLP Player')
 theme_color = os.environ.get('THEME_COLOR', '#ff7300')
