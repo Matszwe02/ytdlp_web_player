@@ -30,8 +30,15 @@ var lastBodyRect = null;
 var tabEnabled = true;
 var altSrc = "";
 
-const storage = (typeof browser !== 'undefined' && browser.storage) ? browser.storage : (typeof chrome !== 'undefined' ? chrome.storage : null);
-const storageSync = storage.sync || storage.local;
+var storage = null;
+var storageSync = null;
+var videoResizeObserver = null;
+try
+{
+    storage = (typeof browser !== 'undefined' && browser.storage) ? browser.storage : (typeof chrome !== 'undefined' ? chrome.storage : null);
+    storageSync = storage.sync || storage.local;
+}
+catch {}
 
 
 function blockVideos()
@@ -43,7 +50,7 @@ function blockVideos()
         {
             if (media.muted && media.volume == 0 && media.paused && !media.autoplay) continue;
             console.log(`Blocking ${media}`);
-            
+
             const stopMedia = (e = null) => {
                 if (!tabEnabled) return;
                 if (e !== null)
@@ -175,7 +182,6 @@ function createIframe(src='')
                 documentCookies: document.cookie,
                 currentWebsiteUrl: window.top.location.href
             });
-            
         }
         catch (error)
         {
@@ -222,7 +228,6 @@ function updateIframeGeometry(forceZero = false)
     {
         iframe.style.top = `${containerRect?.top || 0}px`;
         iframe.style.left = `${containerRect?.left || 0}px`;
-        
     }
     else
     {
@@ -242,7 +247,7 @@ function updateIframe(updateContainer = false)
     if (iframe?.src && iframe?.src != iframeSrc)
     {
         console.debug('Creating temporary cancellation iframe');
-        cancellingIframe = document.createElement('iframe');
+        let cancellingIframe = document.createElement('iframe');
         cancellingIframe.src = iframe.src.replace('/iframe?', '/cancel?');
         iframe.style.display = 'none';
         document.body.appendChild(cancellingIframe);
@@ -277,7 +282,7 @@ function updateIframe(updateContainer = false)
                 iframeContainer.style.pointerEvents = 'none';
             }
         }
-        updateIframeGeometry(forceZero = !iframeEnabled);
+        updateIframeGeometry(!iframeEnabled);
     }
     else
     {
@@ -306,7 +311,7 @@ function start()
     if (window.navigation)
     {
         window.navigation.addEventListener('navigate', () => {
-            setTimeout(updateIframe, 100); 
+            setTimeout(updateIframe, 100);
         });
     }
 
@@ -353,7 +358,7 @@ function stop()
 
 function tryStart()
 {
-    if (!playerUrl)
+    if (!playerUrl && storage !== null && storageSync !== null)
     {
         storageSync.get({ playerUrl: '', cookies: false }, (items) => {
             playerUrl = items.playerUrl;
@@ -404,7 +409,7 @@ function updateAllowedDomains(allowedDomains)
 }
 
 
-if (storage !== null)
+if (storage !== null && storageSync !== null)
 {
     storageSync.get({ allowedDomains: '' }, (items) => {
         if (!items.allowedDomains) return;
