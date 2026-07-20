@@ -1,4 +1,6 @@
 import os
+import signal
+import sys
 from flask import Flask, render_template, request, jsonify, Response
 from io import BytesIO
 from starlette.middleware.wsgi import WSGIMiddleware
@@ -11,6 +13,13 @@ from external import External
 app = Flask(__name__)
 wsgi = WSGIMiddleware(app)
 
+def signal_handler(signum, frame):
+    print(f"Signal {signum} received. Shutting down...")
+    Processes.rm_all()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 
 @app.route('/')
