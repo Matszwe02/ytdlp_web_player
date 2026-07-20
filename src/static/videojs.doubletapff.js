@@ -73,7 +73,7 @@ function doubleTapFF(options)
     function clickHandler(e)
     {
         if (e.target?.tagName?.toLowerCase() != 'video' || e.target?.classList.contains('vjs-poster')) return;
-        e.preventDefault();
+        if (!(videoElement.hasClass('vjs-user-active') || videoElement.paused())) e.preventDefault();
         if (!getTapTimer()) setHoldTimer();
     }
 
@@ -84,8 +84,8 @@ function doubleTapFF(options)
 
 	function tapHandler(e)
     {
-        if (!(videoElement.hasClass('vjs-user-active') || videoElement.paused())) e.preventDefault();
         if (e.target?.tagName?.toLowerCase() != 'video' || e.target?.classList.contains('vjs-poster')) return;
+        if (!(videoElement.hasClass('vjs-user-active') || videoElement.paused())) e.preventDefault();
 
         if (e.touches.length > 1)
         {
