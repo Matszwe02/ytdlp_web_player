@@ -208,8 +208,8 @@ Please fill in a bug report. Attach browser and app logs if relevant, app versio
 
 <a href="https://www.star-history.com/?repos=Matszwe02%2Fytdlp_web_player&type=date&legend=top-left">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Matszwe02/ytdlp_web_player&type=date&theme=dark&legend=top-left" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Matszwe02/ytdlp_web_player&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Matszwe02/ytdlp_web_player&type=date&legend=top-left" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Matszwe02/ytdlp_web_player&type=date&theme=dark&legend=top-left&sealed_token=Zl2dzmWUVUFTEUi3gsml_QdK81OsclisvdMzzAPqjx4Mw-hM5yGunbLB7ZfzHSImqHJln6sjfraFdR4NTvzwtayFPXg9KXZxaEKR3QLDjmlz0G6K5PAB-tYNce-2hNRxLaeY-MEnVtwwCD7aUivxdI_aKacEyBcLZfDk2Y8qMMbWBmEbMvcLUezM1uPg" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Matszwe02/ytdlp_web_player&type=date&legend=top-left&sealed_token=Zl2dzmWUVUFTEUi3gsml_QdK81OsclisvdMzzAPqjx4Mw-hM5yGunbLB7ZfzHSImqHJln6sjfraFdR4NTvzwtayFPXg9KXZxaEKR3QLDjmlz0G6K5PAB-tYNce-2hNRxLaeY-MEnVtwwCD7aUivxdI_aKacEyBcLZfDk2Y8qMMbWBmEbMvcLUezM1uPg" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Matszwe02/ytdlp_web_player&type=date&legend=top-left&sealed_token=Zl2dzmWUVUFTEUi3gsml_QdK81OsclisvdMzzAPqjx4Mw-hM5yGunbLB7ZfzHSImqHJln6sjfraFdR4NTvzwtayFPXg9KXZxaEKR3QLDjmlz0G6K5PAB-tYNce-2hNRxLaeY-MEnVtwwCD7aUivxdI_aKacEyBcLZfDk2Y8qMMbWBmEbMvcLUezM1uPg" />
  </picture>
 </a>
