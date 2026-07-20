@@ -18,7 +18,9 @@ jobs:
       - name: Archive Extension
         run: |
           cd extension
-          zip -r ../extension.zip .
+          zip -r ../extension_firefox.zip .
+          sed -i '/"scripts": \["background.js"\],/d' manifest.json
+          zip -r ../extension_chrome.zip .
 
       - name: Publish to Chrome Web Store
         id: publish-chrome-extension
@@ -26,7 +28,7 @@ jobs:
         with:
           mode: publish
           extension_id: ${{ vars.CHROME_EXTENSION_ID }}
-          zip_file_path: ./extension.zip
+          zip_file_path: ./extension_chrome.zip
           client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
           client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           refresh_token: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
@@ -37,7 +39,7 @@ jobs:
         uses: wdzeng/firefox-addon@v1
         with:
           addon-guid: ytdlp-web-player@matszwe02
-          xpi-path: ./extension.zip
+          xpi-path: ./extension_firefox.zip
           self-hosted: false
           jwt-issuer: ${{ secrets.FIREFOX_JWT_ISSUER }}
           jwt-secret: ${{ secrets.FIREFOX_JWT_SECRET }}
