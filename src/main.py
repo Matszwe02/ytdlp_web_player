@@ -38,6 +38,8 @@ download_path = os.path.abspath(os.environ.get('DOWNLOAD_PATH', './download'))
 proxy = os.environ.get('PROXY', '')
 port = int(os.environ.get('PORT', '5000'))
 
+deprecated_env = []
+
 hls_duration = 5
 hls_audio_duration = 10
 

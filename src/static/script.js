@@ -1791,6 +1791,13 @@ function loadVideo()
                 displayPlayerError(info['error']);
                 return;
             }
+            if (info.alerts)
+            {
+                for (let i = 0; i < info.alerts.length; i++)
+                {
+                    alert(info.alerts[i]);
+                }
+            }
             player.on('durationchange', () => {if (player.duration() > 0) playerReady()});
             player.on('loadeddata', () => {playerReady()});
 

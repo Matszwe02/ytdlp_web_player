@@ -630,6 +630,17 @@ class MediaDownloader:
 
 
 
+def check_alerts():
+    alerts = []
+    if os.environ.get('SUPRESS_WARNINGS'): return alerts
+    for env_var in deprecated_env:
+        if os.environ.get(env_var) is not None:
+            alerts.append(f'You are using a deprecated environment variable "{env_var}" which no longer works.')
+    if alerts:
+        alerts.append('You can disable alerts by setting "SUPRESS_WARNINGS" environment variable to true.')
+    return alerts
+
+
 def download_media_file(url: str, path_without_ext: str, ext: str|None = None):
     """Download raw file with requests.get with selected filename"""
     response = requests.get(url, stream=True, proxies=proxies)
@@ -1257,6 +1268,7 @@ def get_video_info(meta: dict):
     if meta.get('is_live'):
         info['subtitles'] = []
         info['duration'] = '0'
+    info['alerts'] = check_alerts()
     return info
 
 
