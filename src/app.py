@@ -197,7 +197,7 @@ def serve_favicon_png(size=512):
     data = img.getdata()
     new_data = []
     for item in data:
-        new_data.append((item[0] * color, item[1] * color, item[2] * color, item[3]))
+        new_data.append((int(item[0] * color[0]), int(item[1] * color[1]), int(item[2] * color[2]), item[3]))
 
     img.putdata(new_data)
     img = img.resize((size, size), Image.Resampling.BICUBIC)
