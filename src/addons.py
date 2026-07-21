@@ -60,21 +60,21 @@ class Processes:
     @staticmethod
     def get():
         proc = {}
-        for i in os.listdir(download_path):
-            if not os.path.isdir(os.path.join(download_path, i)):
-                with open(os.path.join(download_path, i), 'r') as f:
+        for i in os.listdir(data_path):
+            if not os.path.isdir(os.path.join(data_path, i)):
+                with open(os.path.join(data_path, i), 'r') as f:
                     proc[str(i)] = json.load(f)
         return proc
 
     @staticmethod
     def getitem(item):
-        with open(os.path.join(download_path, str(item)), 'r') as f:
+        with open(os.path.join(data_path, str(item)), 'r') as f:
             return json.load(f)
 
     @staticmethod
     def setitem(item, val):
         print(f'Assigning pid {item} to {val}')
-        with open(os.path.join(download_path, str(item)), 'w') as f:
+        with open(os.path.join(data_path, str(item)), 'w') as f:
             json.dump(val, f)
 
     @staticmethod
@@ -88,8 +88,8 @@ class Processes:
                 print('Skipping killing - process already exited')
             except Exception as e:
                 pprint_exc(e)
-        if os.path.exists(os.path.join(download_path, str(item))):
-            os.remove(os.path.join(download_path, str(item)))
+        if os.path.exists(os.path.join(data_path, str(item))):
+            os.remove(os.path.join(data_path, str(item)))
 
     @staticmethod
     def rm_all(url = None):
@@ -427,7 +427,7 @@ class MediaDownloader:
 
         res_str = 'audio' if 'audio' in self.media_type else str(self.res)
         hls_url_dir = os.path.join(gen_pathname(self.url), f"hls_segment-{res_str}")
-        hls_output_dir = os.path.join(download_path, hls_url_dir)
+        hls_output_dir = os.path.join(data_path, hls_url_dir)
         hls_segment_duration = hls_audio_duration if res_str == 'audio' else hls_duration
         os.makedirs(hls_output_dir, exist_ok=True)
 
@@ -831,7 +831,7 @@ def gen_pathname(url: str):
 
 
 def get_data_dir(url):
-    data_dir = os.path.join(download_path, gen_pathname(url))
+    data_dir = os.path.join(data_path, gen_pathname(url))
     return data_dir
 
 

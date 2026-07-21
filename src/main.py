@@ -34,17 +34,18 @@ amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
 playlist_support = os.environ.get('PLAYLIST_SUPPORT', 'True').lower() == 'true'
 auto_bg_playback = os.environ.get('AUTO_BG_PLAYBACK', 'True').lower() == 'true'
 audio_visualizer = os.environ.get('AUDIO_VISUALIZER', 'False').lower() == 'true'
-download_path = os.path.abspath(os.environ.get('DOWNLOAD_PATH', './download'))
+data_path = os.path.abspath(os.environ.get('DATA_PATH', './data'))
 proxy = os.environ.get('PROXY', '')
 port = int(os.environ.get('PORT', '5000'))
 
-deprecated_env = []
+deprecated_env = ['DOWNLOAD_PATH']
 
 hls_duration = 5
 hls_audio_duration = 10
 
 
-os.makedirs(download_path, exist_ok=True)
+os.makedirs(data_path, exist_ok=True)
+print(f'Data path: {data_path}')
 ffmpeg = External.download_ffmpeg()
 if disable_transcoding:
     ffmpeg = None
@@ -72,8 +73,8 @@ def delete_old_files():
     while True:
         print(f"Running periodic removal of old files")
         try:
-            for item_name in os.listdir(download_path):
-                vid_path = os.path.join(download_path, item_name)
+            for item_name in os.listdir(data_path):
+                vid_path = os.path.join(data_path, item_name)
                 if not os.path.isdir(vid_path): continue
 
                 keepalive_file = os.path.join(vid_path, 'keepalive')
@@ -94,8 +95,8 @@ def delete_old_files():
 
 if __name__ == '__main__':
 
-    for item_name in os.listdir(download_path):
-        item = os.path.join(download_path, item_name)
+    for item_name in os.listdir(data_path):
+        item = os.path.join(data_path, item_name)
         if not os.path.isdir(item): os.remove(item)
 
     Thread(target=delete_old_files, daemon=True).start()

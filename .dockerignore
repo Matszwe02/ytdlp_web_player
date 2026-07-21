@@ -4,7 +4,7 @@
 **/.venv/
 **/.venv*/
 **/env*/
-**/download
+**/data
 **/__pycache__/
 **/.ssl/
 **/cookies.txt

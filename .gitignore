@@ -5,7 +5,7 @@
 **/.venv*/
 **/env*/
 **/.env
-**/download
+**/data
 **/__pycache__/
 **/version.txt
 **/version-dynamic.txt
