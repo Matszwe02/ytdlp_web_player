@@ -100,19 +100,26 @@ App should be accessible at http://localhost:5000
 OR
 
 - Clone repo
-- Copy `src/example.env` to `src/.env`, modify as needed
 - Run `docker compose up`
 - For automatic app updates, see `compose.yml`
+- To enable environment:
+    - Uncomment:
+        ```
+        # env_file:
+        #     - src/.env
+        ```
+    - Copy `src/example.env` to `src/.env`, modify as needed
 - To enable HTTPS, see `compose.yml`
   - then you can access the HTTPS app with https://localhost:5001
   - your browser will warn you about not secure connection, you need to click on "allow"
 
 ### Run locally (Python)
 
-- Copy `src/example.env` to `src/.env`, modify as needed
 - Create and activate a virtual environment in `src/` and install `requirements.txt`
 - optionally install `ffmpeg` and `node`/`deno`, otherwise they will be automatically installed to your venv
 - run `main.py`
+- To enable environment:
+    - Copy `src/example.env` to `src/.env`, modify as needed
 
 
 ## Cookies

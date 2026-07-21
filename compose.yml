@@ -1,12 +1,12 @@
 services:
     ytdlp_web_player:
         # build: .
-        image: matszwe02/ytdlp_web_player
+        image: matszwe02/ytdlp_web_player:stable
         # volumes:
         #     - ./src/cookies.txt:/app/cookies.txt
         restart: unless-stopped
-        env_file:
-            - src/.env
+        # env_file:
+        #     - src/.env
         ports:
             - 5000:5000
 
