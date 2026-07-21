@@ -894,7 +894,8 @@ def get_meta(url: str):
                 data_dir = get_data_dir(url)
                 for file in os.listdir(data_dir):
                     if os.path.isdir(os.path.join(data_dir, file)): continue
-                    os.remove(os.path.join(data_dir, file))
+                    try: os.remove(os.path.join(data_dir, file))
+                    except: pass
         print(f'downloading meta for {url}')
         ydl_opts = {'skip_download': True}
         ydl_opts.update(ydl_global_opts)
