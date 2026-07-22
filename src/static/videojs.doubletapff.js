@@ -141,6 +141,7 @@ function doubleTapFF(options)
         }
         if (e.touches.length === 2)
         {
+            if (!videoElement.hasClass('vjs-fullscreen')) return;
             const x0 = e.touches[0].clientX;
             const y0 = e.touches[0].clientY;
             const x1 = e.touches[1].clientX;
