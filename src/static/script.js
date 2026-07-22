@@ -470,7 +470,7 @@ function setVideoQuality(height = null, button = null)
     else
     {
         console.log('Fetching Direct...');
-        retryFetch(getVideoSource()[0], undefined, undefined, undefined, undefined, true)
+        retryFetch(getVideoSource()[0], 2, undefined, undefined, undefined, true)
             .then(response => {
                 applyVideoQuality();
                 buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
