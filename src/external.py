@@ -52,17 +52,17 @@ class External:
     @staticmethod
     def download_ffmpeg() -> str|None:
         try:
-            if f := shutil.which("ffmpeg"): return f
+            if f := shutil.which("ffmpeg"): return os.path.abspath(f)
             p = os.path.dirname(__file__)
             for f in os.listdir(p):
-                if f.startswith('ffmpeg'): return os.path.join(p, f)
+                if f.startswith('ffmpeg'): return os.path.abspath(os.path.join(p, f))
             try:
                 import pyffmpeg # type: ignore
             except Exception:
                 print('Installing "pyffmpeg" to project\'s environment')
                 External._pip_install('pyffmpeg')
                 import pyffmpeg # type: ignore
-            return pyffmpeg.FFmpeg().get_ffmpeg_bin()
+            return os.path.abspath(pyffmpeg.FFmpeg().get_ffmpeg_bin())
         except Exception:
             return None
 
@@ -70,17 +70,17 @@ class External:
     @staticmethod
     def download_deno() -> str|None:
         try:
-            if f := shutil.which("deno") or shutil.which("node"): return f
+            if f := shutil.which("deno") or shutil.which("node"): return os.path.abspath(f)
             p = os.path.dirname(__file__)
             for f in os.listdir(p):
-                if f.startswith('deno') or f.startswith('node'): return os.path.join(p, f)
+                if f.startswith('deno') or f.startswith('node'): return os.path.abspath(os.path.join(p, f))
             try:
                 import deno # type: ignore
             except Exception:
                 print('Installing "deno" to project\'s environment')
                 External._pip_install('deno')
                 import deno # type: ignore
-            return deno.find_deno_bin()
+            return os.path.abspath(deno.find_deno_bin())
         except Exception:
             return None
 
