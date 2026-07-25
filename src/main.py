@@ -1,11 +1,12 @@
 import os
-import time
+import psutil
 import shutil
 import subprocess
+import sys
+import time
 from threading import Thread
 from external import External
 from dotenv import load_dotenv
-import sys
 
 os.chdir(os.path.dirname(__file__))
 
@@ -37,6 +38,7 @@ audio_visualizer = os.environ.get('AUDIO_VISUALIZER', 'False').lower() == 'true'
 data_path = os.path.abspath(os.environ.get('DATA_PATH', './data'))
 proxy = os.environ.get('PROXY', '')
 port = int(os.environ.get('PORT', '5000'))
+linked_pid = int(os.environ.get('LINKED_PID', '0'))
 
 deprecated_env = ['DOWNLOAD_PATH']
 
@@ -100,6 +102,17 @@ if __name__ == '__main__':
         if not os.path.isdir(item): os.remove(item)
 
     Thread(target=delete_old_files, daemon=True).start()
+
+    def pid_watcher():
+        print(f"Watching process {linked_pid}")
+        while True:
+            time.sleep(1)
+            if not psutil.pid_exists(linked_pid):
+                print(f"Process {linked_pid} exited. Exiting.")
+                os._exit(0)
+
+    if linked_pid != 0: Thread(target=pid_watcher, daemon=True).start()
+
     import uvicorn
     if getattr(sys, 'frozen', False):
         from app import wsgi
