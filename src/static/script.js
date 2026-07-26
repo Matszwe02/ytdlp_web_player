@@ -6,6 +6,7 @@ let activeFetches = 0; // Counter for active retryFetch calls
 let repeatMode = false;
 let repeatStartTime = 0;
 let repeatEndTime = 0;
+let minBufferAheadTime = 0;
 let isBuffering = false;
 let usesHls = false;
 let ongoingRequest = null;
@@ -1698,10 +1699,39 @@ function loadVideo()
                 player.play();
             }, 100);
         }
+        if (info && parseFloat(info.duration) == 0)
+        {
+            let timeDiff= player.bufferedEnd() - player.currentTime();
+            let minLiveBuffer = parseFloat(info.min_live_buffer);
+            if (timeDiff > 30 || minLiveBuffer <= 0) return;
+            if (timeDiff < minBufferAheadTime) minBufferAheadTime = Math.max(timeDiff, 0);
+            else minBufferAheadTime = (minBufferAheadTime * 2047 + timeDiff) / 2048;
+            
+            if (minBufferAheadTime < minLiveBuffer)
+            {
+                player.playbackRate(0.95);
+                console.log('-');
+            }
+            else if (minBufferAheadTime > minLiveBuffer * 3)
+            {
+                player.playbackRate(1.1);
+                console.log('++');
+            }
+            else if (minBufferAheadTime > minLiveBuffer * 2)
+            {
+                player.playbackRate(1.05);
+                console.log('+');
+            }
+            else
+            {
+                player.playbackRate(1);
+            }
+        }
     });
 
     player.on('playing', () => {
         isBuffering = false;
+        minBufferAheadTime = 1;
         if (info && parseFloat(info.duration) == 0 && player.currentTime() < 1)
         {
             player.currentTime(99999999);

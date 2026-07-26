@@ -27,6 +27,7 @@ max_video_duration = int(os.environ.get('MAX_VIDEO_DURATION', '36000'))
 default_quality = int(os.environ.get('DEFAULT_QUALITY', '720'))
 max_quality = int(os.environ.get('MAX_QUALITY', '2160'))
 autoplay = (os.environ.get('AUTOPLAY', 'False')).lower() == 'true'
+min_live_buffer = float(os.environ.get('MIN_LIVE_BUFFER', '1'))
 always_transcode = (os.environ.get('ALWAYS_TRANSCODE', 'False')).lower() == 'true'
 disable_transcoding = os.environ.get('DISABLE_TRANSCODING', 'False').lower() == 'true'
 autoskip_sb_segments = [seg for seg in (os.environ.get('AUTOSKIP_SB_SEGMENTS') or '').split(',') if seg != '']
