@@ -103,6 +103,7 @@ if __name__ == '__main__':
         if not os.path.isdir(item): os.remove(item)
 
     Thread(target=delete_old_files, daemon=True).start()
+    Thread(target=ytdlp_download, daemon=True).start()
 
     def pid_watcher():
         print(f"Watching process {linked_pid}")
@@ -119,5 +120,4 @@ if __name__ == '__main__':
         from app import wsgi
         uvicorn.run(wsgi, host='0.0.0.0', port=port, workers=1, lifespan='off')
     else:
-        Thread(target=ytdlp_download, daemon=True).start()
         uvicorn.run("app:wsgi", host='0.0.0.0', port=port, workers=4, lifespan='off')

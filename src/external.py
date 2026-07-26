@@ -1,7 +1,10 @@
+import json
 import os
 import shutil
 import subprocess
 import sys
+import urllib.request
+import zipfile
 
 
 ffmpeg_version = '-'
@@ -35,8 +38,10 @@ class External:
     def download_ytdlp():
         print('Downloading latest yt-dlp...')
         try:
-            global yt_dlp
-            External._pip_install('yt-dlp')
+            if getattr(sys, 'frozen', False):
+                External._load_frozen_ytdlp()
+            else:
+                External._pip_install('yt-dlp')
             try:
                 import importlib
                 importlib.reload(yt_dlp)
@@ -135,3 +140,37 @@ class External:
             return External.yt_dlp().version.__version__ or '-'
         except:
             return '-'
+
+
+    @staticmethod
+    def _install_ytdlp_raw(ytdlp_dir):
+
+        print('Installing yt-dlp from wheel...')
+
+        with urllib.request.urlopen("https://pypi.org/pypi/yt-dlp/json", timeout=10) as r:
+            data = json.load(r)
+        version = data["info"]["version"]
+        url = [f for f in data["releases"][version] if f["filename"].endswith(".whl")][0]["url"]
+
+        shutil.rmtree(ytdlp_dir, ignore_errors=True)
+        wheel_path = os.path.join(ytdlp_dir, '.whl')
+        os.makedirs(wheel_path, exist_ok=True)
+
+        wheel = os.path.join(wheel_path, "yt-dlp.whl")
+        with urllib.request.urlopen(url, timeout=60) as r, open(wheel, "wb") as f:
+            shutil.copyfileobj(r, f)
+        with zipfile.ZipFile(wheel) as z:
+            z.extractall(ytdlp_dir)
+        print(f'Yt-dlp {version} installed!')
+
+
+    @staticmethod
+    def _load_frozen_ytdlp():
+        ytdlp_dir = str(os.path.abspath('./yt-dlp_update'))
+        External._install_ytdlp_raw(ytdlp_dir)
+
+        sys.modules.pop("yt_dlp", None)
+        sys.modules.pop("yt_dlp.version", None)
+
+        if str(ytdlp_dir) in sys.path: sys.path.remove(ytdlp_dir)
+        sys.path.insert(0, ytdlp_dir)
