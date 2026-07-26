@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Loading...</title>
+    <style>
+        body
+        {
+            background-color: #1a1a1a;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        div
+        {
+            text-align: center;
+            color: #ff7300;
+            animation: fadePulse 1s infinite ease-in-out;
+            opacity: 0.3;
+        }
+
+        img
+        {
+            width: 128px;
+            height: 128px;
+        }
+
+        @keyframes fadePulse
+        {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <img src="favicon256.png" alt="Loading Icon" />
+    </div>
+    <div class="text">
+        <h1>Starting backend...</h1>
+    </div>
+</body>
+</html>

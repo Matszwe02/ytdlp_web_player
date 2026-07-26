@@ -1,0 +1,79 @@
+name: Build App
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, windows-latest, ubuntu-22.04-arm]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '26'
+
+    - name: Install ffmpeg
+      if: ${{ matrix.os == 'ubuntu-22.04-arm' || matrix.os == 'ubuntu-22.04' }}
+      run: |
+        sudo apt update && sudo apt install -y ffmpeg
+
+    - name: Build application
+      working-directory: app
+      run: |
+        python build_app.py "${{ github.event.client_payload.release_tag || github.ref_name }}"
+
+    - name: Upload linux arm
+      if: ${{ matrix.os == 'ubuntu-22.04-arm' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-arm64
+        path: dist/
+        if-no-files-found: ignore
+
+    - name: Upload linux x64
+      if: ${{ matrix.os == 'ubuntu-22.04' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-x64
+        path: dist/
+        if-no-files-found: ignore
+
+    - name: Upload windows
+      if: ${{ matrix.os == 'windows-latest' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-x64
+        path: dist/
+        if-no-files-found: ignore
+
+  release:
+    needs: build
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/linux-x64/*
+            artifacts/linux-arm64/*
+            artifacts/windows-x64/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

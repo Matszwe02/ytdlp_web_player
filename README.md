@@ -121,6 +121,16 @@ OR
 - To enable environment:
     - Copy `src/example.env` to `src/.env`, modify as needed
 
+### Build application
+
+Due to the packaging of necessary python modules, yt-dlp update may break on older builds when yt-dlp updates its dependencies, and app rebuild is necessary.
+
+- Clone repo
+- install python3 and nodejs
+- Create and activate a virtual environment
+- run `/app/build_app.py`
+- app and CLI should appear in `/dist`
+
 
 ## Cookies
 

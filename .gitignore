@@ -11,3 +11,8 @@
 **/version-dynamic.txt
 **/.ssl/
 **/cookies.txt
+node_modules
+app/*.png
+dist
+build
+*.spec

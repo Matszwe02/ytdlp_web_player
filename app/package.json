@@ -1,0 +1,67 @@
+{
+    "name": "ytdlp-web-player",
+    "version": "1.0.0",
+    "description": "YT-DLP Web Player - Internet video player powered by yt-dlp",
+    "main": "main.js",
+    "scripts":
+    {
+        "build": "electron-builder --publish=never"
+    },
+    "build":
+    {
+        "appId": "com.matszwe02.ydlp_web_player",
+        "productName": "YT-DLP Web Player",
+        "asar": false,
+        "win":
+        {
+            "target":
+            [
+                "portable"
+            ],
+            "icon": "favicon256.png"
+        },
+        "linux":
+        {
+            "target":
+            [
+                "AppImage"
+            ],
+            "icon": "favicon256.png"
+        },
+        "files":
+        [
+            "main.js",
+            "splashscreen.html"
+        ],
+        "extraResources":
+        [
+            {
+                "from": "../src/example.env",
+                "to": "app/example.env"
+            },
+            {
+                "from": "../dist",
+                "to": "app",
+                "filter":
+                [
+                    "**/*"
+                ]
+            },
+            {
+                "from": "favicon48.png",
+                "to": "app/favicon48.png"
+            },
+            {
+                "from": "favicon256.png",
+                "to": "app/favicon256.png"
+            }
+        ]
+    },
+    "author": "matszwe02",
+    "license": "GPL-2.0-only",
+    "devDependencies":
+    {
+        "electron": "43.2.0",
+        "electron-builder": "26.15.3"
+    }
+}
