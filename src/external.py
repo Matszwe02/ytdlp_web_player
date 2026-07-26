@@ -52,10 +52,10 @@ class External:
     @staticmethod
     def download_ffmpeg() -> str|None:
         try:
-            if f := shutil.which("ffmpeg"): return os.path.abspath(f)
             p = os.path.dirname(__file__)
             for f in os.listdir(p):
                 if f.startswith('ffmpeg'): return os.path.abspath(os.path.join(p, f))
+            if f := shutil.which("ffmpeg"): return os.path.abspath(f)
             try:
                 import pyffmpeg # type: ignore
             except Exception:
@@ -70,10 +70,10 @@ class External:
     @staticmethod
     def download_deno() -> str|None:
         try:
-            if f := shutil.which("deno") or shutil.which("node"): return os.path.abspath(f)
             p = os.path.dirname(__file__)
             for f in os.listdir(p):
                 if f.startswith('deno') or f.startswith('node'): return os.path.abspath(os.path.join(p, f))
+            if f := shutil.which("deno") or shutil.which("node"): return os.path.abspath(f)
             try:
                 import deno # type: ignore
             except Exception:
