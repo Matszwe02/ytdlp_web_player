@@ -3,5 +3,6 @@ Flask
 requests
 yt-dlp
 pillow
+psutil
 uvicorn
 starlette
