@@ -680,7 +680,7 @@ def stream_media_file(url: str, headers: str|None = None, cookies: str|None = No
 
             def replace_url(match):
                 prefix, orig_url, suffix = match.groups()
-                new_url = f'/external?url={quote_plus(urljoin(url, orig_url))}&headers={quote_plus(headers)}&cookies={quote_plus(cookies)}'
+                new_url = f'/external?url={quote_plus(urljoin(url, orig_url))}&headers={quote_plus(headers or "")}&cookies={quote_plus(cookies or "")}'
                 return f'{prefix}{new_url}{suffix}'
             raw_lines = response.content.decode('utf-8', errors='ignore').splitlines()
             skipline = False
@@ -700,7 +700,8 @@ def stream_media_file(url: str, headers: str|None = None, cookies: str|None = No
                 if line_str.startswith('#'):
                     lines.append(url_regex.sub(replace_url, line))
                 else:
-                    lines.append(f'/external?url={quote_plus(urljoin(url, line_str))}&headers={quote_plus(headers)}&cookies={quote_plus(cookies)}')
+                    line = f'/external?url={quote_plus(urljoin(url, line_str))}&headers={quote_plus(headers or "")}&cookies={quote_plus(cookies or "")}'
+                    lines.append(line)
 
             resp = Response('\n'.join(lines), status=response.status_code, mimetype=mime_type)
             return resp
