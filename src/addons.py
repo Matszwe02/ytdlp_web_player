@@ -806,7 +806,10 @@ def mark_watched(url):
 
 
 def get_media_duration(url, meta, media):
-    if d := meta.get("duration"): return d
+    try:
+        if d := meta.get("duration"): return d
+    except:
+        pass
     ffmpeg_command = ['-i', media, '-hide_banner', '-f', 'null', '-stats']
     ff = FFMPEG(url)
     try: ff.run(ffmpeg_command)
@@ -818,6 +821,28 @@ def get_media_duration(url, meta, media):
             h, m, s = duration.split(":")
             return int(h)*3600 + int(m)*60 + float(s)
     raise RuntimeError('Media duration impossible to gather - report this bug')
+
+
+def get_media_res(url, meta, media):
+    try:
+        if meta.get("width") and meta.get("height"): return int(meta.get("width")), int(meta.get("height"))
+    except: pass
+    ffmpeg_command = ['-i', media, '-hide_banner', '-f', 'null', '-stats']
+    ff = FFMPEG(url)
+    try: ff.run(ffmpeg_command)
+    except Exception: pass
+    info = ff.stdout
+    for line in info.splitlines():
+        if line.strip().startswith('Stream'):
+            for r in line.strip().split(' '):
+                try:
+                    w, h = r.split('x')
+                    w = int(w.strip(','))
+                    h = int(h.strip(','))
+                    if w > 0 and h > 0: return w, h
+                except:
+                    pass
+    raise RuntimeError('Media resolution impossible to gather - report this bug')
 
 
 def pprint_exc(e, code = 500):
@@ -913,6 +938,20 @@ def get_meta(url: str):
         if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["cookiefile"] = cookies
         info = YTDLP.get_info(url, ydl_opts)
         if info.get('entries'): info = info['entries'][0]
+
+        if not info.get('duration') or not info.get('width') or not info.get('height'):
+            try:
+                print('Fetching additional info for meta')
+                srcs = choose_sources_for_res(get_video_sources(url, info), get_good_quality(get_video_formats(url, info)))
+                src = srcs[0] or srcs[1]
+                duration = get_media_duration(url, None, src[0])
+                w, h = get_media_res(url, None, src[0])
+                info['duration'] = duration
+                info['width'] = w
+                info['height'] = h
+            except Exception as e:
+                pprint_exc(e)
+
         info['original_url'] = url
         info['timestamp'] = int(time.time())
         with open(os.path.join(get_data_dir(url), 'meta.json'), 'w') as f:
@@ -963,7 +1002,7 @@ def get_video_sources(url = None, meta = None, protocols = [], exts = []):
         if language and f.get('language') and (f.get('language') != language): continue
         if int(f.get('height') or 0) > max_quality: continue
         if (f.get('vcodec') or 'none').lower() != 'none' or ((f.get('video_ext') or 'none').lower() != 'none'):
-            video_name = f"{(f.get('height') or '')}"
+            video_name = f"{(f.get('height') or meta.get('height') or '1')}"
         if f.get('acodec', 'none') != 'none':
             audio_name = 'audio_drc' if 'drc' in f"{f.get('format_id')} {f.get('format_note')}".lower() else 'audio'
         if 'audio' in (f.get('format_id') or '') or (f.get('acodec') or 'audio_presumed') == 'audio_presumed':
