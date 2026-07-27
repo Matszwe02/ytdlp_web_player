@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, viewport-fit=cover, initial-scale=1.0" />
+        <meta name="theme-color" content="{{ theme_color }}">
+        <meta name="color-scheme" content="dark">
+        <title>Logs - {{ app_title }}</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='fontawesome/css/all.min.css') }}" />
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+        <link rel="icon" type="image/png" href="/favicon.svg">
+        <style>
+            html {
+                --theme-bg: #0e0e0e;
+                --theme-bg-light: #191919;
+                --theme-fg: #888;
+            }
+        </style>
+    </head>
+    <body class="logs-body">
+        <div class="logs-page">
+            <div class="logs-toolbar">
+                <a href="/" class="library-home" title="Home"><i class="fa-solid fa-house"></i></a>
+                <h1 style="color: {{ theme_color }};">Logs</h1>
+                <label><input type="checkbox" id="follow" checked> Follow</label>
+                <label><input type="checkbox" id="wrap" checked> Wrap</label>
+                <button id="clear-btn" title="Truncate the log file"><i class="fa-solid fa-eraser"></i> Clear</button>
+                <button id="pause-btn" title="Pause polling"><i class="fa-solid fa-pause"></i> Pause</button>
+                <span class="logs-status" id="status">{{ log_path or 'log capture not initialized' }}</span>
+            </div>
+            <pre id="logs-view"></pre>
+        </div>
+
+        <script>
+            const view = document.getElementById('logs-view');
+            const status = document.getElementById('status');
+            const follow = document.getElementById('follow');
+            const wrap = document.getElementById('wrap');
+            const clearBtn = document.getElementById('clear-btn');
+            const pauseBtn = document.getElementById('pause-btn');
+
+            let sinceBytes = null;
+            let paused = false;
+
+            function updateWrap() {
+                view.style.whiteSpace = wrap.checked ? 'pre-wrap' : 'pre';
+            }
+            wrap.addEventListener('change', updateWrap);
+            updateWrap();
+
+            async function poll() {
+                if (paused) return;
+                try {
+                    const url = sinceBytes === null ? '/logs/tail' : ('/logs/tail?since=' + sinceBytes);
+                    const resp = await fetch(url);
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                    const size = parseInt(resp.headers.get('X-Log-Size') || '0', 10);
+                    const text = await resp.text();
+                    if (sinceBytes === null) {
+                        view.textContent = text;
+                    } else if (text) {
+                        view.textContent += text;
+                    }
+                    sinceBytes = size;
+                    status.textContent = size.toLocaleString() + ' bytes';
+                    if (follow.checked) window.scrollTo(0, document.body.scrollHeight);
+                } catch (e) {
+                    status.textContent = 'error: ' + e.message;
+                }
+            }
+
+            clearBtn.addEventListener('click', async () => {
+                if (!confirm('Truncate the log file?')) return;
+                try {
+                    const resp = await fetch('/logs/clear', { method: 'POST' });
+                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                    sinceBytes = null;
+                    view.textContent = '';
+                    poll();
+                } catch (e) {
+                    alert('Clear failed: ' + e.message);
+                }
+            });
+
+            pauseBtn.addEventListener('click', () => {
+                paused = !paused;
+                pauseBtn.innerHTML = paused
+                    ? '<i class="fa-solid fa-play"></i> Resume'
+                    : '<i class="fa-solid fa-pause"></i> Pause';
+            });
+
+            poll();
+            setInterval(poll, 1500);
+        </script>
+    </body>
+</html>

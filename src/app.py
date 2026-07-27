@@ -1,4 +1,6 @@
 import os
+import json
+import shutil
 import signal
 import sys
 from flask import Flask, render_template, request, jsonify, Response
@@ -8,6 +10,11 @@ from starlette.middleware.wsgi import WSGIMiddleware
 from main import *
 from addons import *
 from external import External
+import library_db
+import log_capture
+
+log_capture.init(os.path.join(data_path, 'app.log'))
+library_db.init_db()
 
 
 app = Flask(__name__)
@@ -22,14 +29,123 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 
-@app.route('/')
-def index():
-    print('Started serving root')
+def _render_home():
+    print('Started serving home/library')
+    show_hidden = request.args.get('show_hidden') in ('1', 'true', 'yes')
     ydl_version = External.get_ytdlp_version()
     js_runtime_version = External.get_js_runtime_version(js_runtime)
     ffmpeg_version = External.get_ffmpeg_version(ffmpeg)
-    print('Stopped serving root')
-    return render_template('index.html', ydl_version=ydl_version, app_version=app_version, js_runtime_version=js_runtime_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg)
+    entries = library_db.list_videos(include_hidden=show_hidden)
+    grouped = {}
+    for e in entries:
+        grouped.setdefault(e.get('source_site') or 'unknown', []).append(e)
+    grouped = dict(sorted(grouped.items(), key=lambda kv: kv[0]))
+    all_tags = library_db.list_tags(include_hidden=show_hidden)
+    all_categories = library_db.list_categories(include_hidden=show_hidden)
+    all_sites = library_db.list_sites(include_hidden=show_hidden)
+    hidden_sites = library_db.list_hidden_sites()
+    print('Stopped serving home/library')
+    return render_template('index.html',
+        entries=entries, grouped=grouped, total=len(entries),
+        all_tags=all_tags, all_categories=all_categories, all_sites=all_sites,
+        hidden_sites=hidden_sites, show_hidden=show_hidden,
+        ydl_version=ydl_version, app_version=app_version,
+        js_runtime_version=js_runtime_version, ffmpeg_version=ffmpeg_version,
+        app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg)
+
+
+@app.route('/')
+def index():
+    return _render_home()
+
+
+@app.route('/library')
+def library():
+    return _render_home()
+
+
+@app.route('/library/rebuild', methods=['POST'])
+def library_rebuild():
+    try:
+        count = library_db.rebuild()
+    except Exception as e:
+        return pprint_exc(e)
+    return jsonify({"ok": True, "count": count}), 200
+
+
+@app.route('/library/delete', methods=['POST'])
+def library_delete():
+    url = get_url(request)
+    if not url: return jsonify({"error": "URL parameter is required"}), 400
+    Processes.rm_all(url)
+    vid_dir = get_data_dir(url)
+    library_db.delete_video(url)
+    if not os.path.isdir(vid_dir): return jsonify({"ok": True, "note": "not on disk"}), 200
+    try:
+        shutil.rmtree(vid_dir)
+    except Exception as e:
+        return pprint_exc(e)
+    return jsonify({"ok": True}), 200
+
+
+@app.route('/library/hide', methods=['POST'])
+def library_hide():
+    url = get_url(request)
+    if not url: return jsonify({"error": "URL parameter is required"}), 400
+    library_db.hide_video(url)
+    return jsonify({"ok": True}), 200
+
+
+@app.route('/library/unhide', methods=['POST'])
+def library_unhide():
+    url = get_url(request)
+    if not url: return jsonify({"error": "URL parameter is required"}), 400
+    library_db.unhide_video(url)
+    return jsonify({"ok": True}), 200
+
+
+@app.route('/library/site/hide', methods=['POST'])
+def library_site_hide():
+    name = request.args.get('name', '').strip().lower()
+    if not name: return jsonify({"error": "name parameter is required"}), 400
+    library_db.hide_site(name)
+    return jsonify({"ok": True}), 200
+
+
+@app.route('/library/site/unhide', methods=['POST'])
+def library_site_unhide():
+    name = request.args.get('name', '').strip().lower()
+    if not name: return jsonify({"error": "name parameter is required"}), 400
+    library_db.unhide_site(name)
+    return jsonify({"ok": True}), 200
+
+
+@app.route('/logs')
+def logs_page():
+    return render_template('logs.html', app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg, log_path=log_capture.LOG_PATH)
+
+
+@app.route('/logs/tail')
+def logs_tail():
+    since = request.args.get('since', type=int)
+    if since is None:
+        data, size = log_capture.read_tail()
+    else:
+        data, size = log_capture.read_since(since)
+    resp = Response(data, mimetype='text/plain; charset=utf-8')
+    resp.headers['X-Log-Size'] = str(size)
+    return resp
+
+
+@app.route('/logs/clear', methods=['POST'])
+def logs_clear():
+    path = log_capture.LOG_PATH
+    if not path: return jsonify({"error": "log capture not initialized"}), 500
+    try:
+        open(path, 'w').close()
+    except Exception as e:
+        return pprint_exc(e)
+    return jsonify({"ok": True}), 200
 
 
 @app.route('/watch')
@@ -43,6 +159,7 @@ def watch():
     video_width = 1280
     video_height = 720
     video_title = app_title
+    meta = None
 
     if check_media(url, 'meta'):
         meta = get_meta(url)
@@ -50,9 +167,69 @@ def watch():
         video_height = meta.get('height') or video_height
         video_title = meta.get('title') or app_title
     preload(url)
+    if url:
+        Thread(target=post_media_hooks, args=(url,), daemon=True).start()
+
+    debug = _watch_debug(url, meta)
 
     print('Stopped serving watch')
-    return render_template('watch.html', original_url=url, ydl_version=ydl_version, app_version=app_version, js_runtime_version=js_runtime_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg, video_width=video_width, video_height=video_height, video_title=video_title)
+    return render_template('watch.html', original_url=url, ydl_version=ydl_version, app_version=app_version, js_runtime_version=js_runtime_version, ffmpeg_version=ffmpeg_version, app_title=app_title, theme_color=theme_color, amoled_bg=amoled_bg, video_width=video_width, video_height=video_height, video_title=video_title, debug=debug)
+
+
+def _format_size(n):
+    if n is None: return ''
+    step = 1024.0
+    units = ['B', 'KB', 'MB', 'GB', 'TB']
+    i = 0
+    x = float(n)
+    while x >= step and i < len(units) - 1:
+        x /= step
+        i += 1
+    return f'{x:.1f} {units[i]}' if i else f'{int(x)} {units[i]}'
+
+
+def _watch_debug(url, meta):
+    dir_hash = gen_pathname(url) if url else None
+    data_dir = get_data_dir(url) if url else None
+    files = []
+    if data_dir and os.path.isdir(data_dir):
+        for name in sorted(os.listdir(data_dir)):
+            p = os.path.join(data_dir, name)
+            try:
+                if os.path.isdir(p):
+                    files.append({'name': name + '/', 'size': '', 'is_dir': True})
+                else:
+                    files.append({'name': name, 'size': _format_size(os.path.getsize(p)), 'is_dir': False})
+            except OSError:
+                pass
+    highlights = {}
+    if meta:
+        for k in ('extractor', 'extractor_key', 'title', 'uploader', 'uploader_id', 'channel', 'upload_date',
+                  'duration', 'width', 'height', 'fps', 'is_live', 'filesize_approx', 'ext', 'protocol', 'language'):
+            v = meta.get(k)
+            if v is not None and v != '':
+                highlights[k] = v
+    return {
+        'url': url,
+        'dir_hash': dir_hash,
+        'data_dir': data_dir,
+        'files': files,
+        'meta_highlights': highlights,
+        'has_meta': meta is not None,
+    }
+
+
+@app.route('/debug/meta')
+def debug_meta():
+    url = get_url(request)
+    if not url: return jsonify({"error": "URL parameter is required"}), 400
+    if not check_media(url, 'meta'): return jsonify({"error": "No meta cached for that URL"}), 404
+    meta = get_meta(url)
+    pretty = request.args.get('pretty', '1') != '0'
+    return Response(
+        json.dumps(meta, indent=2 if pretty else None, default=str),
+        mimetype='application/json'
+    )
 
 
 @app.route('/iframe')
@@ -239,20 +416,6 @@ def hls_segment():
         return jsonify({"error": "File not found"}), 404
 
     return send_file_partial(file)
-
-
-@app.route('/search')
-def serve_search():
-    try:
-        query = request.args.get('q')
-        meta = search(query)[0]
-        url = meta.get('original_url') or ''
-        final_url = append_query_to_url(url, query)
-
-        preload(final_url, meta)
-        return final_url
-    except Exception as e:
-        return pprint_exc(e)
 
 
 @app.route('/cookies', methods=['POST'])

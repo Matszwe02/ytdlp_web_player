@@ -27,12 +27,16 @@
 - fast loading speed (most videos load in 3s)
 - livestream support
 - minimalistic UI, configurable theme color
-- paste video URL / type search query / auto pasting from clipboard
+- persistent library on the home page with thumbnails, titles, durations, and per-video metadata
+- filter the library by **site**, **tags**, and **categories** (populated from source metadata when available) plus live text search
+- hide individual videos or entire source sites, with a "Show hidden" toggle to bring them back
+- paste video URL, type to filter the library, or auto-fill from clipboard
 - zoom to fill for all devices
 - download, repeat videos
 - optional music visualizer
 - browser extension
 - PWA
+- live log viewer at `/logs` and a per-video debug panel on `/watch` pages
 
 
 some of these features are off by default and need to be turned on in `.env`
@@ -60,6 +64,20 @@ some of these features are off by default and need to be turned on in `.env`
     </td>
   </tr>
 </table>
+
+
+## Library
+
+Every video you play is saved by default, so it stays available on your next visit.
+
+- The home page **is** your library: a thumbnail grid with title, duration, and uploader, grouped by source site
+- Filter chips at the top let you narrow down by **sites**, **categories**, and **tags**. Categories and tags are populated from the source's metadata whenever it exposes them; sites that don't just show up under their domain
+- Multiple filter chips combine (AND), and the URL/search bar filters on top of the chip selection
+- If the source doesn't report a duration, the app runs ffprobe on the downloaded media and writes the real duration back into the local meta so the library display stays accurate
+- **Hide** button (eye-slash) on each card removes it from the default view without deleting anything on disk. The button on a site chip hides every video from that site at once
+- **Show hidden** in the header toggles the view to include hidden items with an unhide affordance
+- The library is stored in SQLite (`data/library.db`) and updated automatically when you play or download a video. The **Rebuild** button walks the data folder and re-syncs the whole table — useful if you manually add or remove files
+- Everything (cache, library DB, `.env`, `cookies.txt`) lives under `DATA_PATH` (default `./data`). Set `SAVE_ALL=false` if you want the old behavior where videos auto-expire after `MAX_VIDEO_AGE` seconds
 
 
 ## Planned
@@ -102,13 +120,7 @@ OR
 - Clone repo
 - Run `docker compose up`
 - For automatic app updates, see `compose.yml`
-- To enable environment:
-    - Uncomment:
-        ```
-        # env_file:
-        #     - src/.env
-        ```
-    - Copy `src/example.env` to `src/.env`, modify as needed
+- To configure via environment: copy `src/example.env` to `data/.env`, modify as needed. The file is loaded automatically from the mounted data folder — no compose changes required
 - To enable HTTPS, see `compose.yml`
   - then you can access the HTTPS app with https://localhost:5001
   - your browser will warn you about not secure connection, you need to click on "allow"
@@ -118,15 +130,14 @@ OR
 - Create and activate a virtual environment in `src/` and install `requirements.txt`
 - optionally install `ffmpeg` and `node`/`deno`, otherwise they will be automatically installed to your venv
 - run `main.py`
-- To enable environment:
-    - Copy `src/example.env` to `src/.env`, modify as needed
+- To configure via environment: copy `src/example.env` to `data/.env`, modify as needed (the `data/` folder is created on first run)
 
 
 ## Cookies
 
 Some videos need cookies to work. With cookies you will be logged in to the video streaming's website while using the app.
 
-- Create `src/cookies.txt` file and enable in `compose.yml` (if using docker)
+- Create `data/cookies.txt` (the folder is auto-mounted into the container — no compose changes required)
 - Paste relevant cookies into that file (I suggest using an extension for that, which exports cookies in netscape format)
     - yt-dlp created a nice [guide](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp) about providing the cookies
 - If using extension, you can enable automatic sending of browser cookies for individual videos in extension settings
@@ -200,6 +211,10 @@ Please check if it's supported by yt-dlp [here](https://github.com/yt-dlp/yt-dlp
 Also check [yt-dlp's issues](https://github.com/yt-dlp/yt-dlp/issues).
 
 You can even try to download yt-dlp and download that video with it, to ensure there is a way to download it.
+
+For debugging locally:
+- open `/logs` in the running app to see live stdout/stderr from all workers
+- expand the **Debug info** panel on any `/watch` page to see the source URL, its SHA1 hash (used as the data-dir name), the metadata highlights extracted by yt-dlp, and the files currently on disk. There's also a link to the raw `meta.json`
 
 If it appears to be supported, fill in a bug report with app logs.
 

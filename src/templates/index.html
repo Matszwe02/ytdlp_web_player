@@ -13,7 +13,6 @@
         <link rel="icon" type="image/png" href="favicon.svg">
         <link rel="apple-touch-icon" href="/favicon512.png">
         <link rel="manifest" href="/manifest.json">
-        <meta name="theme-color" content="{{ theme_color }}">
         <style>
             html {
                 --theme-bg: {{ "#000" if amoled_bg else "#1a1a1a" }};
@@ -22,25 +21,162 @@
             }
         </style>
     </head>
-    <body>
-    
-        <div style="display: inline-block; text-align: center; width: 100%" class="non-video">
-            <img src="favicon.svg" alt="" height="250px">
-            <h1 style="margin-top: 0; margin-bottom: 100px; color: {{ theme_color }};">{{ app_title }}</h1>
-            <div id="main-input">
-                <input type="text" id="url" name="url" placeholder="Search / Paste URL / click enter" autofocus/>
-                <button onclick="handlePlayButtonClick()" id="submit">
-                    <i class="fa-solid fa-play"></i>
-                </button>
-            </div>
+    <body class="library-body">
+        <div class="library-page">
+            <header class="home-header">
+                <div class="home-title-row">
+                    <img src="favicon.svg" alt="" class="home-logo">
+                    <h1 style="color: {{ theme_color }};">{{ app_title }}</h1>
+                    <span class="library-count">{{ total }} video{{ '' if total == 1 else 's' }}</span>
+                    <a href="{{ '/' if show_hidden else '/?show_hidden=1' }}" class="library-rebuild" title="{{ 'Hide the hidden items again' if show_hidden else 'Show items you have hidden' }}">
+                        <i class="fa-solid {{ 'fa-eye-slash' if show_hidden else 'fa-eye' }}"></i>
+                        {{ 'Hide hidden' if show_hidden else 'Show hidden' }}
+                    </a>
+                    <button id="rebuild" class="library-rebuild" title="Rescan ./data and rebuild the library index">
+                        <i class="fa-solid fa-rotate"></i> Rebuild
+                    </button>
+                </div>
+                <div class="home-url-bar" id="main-input">
+                    <input type="text" id="url" name="url" placeholder="Filter library or paste URL" autofocus autocomplete="off"/>
+                    <button onclick="handlePlayButtonClick()" id="submit" title="Play URL">
+                        <i class="fa-solid fa-play"></i>
+                    </button>
+                </div>
+                <p id="no-matches" class="library-empty" style="display: none; margin-top: 24px;">No videos match that filter.</p>
+            </header>
+
+            {% if all_sites or all_categories or all_tags %}
+                <div class="filter-chips">
+                    <div id="active-filters" class="filter-active-row" style="display: none;">
+                        <span class="filter-label">Active</span>
+                        <div class="chips" id="active-chip-list"></div>
+                        <button id="clear-filters" class="chip-clear">Clear</button>
+                    </div>
+                    {% if all_sites %}
+                        <div class="filter-row">
+                            <span class="filter-label">Sites</span>
+                            <div class="chips">
+                                {% for s in all_sites %}
+                                    <span class="chip-wrap">
+                                        <button class="chip chip-site {{ 'chip-is-hidden' if s.hidden else '' }}" data-filter-type="site" data-filter-name="{{ s.name }}">
+                                            {{ s.name }} <span class="chip-count">{{ s.cnt }}</span>
+                                        </button>
+                                        <button class="chip-hide-toggle" data-site="{{ s.name }}" data-hidden="{{ '1' if s.hidden else '0' }}" title="{{ 'Unhide this site' if s.hidden else 'Hide this site' }}">
+                                            <i class="fa-solid {{ 'fa-eye' if s.hidden else 'fa-eye-slash' }}"></i>
+                                        </button>
+                                    </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                    {% if all_categories %}
+                        <div class="filter-row">
+                            <span class="filter-label">Categories</span>
+                            <div class="chips">
+                                {% for c in all_categories %}
+                                    <button class="chip chip-cat" data-filter-type="cat" data-filter-name="{{ c.name }}">
+                                        {{ c.name }} <span class="chip-count">{{ c.cnt }}</span>
+                                    </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endif %}
+                    {% if all_tags %}
+                        <div class="filter-row">
+                            <span class="filter-label">Tags</span>
+                            <div class="chips" id="tag-chip-list">
+                                {% for t in all_tags[:15] %}
+                                    <button class="chip chip-tag" data-filter-type="tag" data-filter-name="{{ t.name }}">
+                                        {{ t.name }} <span class="chip-count">{{ t.cnt }}</span>
+                                    </button>
+                                {% endfor %}
+                                {% if all_tags|length > 15 %}
+                                    {% for t in all_tags[15:] %}
+                                        <button class="chip chip-tag chip-tag-more" data-filter-type="tag" data-filter-name="{{ t.name }}" style="display: none;">
+                                            {{ t.name }} <span class="chip-count">{{ t.cnt }}</span>
+                                        </button>
+                                    {% endfor %}
+                                    <button class="chip chip-more-toggle" id="show-more-tags">
+                                        + {{ all_tags|length - 15 }} more
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% if total == 0 %}
+                <p class="library-empty">
+                    No videos in the library yet. Paste a URL above to play &amp; save one.<br>
+                    Already have downloads on disk? Click <strong>Rebuild</strong> to index them.
+                </p>
+            {% else %}
+                {% for site, site_entries in grouped.items() %}
+                    <section class="library-section">
+                        <h2 class="library-section-title">
+                            {{ site }}
+                            <span class="library-section-count">{{ site_entries|length }}</span>
+                        </h2>
+                        <div class="library-grid">
+                            {% for e in site_entries %}
+                                <div class="library-card {{ 'is-hidden-card' if e.hidden or e.site_hidden else '' }}" data-url="{{ e.url }}"
+                                     data-site="{{ (e.source_site or '')|lower }}"
+                                     data-cats="{{ (e.categories|join('|'))|lower }}"
+                                     data-tags="{{ (e.tags|join('|'))|lower }}"
+                                     data-hidden="{{ '1' if e.hidden else '0' }}">
+                                    <a class="library-thumb-link" href="/watch?url={{ e.url|urlencode }}">
+                                        <div class="library-thumb-wrap">
+                                            {% if e.has_thumb %}
+                                                <img loading="lazy" src="/thumb?url={{ e.url|urlencode }}" alt="">
+                                            {% else %}
+                                                <div class="library-thumb-fallback"><i class="fa-solid fa-film"></i></div>
+                                            {% endif %}
+                                            {% if e.duration %}
+                                                <span class="library-duration">
+                                                    {%- set h = (e.duration // 3600) -%}
+                                                    {%- set m = ((e.duration % 3600) // 60) -%}
+                                                    {%- set s = (e.duration % 60) -%}
+                                                    {%- if h -%}{{ h }}:{{ '%02d' % m }}:{{ '%02d' % s }}{%- else -%}{{ m }}:{{ '%02d' % s }}{%- endif -%}
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    </a>
+                                    <div class="library-meta">
+                                        <a class="library-title" href="/watch?url={{ e.url|urlencode }}" title="{{ e.title }}">{{ e.title }}</a>
+                                        {% if e.uploader %}<div class="library-uploader">{{ e.uploader }}</div>{% endif %}
+                                        {% if e.categories or e.tags %}
+                                            <div class="card-chips">
+                                                {% for c in e.categories %}
+                                                    <button class="chip chip-cat chip-sm" data-filter-type="cat" data-filter-name="{{ c }}">{{ c }}</button>
+                                                {% endfor %}
+                                                {% for t in e.tags[:3] %}
+                                                    <button class="chip chip-tag chip-sm" data-filter-type="tag" data-filter-name="{{ t }}">{{ t }}</button>
+                                                {% endfor %}
+                                                {% if e.tags|length > 3 %}
+                                                    <span class="chip-more" title="{{ e.tags[3:]|join(', ') }}">+{{ e.tags|length - 3 }}</span>
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <button class="library-hide" title="{{ 'Unhide' if e.hidden else 'Hide' }}" aria-label="{{ 'Unhide' if e.hidden else 'Hide' }}">
+                                        <i class="fa-solid {{ 'fa-eye' if e.hidden else 'fa-eye-slash' }}"></i>
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </section>
+                {% endfor %}
+            {% endif %}
         </div>
-        
+
         <div id="expandable-menu-container">
             <button id="expand-button" class="expand-button" aria-label="Menu">
                 <i class="fa-solid fa-chevron-up"></i>
             </button>
             <div id="expandable-content" class="expandable-content">
                 <ul>
+                    <li><a href="/logs"><i class="fa-solid fa-terminal"></i> Logs</a></li>
                     <li><a href="javascript:void(0)" onclick="copyExtensionScript(event)" id="script-copy"><i class="fa-solid fa-file-code"></i> Copy extension JS</a></li>
                     <li>
                         <a href="https://github.com/Matszwe02/ytdlp_web_player" target="_blank">
@@ -53,6 +189,7 @@
                 </ul>
             </div>
         </div>
+
         <script>
             const expandButton = document.getElementById('expand-button');
             const expandableContent = document.getElementById('expandable-content');
@@ -60,13 +197,10 @@
             expandButton.addEventListener('click', function(event) {
                 event.stopPropagation();
                 isExpanded = !isExpanded;
-                if (isExpanded)
-                {
+                if (isExpanded) {
                     expandableContent.style.maxHeight = expandableContent.scrollHeight + "px";
                     expandButton.classList.add('expanded');
-                }
-                else
-                {
+                } else {
                     expandableContent.style.maxHeight = "0";
                     expandButton.classList.remove('expanded');
                 }
@@ -74,8 +208,7 @@
 
             document.addEventListener('click', function(event) {
                 const expandableMenuContainer = document.getElementById('expandable-menu-container');
-                if (isExpanded && !expandableMenuContainer.contains(event.target))
-                {
+                if (isExpanded && !expandableMenuContainer.contains(event.target)) {
                     expandButton.click();
                 }
             });
@@ -88,40 +221,139 @@
                 }
             });
 
-            function handlePlayButtonClick()
-            {
-                let url = urlInput.value.trim();
-                if (url)
-                {
-                    try
-                    {
-                        const expression = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi;
-                        if (!url.match(new RegExp(expression))) throw TypeError();
-                        if (!url.startsWith('http')) url = 'https://' + url;
-                        new URL(url);
-                        window.location.href = '/watch?url=' + encodeURIComponent(url);
-                    }
-                    catch (e)
-                    {
-                        fetch(`/search?q=${encodeURIComponent(url)}`)
-                            .then(response => {
-                                if (!response.ok) return;
-                                response.text().then(data => {
-                                    if (!data) return;
-                                    window.location.href = '/watch?url=' + encodeURIComponent(data);
-                                });
-                            })
-                    }
+            const urlRegex = /[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi;
+
+            function tryPlayUrl(text) {
+                let url = (text || '').trim();
+                if (!url) return false;
+                try {
+                    if (!url.match(new RegExp(urlRegex))) return false;
+                    if (!url.startsWith('http')) url = 'https://' + url;
+                    new URL(url);
+                    window.location.href = '/watch?url=' + encodeURIComponent(url);
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            function handlePlayButtonClick() {
+                const text = urlInput.value.trim();
+                if (text) {
+                    tryPlayUrl(text);
                     return;
                 }
-                navigator.clipboard.readText()
-                    .then(clipboardText => {
-                        url = clipboardText.trim();
-                        window.location.href = '/watch?url=' + encodeURIComponent(url);
-                    })
+                navigator.clipboard.readText().then(clipboardText => {
+                    tryPlayUrl(clipboardText);
+                });
             }
-            function copyExtensionScript(event)
-            {
+
+            const noMatchesEl = document.getElementById('no-matches');
+            const cards = Array.from(document.querySelectorAll('.library-card'));
+            const sections = Array.from(document.querySelectorAll('.library-section'));
+            const activeFiltersEl = document.getElementById('active-filters');
+            const activeChipList = document.getElementById('active-chip-list');
+            const clearFiltersBtn = document.getElementById('clear-filters');
+            const showMoreTagsBtn = document.getElementById('show-more-tags');
+
+            const activeFilters = { site: new Set(), cat: new Set(), tag: new Set() };
+            const FILTER_ATTR = { site: 'data-site', cat: 'data-cats', tag: 'data-tags' };
+
+            function cardHasAll(card, type, needed) {
+                if (needed.size === 0) return true;
+                const raw = (card.getAttribute(FILTER_ATTR[type]) || '');
+                if (!raw) return false;
+                const set = new Set(raw.split('|').filter(Boolean));
+                for (const n of needed) if (!set.has(n)) return false;
+                return true;
+            }
+
+            function refreshChipStates() {
+                document.querySelectorAll('.chip[data-filter-type]').forEach(chip => {
+                    const type = chip.getAttribute('data-filter-type');
+                    const name = chip.getAttribute('data-filter-name').toLowerCase();
+                    chip.classList.toggle('active', activeFilters[type].has(name));
+                });
+                renderActiveFilters();
+            }
+
+            function renderActiveFilters() {
+                if (!activeFiltersEl || !activeChipList) return;
+                const total = activeFilters.cat.size + activeFilters.tag.size;
+                if (total === 0) {
+                    activeFiltersEl.style.display = 'none';
+                    return;
+                }
+                activeFiltersEl.style.display = '';
+                activeChipList.innerHTML = '';
+                for (const [type, set] of [['site', activeFilters.site], ['cat', activeFilters.cat], ['tag', activeFilters.tag]]) {
+                    for (const name of set) {
+                        const b = document.createElement('button');
+                        b.className = 'chip chip-active chip-' + type;
+                        b.dataset.filterType = type;
+                        b.dataset.filterName = name;
+                        b.innerHTML = name + ' <i class="fa-solid fa-xmark"></i>';
+                        b.addEventListener('click', () => toggleFilter(type, name));
+                        activeChipList.appendChild(b);
+                    }
+                }
+            }
+
+            function applyFilter() {
+                const q = urlInput.value.trim().toLowerCase();
+                let anyVisible = false;
+                cards.forEach(card => {
+                    let match = true;
+                    if (q) {
+                        const title = (card.querySelector('.library-title')?.textContent || '').toLowerCase();
+                        const uploader = (card.querySelector('.library-uploader')?.textContent || '').toLowerCase();
+                        const url = (card.getAttribute('data-url') || '').toLowerCase();
+                        if (!(title.includes(q) || uploader.includes(q) || url.includes(q))) match = false;
+                    }
+                    if (match && !cardHasAll(card, 'site', activeFilters.site)) match = false;
+                    if (match && !cardHasAll(card, 'cat', activeFilters.cat)) match = false;
+                    if (match && !cardHasAll(card, 'tag', activeFilters.tag)) match = false;
+                    card.style.display = match ? '' : 'none';
+                    if (match) anyVisible = true;
+                });
+                sections.forEach(section => {
+                    const visible = section.querySelectorAll('.library-card:not([style*="display: none"])').length;
+                    section.style.display = visible ? '' : 'none';
+                });
+                const anyFilter = q || activeFilters.site.size || activeFilters.cat.size || activeFilters.tag.size;
+                if (noMatchesEl) noMatchesEl.style.display = (anyFilter && !anyVisible) ? '' : 'none';
+            }
+
+            function toggleFilter(type, name) {
+                name = name.toLowerCase();
+                const set = activeFilters[type];
+                if (set.has(name)) set.delete(name); else set.add(name);
+                refreshChipStates();
+                applyFilter();
+            }
+
+            document.addEventListener('click', (ev) => {
+                const chip = ev.target.closest('.chip[data-filter-type]');
+                if (!chip || chip.classList.contains('chip-active')) return;
+                toggleFilter(chip.getAttribute('data-filter-type'), chip.getAttribute('data-filter-name'));
+            });
+
+            if (clearFiltersBtn) clearFiltersBtn.addEventListener('click', () => {
+                activeFilters.site.clear();
+                activeFilters.cat.clear();
+                activeFilters.tag.clear();
+                refreshChipStates();
+                applyFilter();
+            });
+
+            if (showMoreTagsBtn) showMoreTagsBtn.addEventListener('click', () => {
+                document.querySelectorAll('.chip-tag-more').forEach(c => c.style.display = '');
+                showMoreTagsBtn.remove();
+            });
+
+            urlInput.addEventListener('input', applyFilter);
+
+            function copyExtensionScript(event) {
                 fetch('https://raw.githubusercontent.com/Matszwe02/ytdlp_web_player/refs/heads/main/extension/extension.js')
                     .then(response => {
                         if (!response.ok) return;
@@ -136,6 +368,77 @@
                         });
                     })
             }
+
+            const rebuildBtn = document.getElementById('rebuild');
+            rebuildBtn.addEventListener('click', async () => {
+                const originalHTML = rebuildBtn.innerHTML;
+                rebuildBtn.disabled = true;
+                rebuildBtn.innerHTML = '<i class="fa-solid fa-rotate fa-spin"></i> Rebuilding';
+                try {
+                    const resp = await fetch('/library/rebuild', { method: 'POST' });
+                    if (!resp.ok) throw new Error(await resp.text());
+                    const data = await resp.json();
+                    rebuildBtn.innerHTML = '<i class="fa-solid fa-check"></i> ' + data.count + ' indexed';
+                    setTimeout(() => window.location.reload(), 700);
+                } catch (e) {
+                    alert('Rebuild failed: ' + e.message);
+                    rebuildBtn.innerHTML = originalHTML;
+                    rebuildBtn.disabled = false;
+                }
+            });
+
+            document.querySelectorAll('.library-hide').forEach(btn => {
+                btn.addEventListener('click', async (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    const card = btn.closest('.library-card');
+                    const url = card.getAttribute('data-url');
+                    const currentlyHidden = card.getAttribute('data-hidden') === '1';
+                    const endpoint = currentlyHidden ? '/library/unhide' : '/library/hide';
+                    btn.disabled = true;
+                    try {
+                        const resp = await fetch(endpoint + '?url=' + encodeURIComponent(url), { method: 'POST' });
+                        if (!resp.ok) throw new Error(await resp.text());
+                        // If we're in default view and just hid: remove from DOM
+                        // If in show-hidden view: flip icon + data attribute
+                        const showHidden = new URLSearchParams(window.location.search).get('show_hidden');
+                        if (!showHidden && !currentlyHidden) {
+                            card.remove();
+                            applyFilter();
+                        } else {
+                            const nowHidden = !currentlyHidden;
+                            card.setAttribute('data-hidden', nowHidden ? '1' : '0');
+                            card.classList.toggle('is-hidden-card', nowHidden || (card.getAttribute('data-site-hidden') === '1'));
+                            btn.innerHTML = '<i class="fa-solid ' + (nowHidden ? 'fa-eye' : 'fa-eye-slash') + '"></i>';
+                            btn.title = nowHidden ? 'Unhide' : 'Hide';
+                        }
+                    } catch (e) {
+                        alert('Failed: ' + e.message);
+                    } finally {
+                        btn.disabled = false;
+                    }
+                });
+            });
+
+            document.querySelectorAll('.chip-hide-toggle').forEach(btn => {
+                btn.addEventListener('click', async (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    const site = btn.getAttribute('data-site');
+                    const currentlyHidden = btn.getAttribute('data-hidden') === '1';
+                    const endpoint = currentlyHidden ? '/library/site/unhide' : '/library/site/hide';
+                    btn.disabled = true;
+                    try {
+                        const resp = await fetch(endpoint + '?name=' + encodeURIComponent(site), { method: 'POST' });
+                        if (!resp.ok) throw new Error(await resp.text());
+                        window.location.reload();
+                    } catch (e) {
+                        alert('Failed: ' + e.message);
+                        btn.disabled = false;
+                    }
+                });
+            });
+
             if (typeof navigator.serviceWorker !== 'undefined')
                 navigator.serviceWorker.register("/sw.js", { scope: '/' })
         </script>

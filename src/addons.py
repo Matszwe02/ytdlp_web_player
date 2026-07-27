@@ -20,8 +20,64 @@ from flask import Response, jsonify, request, send_file
 from external import External
 from main import *
 from sb import SponsorBlock
+import library_db
 
 yt_dlp = External.yt_dlp()
+
+
+def backfill_duration(url):
+    """If meta.duration is missing but we have a local media file, ffprobe it and update meta.json."""
+    if not url: return None
+    meta_file = check_media(url, 'meta')
+    if not meta_file: return None
+    try:
+        with open(meta_file, 'r') as f:
+            meta = json.load(f)
+    except Exception:
+        return None
+    if meta.get('duration'): return meta['duration']
+
+    data_dir = get_data_dir(url)
+    try:
+        candidates = os.listdir(data_dir)
+    except OSError:
+        return None
+    probe_file = None
+    for name in sorted(candidates, reverse=True):
+        if not (name.startswith('video-') or name.startswith('audio.') or name.startswith('audio-') or name.startswith('low.')): continue
+        if name.endswith(('.temp', '.part', '.ytdl')): continue
+        ext = os.path.splitext(name)[1].lower()
+        if ext not in ('.mp4', '.webm', '.mkv', '.mp3', '.m4a', '.opus', '.ogg', '.wav'): continue
+        probe_file = os.path.join(data_dir, name)
+        break
+    if not probe_file: return None
+
+    try:
+        duration = get_media_duration(url, {}, probe_file)
+    except Exception as e:
+        pprint_exc(e)
+        return None
+    if not duration: return None
+    meta['duration'] = duration
+    try:
+        with open(meta_file, 'w') as f:
+            json.dump(meta, f)
+        print(f'[duration-backfill] {url} -> {duration:.2f}s (from {os.path.basename(probe_file)})')
+    except Exception as e:
+        pprint_exc(e)
+    return duration
+
+
+def post_media_hooks(url, media_type=None):
+    """Fire-and-forget hooks: backfill missing duration + library upsert. Both idempotent."""
+    try:
+        backfill_duration(url)
+    except Exception as e:
+        pprint_exc(e)
+    try:
+        library_db.sync_url(url)
+    except Exception as e:
+        pprint_exc(e)
 
 
 class FileCachingLock:
@@ -278,7 +334,9 @@ class MediaDownloader:
 
     def run(self):
         with FileCachingLock(self.url, self.media_type) as cache:
-            if cache: return cache
+            if cache:
+                Thread(target=post_media_hooks, args=(self.url, self.media_type), daemon=True).start()
+                return cache
             self._load_variables()
             if   self.media_type.startswith('thumb'): self.thumb()
             elif self.media_type.startswith('playlist'): self.playlist()
@@ -289,7 +347,9 @@ class MediaDownloader:
             elif self.media_type.startswith('low'): self.low()
             elif self.media_type.startswith('sub'): self.sub()
             elif self.media_type.startswith('sprite'): self.sprite()
-        return check_media(url=self.url, media_type=self.media_type)
+        result = check_media(url=self.url, media_type=self.media_type)
+        Thread(target=post_media_hooks, args=(self.url, self.media_type), daemon=True).start()
+        return result
 
 
     def _load_variables(self):
@@ -674,7 +734,12 @@ def stream_media_file(url: str, headers: str|None = None, cookies: str|None = No
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
-        if 'mpegurl' in mime_type.lower():
+        url_path = urlparse(url).path.lower()
+        is_hls = 'mpegurl' in mime_type.lower() or url_path.endswith('.m3u8') or url_path.endswith('.m3u')
+        if is_hls and 'mpegurl' not in mime_type.lower():
+            print(f'HLS detected by URL suffix despite Content-Type: {mime_type}  (url={url[:120]}...)')
+
+        if is_hls:
             lines = []
             url_regex = re.compile(r'(URI=["\'])([^"\']*)(["\'])')
 
@@ -702,7 +767,7 @@ def stream_media_file(url: str, headers: str|None = None, cookies: str|None = No
                 else:
                     lines.append(f'/external?url={quote_plus(urljoin(url, line_str))}&headers={quote_plus(headers)}&cookies={quote_plus(cookies)}')
 
-            resp = Response('\n'.join(lines), status=response.status_code, mimetype=mime_type)
+            resp = Response('\n'.join(lines), status=response.status_code, mimetype='application/vnd.apple.mpegurl')
             return resp
 
         def generate():
@@ -837,7 +902,8 @@ def get_data_dir(url):
 
 def get_global_cookies_file(force = False):
     if cookies_only_on_failure and not force: return None
-    if os.path.exists('cookies.txt'): return 'cookies.txt'
+    path = os.path.join(data_path, 'cookies.txt')
+    if os.path.exists(path): return path
     return None
 
 

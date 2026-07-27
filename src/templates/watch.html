@@ -62,6 +62,42 @@
             </video>
         </div>
         
+        {% if debug %}
+        <details class="watch-debug">
+            <summary><i class="fa-solid fa-bug"></i> Debug info</summary>
+            <div class="watch-debug-body">
+                <table>
+                    <tr><th>URL</th><td><a href="{{ debug.url }}" target="_blank">{{ debug.url }}</a></td></tr>
+                    <tr><th>Hash</th><td><code>{{ debug.dir_hash }}</code></td></tr>
+                    <tr><th>Data dir</th><td><code>{{ debug.data_dir }}</code></td></tr>
+                </table>
+
+                <h4>Meta highlights</h4>
+                {% if debug.meta_highlights %}
+                    <table>
+                        {% for k, v in debug.meta_highlights.items() %}
+                            <tr><th>{{ k }}</th><td><code>{{ v }}</code></td></tr>
+                        {% endfor %}
+                    </table>
+                    <p><a href="/debug/meta?url={{ debug.url|urlencode }}" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> View raw meta.json</a></p>
+                {% else %}
+                    <p><em>meta not yet available</em></p>
+                {% endif %}
+
+                <h4>Files on disk ({{ debug.files|length }})</h4>
+                {% if debug.files %}
+                    <table>
+                        {% for f in debug.files %}
+                            <tr><th>{{ f.name }}</th><td>{{ f.size }}</td></tr>
+                        {% endfor %}
+                    </table>
+                {% else %}
+                    <p><em>no files yet</em></p>
+                {% endif %}
+            </div>
+        </details>
+        {% endif %}
+
         <div id="expandable-menu-container">
             <button id="expand-button" class="expand-button" aria-label="Menu">
                 <i class="fa-solid fa-chevron-up"></i>

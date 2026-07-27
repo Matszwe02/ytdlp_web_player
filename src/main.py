@@ -11,7 +11,7 @@ os.chdir(os.path.dirname(__file__))
 
 print('Loading configuration from environment, env file and command line arguments')
 
-load_dotenv()
+load_dotenv(dotenv_path=os.path.join('data', '.env'), override=False)
 
 for arg in sys.argv[1:]:
     if arg.startswith('-') and '=' in arg:
@@ -35,6 +35,7 @@ playlist_support = os.environ.get('PLAYLIST_SUPPORT', 'True').lower() == 'true'
 auto_bg_playback = os.environ.get('AUTO_BG_PLAYBACK', 'True').lower() == 'true'
 audio_visualizer = os.environ.get('AUDIO_VISUALIZER', 'False').lower() == 'true'
 data_path = os.path.abspath(os.environ.get('DATA_PATH', './data'))
+save_all = os.environ.get('SAVE_ALL', 'True').lower() == 'true'
 proxy = os.environ.get('PROXY', '')
 port = int(os.environ.get('PORT', '5000'))
 
@@ -71,6 +72,9 @@ def ytdlp_download():
 
 def delete_old_files():
     while True:
+        if save_all:
+            time.sleep(max_video_age)
+            continue
         print(f"Running periodic removal of old files")
         try:
             for item_name in os.listdir(data_path):
