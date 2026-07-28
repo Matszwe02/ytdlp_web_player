@@ -3,6 +3,9 @@ name: Build App
 on:
   release:
     types: [published]
+  push:
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -32,7 +35,7 @@ jobs:
     - name: Build application
       working-directory: app
       run: |
-        python build_app.py "${{ github.event.client_payload.release_tag || github.ref_name }}"
+        python build_app.py "${{ github.event_name == 'release' && github.event.client_payload.release_tag || '' }}"
 
     - name: Upload linux arm
       if: ${{ matrix.os == 'ubuntu-22.04-arm' }}
@@ -59,6 +62,7 @@ jobs:
         if-no-files-found: ignore
 
   release:
+    if: ${{ github.event_name == 'release' }}
     needs: build
     runs-on: ubuntu-22.04
 
