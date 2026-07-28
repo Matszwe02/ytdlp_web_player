@@ -215,6 +215,28 @@ def serve_sw():
     return Response(sw, mimetype='text/javascript')
 
 
+@app.route('/extension.js')
+def serve_extension():
+    if os.path.exists(os.path.join(app.static_folder, 'extension.js')):
+        with open(os.path.join(app.static_folder, 'extension.js'), 'r') as f:
+            extension = f.read()
+    elif os.path.exists(os.path.join('../extension', 'extension.js')):
+        with open(os.path.join('../extension', 'extension.js'), 'r') as f:
+            extension = f.read()
+    else:
+        return stream_media_file('https://raw.githubusercontent.com/Matszwe02/ytdlp_web_player/refs/heads/main/extension/extension.js')
+    request_url = request.url_root.rstrip('/')
+    if p := request.headers.get('X-Forwarded-Proto'): request_url = request_url.replace('http', p, 1)
+
+    extension = extension.replace('https://github.com/Matszwe02/ytdlp_web_player/raw/main/extension', request_url)
+    extension = extension.replace('https://github.com/Matszwe02/ytdlp_web_player/raw/main/src/static', request_url)
+    extension = extension.replace('1.0.0', External.get_app_version(), 1)
+    extension = extension.replace('YT-DLP Web Player', app_title, 1)
+    extension = extension.replace("var playerUrl = '';", f"var playerUrl = '{request_url}';", 1)
+
+    return Response(extension, mimetype='text/javascript')
+
+
 @app.route('/hls')
 def download_hls():
     try:

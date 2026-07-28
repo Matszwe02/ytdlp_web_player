@@ -15,6 +15,7 @@ COPY src/requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 COPY --from=builder /build/version.txt /app/
 COPY src/. /app
+COPY extension/extension.js /app/static/extension.js
 EXPOSE 5000
 ENV FLASK_APP=main.py
 CMD ["python3", "main.py"]

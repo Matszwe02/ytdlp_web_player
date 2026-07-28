@@ -64,6 +64,7 @@ args = [
     "--add-binary", f"{FFMPEG_BIN_PATH}{colon}.",
     "--add-binary", f"{DENO_BIN_PATH}{colon}.",
     "--add-binary", f"src/version.txt{colon}.",
+    "--add-binary", f"extension/extension.js{colon}static/",
     "--add-data", f"src/static{colon}static",
     "--add-data", f"src/templates{colon}templates",
     "src/main.py"

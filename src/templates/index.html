@@ -122,12 +122,11 @@
             }
             function copyExtensionScript(event)
             {
-                fetch('https://raw.githubusercontent.com/Matszwe02/ytdlp_web_player/refs/heads/main/extension/extension.js')
+                fetch('/extension.js')
                     .then(response => {
                         if (!response.ok) return;
                         response.text().then(data => {
                             if (!data) return;
-                            data = data.replace("playerUrl = ''", `playerUrl = '${window.top.location.origin}'`);
                             navigator.clipboard.writeText(data).then(() => {
                                 var b = document.getElementById('script-copy');
                                 b.innerHTML = '<i class="fa-solid fa-file-code"></i> Script Copied!';
