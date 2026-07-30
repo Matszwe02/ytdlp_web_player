@@ -79,7 +79,11 @@ def serve_thumbnail():
         url = get_url(request)
         return host_file(url, 'thumb')
     except Exception as e:
-        return pprint_exc(e)
+        pprint_exc(e)
+        thumb = BytesIO()
+        Image.new('RGB', (10, 10), color = 'black').save(thumb, format='PNG')
+        thumb.seek(0)
+        return Response(thumb, mimetype='image/png')
 
 
 @app.route('/sprite')
