@@ -401,10 +401,12 @@ function updateAllowedDomains(allowedDomains)
     if (allowedDomainsList.some(allowedDomain => { return hostname === allowedDomain || hostname.endsWith(`.${allowedDomain}`); }))
     {
         tryStart();
+        return true;
     }
     else
     {
         stop();
+        return false;
     }
 }
 
@@ -436,8 +438,26 @@ else
 {
     try
     {
-        GM_registerMenuCommand("Start", start);
-        GM_registerMenuCommand("Stop", stop);
+        var startCmd = null;
+        function GM_toggleStart(state = null)
+        {
+            if (startCmd) GM_unregisterMenuCommand(startCmd);
+            tabEnabled = !tabEnabled;
+            if (state === true || state === false) tabEnabled = state;
+            if (tabEnabled)
+            {
+                console.warn('Toggle (start)');
+                startCmd = GM_registerMenuCommand("Stop", GM_toggleStart);
+                start();
+            }
+            else
+            {
+                console.warn('Toggle (stop)');
+                startCmd = GM_registerMenuCommand("Start", GM_toggleStart);
+                stop();
+            }
+        }
+        GM_toggleStart(false);
 
         playerUrl = playerUrl || GM_getValue("playerUrl", null);
         if (!playerUrl)
@@ -460,27 +480,27 @@ else
             }
             allowedDomains = allowedDomains.join(',');
             GM_setValue("allowedDomains", allowedDomains);
-            updateAllowedDomains(GM_loadDomains());   
+            GM_toggleStart(updateAllowedDomains(GM_loadDomains()));
         }
 
-        var cmd = null;
+        var domainCmd = null;
         function GM_loadDomains()
         {
-            if (cmd) GM_unregisterMenuCommand(cmd);
+            if (domainCmd) GM_unregisterMenuCommand(domainCmd);
             var allowedDomains = GM_getValue("allowedDomains", '').split(',').map(domain => domain.trim());
             console.warn(allowedDomains);
             const currentUrl = new URL(window.top.location.href);
             if (allowedDomains.includes(currentUrl.hostname))
             {
-                cmd = GM_registerMenuCommand("Remove Current Domain", GM_toggleDomain);
+                domainCmd = GM_registerMenuCommand("Remove Current Domain", GM_toggleDomain);
             }
             else
             {
-                cmd = GM_registerMenuCommand("Add Current Domain", GM_toggleDomain);
+                domainCmd = GM_registerMenuCommand("Add Current Domain", GM_toggleDomain);
             }
             return allowedDomains.join(',');
         }
-        updateAllowedDomains(GM_loadDomains());
+        GM_toggleStart(updateAllowedDomains(GM_loadDomains()));
     }
     catch
     {
