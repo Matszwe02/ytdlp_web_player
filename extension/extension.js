@@ -139,8 +139,17 @@ function getIframeContainer()
         }
         let left = Math.max(Math.min(window.innerWidth - 10, rect.left + rect.width / 2), 10);
         let top = Math.max(Math.min(window.innerHeight - 10, rect.top + rect.height / 2), 10);
+        let currentOrigin = new URL(window.location.href).origin;
         document.elementsFromPoint(left, top).forEach((el, i) => {
-            if (el.tagName == "A") altSrc = el.href;
+            if (el.tagName == "A")
+            {
+                try
+                {
+                    let url = new URL(el.href, currentOrigin);
+                    altSrc = (currentOrigin === url.origin && url.pathname != '/') ? url.href : altSrc;
+                }
+                catch {}
+            }
         });
         while (bestVideo.parentElement !== document.body)
         {
