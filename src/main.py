@@ -83,8 +83,11 @@ def delete_old_files():
                 keepalive_file = os.path.join(vid_path, 'keepalive')
                 mtime = 0
                 if os.path.exists(keepalive_file):
-                    with open(keepalive_file, 'r') as f:
-                        mtime = int(f.read())
+                    try:
+                        with open(keepalive_file, 'r') as f:
+                            mtime = int(f.read())
+                    except Exception:
+                        pass
                 if time.time() - mtime > max_video_age:
                     print(f"Deleting old directory: {vid_path}")
                     shutil.rmtree(vid_path)
