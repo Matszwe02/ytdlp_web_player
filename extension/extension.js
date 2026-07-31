@@ -88,7 +88,13 @@ function unblockVideos()
 
 function getIframeContainer()
 {
-    let ordered_video_types = ['.html5-video-player', 'shreddit-player', 'video', 'img'];
+    let ordered_video_types = [
+        '.html5-video-player',
+        'shreddit-player,.vimeo-player,.jwplayer,.video-js,.wistia_embed,.flowplayer,.dm_player_container',
+        '.player,.video',
+        'video',
+        'img'
+    ];
     let allVideos = [];
     for (let index = 0; index < ordered_video_types.length; index++) {
         allVideos = Array.from(document.querySelectorAll(ordered_video_types[index]));
