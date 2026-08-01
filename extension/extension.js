@@ -41,6 +41,19 @@ try
 catch {}
 
 
+function windowHref()
+{
+    try
+    {
+        return window.top.location.href;
+    }
+    catch
+    {
+        return window.location.href;
+    }
+}
+
+
 function blockVideos()
 {
     if (!tabEnabled) return;
@@ -145,7 +158,7 @@ function getIframeContainer()
         }
         let left = Math.max(Math.min(window.innerWidth - 10, rect.left + rect.width / 2), 10);
         let top = Math.max(Math.min(window.innerHeight - 10, rect.top + rect.height / 2), 10);
-        let currentOrigin = new URL(window.location.href).origin;
+        let currentOrigin = new URL(windowHref()).origin;
         document.elementsFromPoint(left, top).forEach((el, i) => {
             if (el.tagName == "A")
             {
@@ -195,7 +208,7 @@ function createIframe(src='')
                 action: 'postCookies',
                 playerUrl: playerUrl,
                 documentCookies: document.cookie,
-                currentWebsiteUrl: window.top.location.href
+                currentWebsiteUrl: windowHref()
             });
         }
         catch (error)
@@ -255,7 +268,7 @@ function updateIframeGeometry(forceZero = false)
 function updateIframe(updateContainer = false)
 {
     if (!tabEnabled) return;
-    let src = altSrc || window.top.location.href;
+    let src = altSrc || windowHref();
     let srcUrl = new URL(src);
     let iframeEnabled = srcUrl.pathname != '/' || srcUrl.search || altSrc;
     let iframeSrc = `${playerUrl}/iframe?url=${encodeURIComponent(src)}`;
@@ -395,6 +408,7 @@ function tryStart()
     }
     try
     {
+        if (new URL(windowHref()).origin == new URL(playerUrl).origin) return;
         start();
     }
     catch (error)
@@ -409,7 +423,7 @@ function tryStart()
 
 function updateAllowedDomains(allowedDomains)
 {
-    const currentUrl = new URL(window.top.location.href);
+    const currentUrl = new URL(windowHref());
     const hostname = currentUrl.hostname;
 
     const allowedDomainsList = allowedDomains.split(',').map(domain => domain.trim());
@@ -484,7 +498,7 @@ else
         function GM_toggleDomain()
         {
             var allowedDomains = GM_loadDomains().split(',');
-            const currentUrl = new URL(window.top.location.href);
+            const currentUrl = new URL(windowHref());
             if (allowedDomains.includes(currentUrl.hostname))
             {
                 allowedDomains.pop(currentUrl.hostname);
@@ -504,7 +518,7 @@ else
             if (domainCmd) GM_unregisterMenuCommand(domainCmd);
             var allowedDomains = GM_getValue("allowedDomains", '').split(',').map(domain => domain.trim());
             console.warn(allowedDomains);
-            const currentUrl = new URL(window.top.location.href);
+            const currentUrl = new URL(windowHref());
             if (allowedDomains.includes(currentUrl.hostname))
             {
                 domainCmd = GM_registerMenuCommand("Remove Current Domain", GM_toggleDomain);
