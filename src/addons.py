@@ -74,6 +74,11 @@ class Processes:
     @staticmethod
     def setitem(item, val):
         print(f'Assigning pid {item} to {val}')
+        proc = Processes.get()
+        if len(proc.keys()) > max_processes:
+            oldest = min(proc, key=lambda k: proc[k][2])
+            print('Too many processes! Killing the oldest one')
+            Processes.rm(oldest, True)
         with open(os.path.join(data_path, str(item)), 'w') as f:
             json.dump(val, f)
 
@@ -787,15 +792,19 @@ def preload(url = None, meta = None, playlist = None):
         except:
             pass
 
+    avail_procs = max_processes - len(Processes.get().keys())
     if not check_media(url, 'meta'):
         Thread(target=get_meta, args=[url]).start()
+        avail_procs -= 1
     if not check_media(url, 'thumb'):
         Thread(target=MediaDownloader(url, 'thumb').run).start()
-    if not disable_transcoding and not check_media(url, 'hls-audio'):
+    if not disable_transcoding and not check_media(url, 'hls-audio') and avail_procs > 1:
         Thread(target=MediaDownloader(url, 'hls-audio').run).start()
+        avail_procs -= 1
     if playlist and not check_media(url, 'playlist'):
         with open(os.path.join(get_data_dir(url), 'playlist.json'), 'w') as f:
             json.dump(playlist, f)
+    if avail_procs <= 1: print('Warning: video may be loading slower than usual - consider increasing MAX_PROCESSES if that\'s an issue')
 
 
 def mark_watched(url):

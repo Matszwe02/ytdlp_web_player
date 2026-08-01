@@ -30,6 +30,7 @@ autoplay = (os.environ.get('AUTOPLAY', 'False')).lower() == 'true'
 min_live_buffer = float(os.environ.get('MIN_LIVE_BUFFER', '1'))
 always_transcode = (os.environ.get('ALWAYS_TRANSCODE', 'False')).lower() == 'true'
 disable_transcoding = os.environ.get('DISABLE_TRANSCODING', 'False').lower() == 'true'
+max_processes = int(os.environ.get('MAX_PROCESSES', '5'))
 autoskip_sb_segments = [seg for seg in (os.environ.get('AUTOSKIP_SB_SEGMENTS') or '').split(',') if seg != '']
 cookies_only_on_failure = (os.environ.get('COOKIES_ONLY_ON_FAILURE', 'True')).lower() == 'true'
 amoled_bg = os.environ.get('AMOLED_BG', 'False').lower() == 'true'
