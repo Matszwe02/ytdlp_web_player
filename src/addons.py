@@ -322,21 +322,44 @@ class MediaDownloader:
 
 
     def thumb(self):
-        thumb_url = self.meta['thumbnail']
+        thumb_url = self.meta.get('thumbnail')
         video_width = self.meta.get('width')
         video_height = self.meta.get('height')
-        try:
-            download_media_file(thumb_url, os.path.join(self.data_dir, 'thumb-orig'))
-        except Exception as e:
-            pprint_exc(e)
+        if thumb_url:
+            try:
+                download_media_file(thumb_url, os.path.join(self.data_dir, 'thumb-orig'))
+            except Exception as e:
+                pprint_exc(e)
+
+        thumb_file = check_media(url=self.url, media_type='thumb-orig')
+        if not thumb_file:
+            print('Direct thumbnail download did not succeed. Downloading using yt-dlp.')
+            self.ydl_opts.update({'writethumbnail': True, 'skip_download': True})
+            YTDLP.download(self.url, self.ydl_opts)
+            thumb_file = check_media(url=self.url, media_type='thumb-orig')
+
+            if not thumb_file:
+                print('Thumbnail download did not succeed. Generating from video.')
+                try:
+                    src = check_media(self.url, 'video')
+                    if not src:
+                        srcs = choose_sources_for_res(get_video_sources(self.url, self.meta), get_good_quality(get_video_formats(self.url, self.meta)))
+                    duration = int(self.meta.get('duration') or 10)
+                    ffmpeg_command = [
+                        '-ss', f'{int(duration/10)}',
+                        '-i', srcs[1][0],
+                        '-frames:v', '1',
+                        os.path.join(self.data_dir, 'thumb-orig.jpg')
+                    ]
+                    FFMPEG(self.url, ffmpeg_command)
+                except Exception as e:
+                    pprint_exc(e)
+                thumb_file = check_media(url=self.url, media_type='thumb-orig')
+
+        if not thumb_file: raise RuntimeError("No thumbnail could be generated or found.")
+
         try:
             if video_width and video_height:
-                thumb_file = check_media(url=self.url, media_type='thumb-orig')
-                if not thumb_file:
-                    print('Direct thumbnail download did not succeed. Downloading using yt-dlp.')
-                    self.ydl_opts.update({'writethumbnail': True, 'skip_download': True})
-                    YTDLP.download(self.url, self.ydl_opts)
-                    thumb_file = check_media(url=self.url, media_type='thumb-orig')
 
                 with Image.open(thumb_file) as im:
                     im = im.convert("RGB")
@@ -363,7 +386,8 @@ class MediaDownloader:
             else:
                 print("Video dimensions not found in meta, skipping thumbnail cropping.")
         except Exception as e:
-            print(f"Error cropping thumbnail: {e}")
+            print(f"Error cropping thumbnail")
+            pprint_exc(e)
 
 
     def playlist(self):
