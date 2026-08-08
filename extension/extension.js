@@ -467,6 +467,14 @@ else
 {
     try
     {
+
+        playerUrl = playerUrl || GM_getValue("playerUrl", null);
+        if (!playerUrl)
+        {
+            playerUrl = prompt("Enter YT-DLP Web Player URL (it will be saved in tampermonkey storage):");
+            GM_setValue("playerUrl", playerUrl);
+        }
+
         var startCmd = null;
         function GM_toggleStart(state = null)
         {
@@ -485,14 +493,6 @@ else
                 startCmd = GM_registerMenuCommand("Start", GM_toggleStart);
                 stop();
             }
-        }
-        GM_toggleStart(false);
-
-        playerUrl = playerUrl || GM_getValue("playerUrl", null);
-        if (!playerUrl)
-        {
-            playerUrl = prompt("Enter YT-DLP Web Player URL (it will be saved in tampermonkey storage):");
-            GM_setValue("playerUrl", playerUrl);
         }
 
         function GM_toggleDomain()
@@ -529,7 +529,11 @@ else
             }
             return allowedDomains.join(',');
         }
-        GM_toggleStart(updateAllowedDomains(GM_loadDomains()));
+
+        if (new URL(windowHref()).origin != new URL(playerUrl).origin)
+        {
+            GM_toggleStart(updateAllowedDomains(GM_loadDomains()));
+        }
     }
     catch
     {
