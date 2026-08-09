@@ -132,6 +132,13 @@ Due to the packaging of necessary python modules, yt-dlp update may break on old
 - app and CLI should appear in `/dist`
 
 
+### Run with unraid
+
+You can install the official unraid application:
+
+https://ca.unraid.net/apps/yt-dlp-web-player-1ueyzjo0lupqig
+
+
 ## Cookies
 
 Some videos need cookies to work. With cookies you will be logged in to the video streaming's website while using the app.
