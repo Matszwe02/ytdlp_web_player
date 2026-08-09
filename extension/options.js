@@ -114,14 +114,14 @@ async function removeCurrentDomain()
     {
         const url = new URL(tab.url);
         const domain = url.hostname;
-        
-        const currentDomainsArray = getDomainsArray();
+
+        let currentDomainsArray = getDomainsArray();
         if (!currentDomainsArray.includes(domain))
         {
             alert('Domain not in the list');
             return;
         }
-        currentDomainsArray.pop(domain);
+        currentDomainsArray.splice(currentDomainsArray.indexOf(domain), 1);
         updateDomains(currentDomainsArray);
     }
     catch (e)
