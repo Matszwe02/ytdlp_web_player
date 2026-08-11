@@ -28,18 +28,37 @@ function renderAllowedDomains(domainsArray)
             const hostname = currentUrl.hostname;
             if (domainsArray.some(allowedDomain => { return hostname === allowedDomain || hostname.endsWith(`.${allowedDomain}`); }))
             {
-                document.getElementById('addCurrentDomainButton').style.display = 'none';
-                document.getElementById('removeCurrentDomainButton').style.display = 'block';
+                document.getElementById('toggleCurrentDomainButton').textContent = `Remove Domain\n${hostname}`;
+                document.getElementById('toggleCurrentDomainButton').classList.add('active');
             }
             else
             {
-                document.getElementById('addCurrentDomainButton').style.display = 'block';
-                document.getElementById('removeCurrentDomainButton').style.display = 'none';
+                document.getElementById('toggleCurrentDomainButton').textContent = `Add Domain\n${hostname}`;
+                document.getElementById('toggleCurrentDomainButton').classList.remove('active');
             }
         }
     });
+}
 
-
+async function updateTabStatus()
+{
+    const [tab] = await chrome?.tabs?.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id) return;
+    setTimeout(() => {
+        chrome.tabs.sendMessage(tab.id, { action: 'getTabStatus' }, (response) => {
+            if (!response || typeof response.status === 'undefined') return;
+            if (response.status)
+            {
+                document.getElementById('toggleCurrentTabButton').textContent = `Stop`;
+                document.getElementById('toggleCurrentTabButton').classList.add('active');
+            }
+            else
+            {
+                document.getElementById('toggleCurrentTabButton').textContent = `Start`;
+                document.getElementById('toggleCurrentTabButton').classList.remove('active');
+            }
+        });
+    }, 100);
 }
 
 function getDomainsArray()
@@ -54,6 +73,7 @@ function updateDomains(newDomainsArray)
     document.getElementById('allowedDomains').value = newDomainsArray.join(',');
     renderAllowedDomains(newDomainsArray);
     saveOptions();
+    updateTabStatus();
 }
 
 function saveOptions()
@@ -71,7 +91,23 @@ function restoreOptions()
         document.getElementById('cookies').checked = items.cookies;
         document.getElementById('allowedDomains').value = items.allowedDomains;
         renderAllowedDomains(items.allowedDomains.split(',').map(domain => domain.trim()).filter(domain => domain.length > 0));
+        if (items.playerUrl === '') setTimeout(() => { saveOptions(); }, 100);
     });
+    updateTabStatus();
+}
+
+async function toggleCurrentTab()
+{
+    let start = document.getElementById('toggleCurrentTabButton').textContent.startsWith('Start');
+    sendMsg(start ? 'start' : 'stop');
+    updateTabStatus();
+}
+
+async function toggleCurrentDomain()
+{
+    let start = document.getElementById('toggleCurrentDomainButton').textContent.startsWith('Add');
+    if (start) addCurrentDomain();
+    else removeCurrentDomain();
 }
 
 async function addCurrentDomain()
@@ -86,7 +122,7 @@ async function addCurrentDomain()
     {
         const url = new URL(tab.url);
         const domain = url.hostname;
-        
+
         const currentDomainsArray = getDomainsArray();
         if (currentDomainsArray.includes(domain))
         {
@@ -139,10 +175,8 @@ async function sendMsg(action)
 
 
 document.addEventListener('DOMContentLoaded', restoreOptions);
-document.getElementById('addCurrentDomainButton').addEventListener('click', addCurrentDomain);
-document.getElementById('removeCurrentDomainButton').addEventListener('click', removeCurrentDomain);
-document.getElementById('startCurrentTabButton').addEventListener('click', () => sendMsg('start'));
-document.getElementById('stopCurrentTabButton').addEventListener('click', () => sendMsg('stop'));
+document.getElementById('toggleCurrentDomainButton').addEventListener('click', toggleCurrentDomain);
+document.getElementById('toggleCurrentTabButton').addEventListener('click', toggleCurrentTab);
 let playerUrlTimeoutId = null;
 document.getElementById('playerUrl').addEventListener('input', () => {
     if (playerUrlTimeoutId) clearTimeout(playerUrlTimeoutId);

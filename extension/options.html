@@ -7,39 +7,39 @@
         input { width: 400px; padding: 8px; margin-bottom: 20px; border: 1px solid #444; border-radius: 4px; background-color: #111; color: #eee; }
         input:invalid { background-color: #970000 !important; }
         #cookies { margin-left: 9px; margin-right: 9px; }
-        .domain-list { margin-top: 20px; border-top: 1px solid #444; padding-top: 15px; }
+        .domain-list { margin-bottom: 20px; border-bottom: 1px solid #444; padding-top: 15px; }
         ul { list-style: none; padding: 0; }
         li { margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
         li span { flex-grow: 1; margin-right: 10px; }
         button { color: #fff; cursor: pointer; border: none; padding: 5px 8px; border-radius: 2px; }
         li button { font-size: 0.8em; }
-        #addCurrentDomainButton,#removeCurrentDomainButton { width: 418px; }
-        .tab-control-button { width: 150px; }
+        .tab-control-button { white-space: pre-line; }
+        #toggleCurrentTabButton { width: 100px; }
+        #toggleCurrentDomainButton { width: 300px; }
         .lr-container { display: flex; justify-content: space-between; }
-        li button,.red { background-color: #a22; }
-        li button,.red:hover { background-color: #972222; }
-        .green { background-color: #393;}
-        .green:hover { background-color: #338833; }
+        li button,.tab-control-button.active { background-color: #a22; }
+        li button,.tab-control-button.active:hover { background-color: #972222; }
+        .tab-control-button:not(.active) { background-color: #393;}
+        .tab-control-button:not(.active):hover { background-color: #338833; }
     </style>
 </head>
 <body>
     <label for="playerUrl">YT-DLP Player URL:</label>
     <input type="url" id="playerUrl" pattern="^(https:\/\/.*|http:\/\/localhost.*|http:\/\/127\.0\.0\.1.*)$" placeholder="http://localhost:5000" title="YT-DLP player URL with HTTPS endpoint">
-    <label for="cookies">Send cookies with requests:</label>
-    <input type="checkbox" id="cookies" title="If enabled, every replaced video will be played with your browser's cookies">
-    
+
     <div class="lr-container">
-        <button id="startCurrentTabButton" class="tab-control-button green">Start For Current Tab</button>
-        <button id="stopCurrentTabButton" class="tab-control-button red">Stop For Current Tab</button>
+        <button id="toggleCurrentTabButton" class="tab-control-button">?</button>
+        <button id="toggleCurrentDomainButton" class="tab-control-button">?</button>
     </div>
 
     <div id="domainListContainer" class="domain-list">
-        <button id="addCurrentDomainButton" class="green">Add Current Domain</button>
-        <button id="removeCurrentDomainButton" class="red" style="display: none;">Remove Current Domain</button>
         <ul id="allowedDomainsList">
         </ul>
         <input type="text" id="allowedDomains" placeholder="Click on Add Current Domain">
     </div>
+
+    <label for="cookies">Send cookies with requests:</label>
+    <input type="checkbox" id="cookies" title="If enabled, every replaced video will be played with your browser's cookies">
 
     <script src="options.js"></script>
 </body>

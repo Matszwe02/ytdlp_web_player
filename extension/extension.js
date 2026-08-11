@@ -461,6 +461,10 @@ if (storage !== null && storageSync !== null)
         {
             stop();
         }
+        else if (message.action === 'getTabStatus')
+        {
+            sendResponse({ status: tabEnabled &&  playerUrl});
+        }
     });
 }
 else
