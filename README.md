@@ -41,7 +41,7 @@ some of these features are off by default and need to be turned on in `.env`
 <table align="center">
   <tr>
     <td align="center" valign="top" width="50%">
-      <b>Main Page (PWA)</b><br>Paste URL, seach for a video or click enter - when input field is empty, it will auto-fill from clipboard
+      <b>Multi-Platform</b><br>Server app for Linux and Windows, docker images, unraid app
       <br><br><img src=".github/images/main.png" alt="Main Page" />
     </td>
     <td align="center" valign="top" width="50%">
@@ -91,6 +91,8 @@ some of these features are off by default and need to be turned on in `.env`
 
 App should be accessible at http://localhost:5000
 
+Below are possible ways you can run the YT-DLP Web Player server:
+
 ### Docker
 - `docker run -p 5000:5000 matszwe02/ytdlp_web_player:stable`
     - if you want stable version, ready for everyday use
@@ -121,11 +123,14 @@ OR
 - To enable environment:
     - Copy `src/example.env` to `src/.env`, modify as needed
 
-### Build application
+### Server application
 
-Due to the packaging of necessary python modules, yt-dlp update may break on older builds when yt-dlp updates its dependencies, and app rebuild is necessary.
+Due to the packaging of necessary python modules, yt-dlp update may break on older builds when yt-dlp updates its dependencies. In this case a manual app update is necessary
 
-- Clone repo
+- Download and run from [Releases](https://github.com/Matszwe02/ytdlp_web_player/releases/latest)
+
+If you want to build this app:
+
 - install python3 and nodejs
 - Create and activate a virtual environment
 - run `/app/build_app.py`
