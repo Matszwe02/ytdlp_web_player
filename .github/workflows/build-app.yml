@@ -20,7 +20,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Node.js
       uses: actions/setup-node@v3
@@ -32,10 +32,20 @@ jobs:
       run: |
         sudo apt update && sudo apt install -y ffmpeg
 
+    - name: Apply Release Version
+      id: apply_release_version
+      run: |
+        if [[ "${{ github.event_name }}" == "release" ]]; then
+          echo "APP_VERSION=${{ github.event.release.tag_name }}"
+          echo "APP_VERSION=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+        else
+          echo "APP_VERSION=" >> $GITHUB_OUTPUT
+        fi
+
     - name: Build application
       working-directory: app
       run: |
-        python build_app.py "${{ github.event.release.tag_name }}"
+        python build_app.py "${{ steps.apply_release_version.outputs.APP_VERSION }}"
 
     - name: Upload linux arm
       if: ${{ matrix.os == 'ubuntu-22.04-arm' }}
