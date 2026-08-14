@@ -35,7 +35,7 @@ jobs:
     - name: Build application
       working-directory: app
       run: |
-        python build_app.py "${{ github.event_name == 'release' && github.event.client_payload.release_tag || '' }}"
+        python build_app.py "${{ github.event.release.tag_name }}"
 
     - name: Upload linux arm
       if: ${{ matrix.os == 'ubuntu-22.04-arm' }}
