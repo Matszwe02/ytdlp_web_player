@@ -691,7 +691,7 @@ def load_http_cookies(cookies_str):
     return requests.utils.cookiejar_from_dict({k: v.value for k, v in c.items()})
 
 
-def stream_media_file(url: str, headers: str|None = None, cookies: str|None = None):
+def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str|None = None):
     """Stream raw file with requests.get"""
     try:
         headers_dict = json.loads(headers) if headers else {
@@ -699,18 +699,18 @@ def stream_media_file(url: str, headers: str|None = None, cookies: str|None = No
         }
         if client_range := request.headers.get('Range'):
             headers_dict['Range'] = client_range
-        response = requests.get(url, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies), proxies=proxies)
+        response = requests.get(src, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies), proxies=proxies)
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
         if 'mpegurl' in mime_type.lower():
             lines = []
-            url_regex = re.compile(r'(URI=["\'])([^"\']*)(["\'])')
+            src_regex = re.compile(r'(URI=["\'])([^"\']*)(["\'])')
 
-            def replace_url(match):
-                prefix, orig_url, suffix = match.groups()
-                new_url = f'/external?url={quote_plus(urljoin(url, orig_url))}&headers={quote_plus(headers or "")}&cookies={quote_plus(cookies or "")}'
-                return f'{prefix}{new_url}{suffix}'
+            def replace_src(match):
+                prefix, orig_src, suffix = match.groups()
+                new_src = f'/external?src={quote_plus(urljoin(src, orig_src))}&headers={quote_plus(headers or "")}&cookies={quote_plus(cookies or "")}&url={quote_plus(url)}'
+                return f'{prefix}{new_src}{suffix}'
             raw_lines = response.content.decode('utf-8', errors='ignore').splitlines()
             skipline = False
             for idx, line in enumerate(raw_lines):
@@ -727,9 +727,9 @@ def stream_media_file(url: str, headers: str|None = None, cookies: str|None = No
                     continue
 
                 if line_str.startswith('#'):
-                    lines.append(url_regex.sub(replace_url, line))
+                    lines.append(src_regex.sub(replace_src, line))
                 else:
-                    line = f'/external?url={quote_plus(urljoin(url, line_str))}&headers={quote_plus(headers or "")}&cookies={quote_plus(cookies or "")}'
+                    line = f'/external?src={quote_plus(urljoin(url, line_str))}&headers={quote_plus(headers or "")}&cookies={quote_plus(cookies or "")}&url={quote_plus(url)}'
                     lines.append(line)
 
             resp = Response('\n'.join(lines), status=response.status_code, mimetype=mime_type)
@@ -749,6 +749,7 @@ def stream_media_file(url: str, headers: str|None = None, cookies: str|None = No
         return resp
     except requests.exceptions.RequestException as e:
         print(f"Error streaming media file: {e}")
+        if url: get_meta(url, 0)
         return jsonify({"error": f"Failed to stream media: {e}"}), 500
 
 
@@ -925,19 +926,19 @@ def check_media(url: str, media_type: str):
     return None
 
 
-def get_meta(url: str):
+def get_meta(url: str, max_meta_age = None):
     with FileCachingLock(url, 'meta') as cache:
         print(cache)
         if cache:
             try:
                 with open(cache, 'r') as f:
                     meta = json.load(f)
-                max_meta_age = 60 if meta.get('is_live') else 600
+                max_meta_age = max_meta_age or (60 if meta.get('is_live') else 600)
                 if time.time() - meta.get('timestamp') > max_meta_age:
                     print('Checking metadata validity...')
                     srcs = choose_sources_for_res(get_video_sources(url, meta), get_good_quality(get_video_formats(url, meta)))
                     src = srcs[0] or srcs[1]
-                    resp = stream_media_file(src[0], src[1], src[2])
+                    resp = stream_media_file(url, src[0], src[1], src[2])
                     if isinstance(resp, Response):
                         if resp.status_code > 399: raise ConnectionError(resp.response)
 
@@ -948,7 +949,7 @@ def get_meta(url: str):
                             for line in raw_lines:
                                 line_str = line.strip()
                                 if not line_str or line_str.startswith('#'): continue
-                                resp = stream_media_file(urljoin(url, line_str), src[1], src[2])
+                                resp = stream_media_file(None, urljoin(url, line_str), src[1], src[2])
                                 if not isinstance(resp, Response) or resp.status_code > 399: raise ConnectionError('Can not send a HLS request')
                                 break
 
@@ -1073,9 +1074,9 @@ def get_subtitles(meta: dict):
     return all_subtitles
 
 
-def generate_hls(audio_source, video_source):
+def generate_hls(url, audio_source, video_source):
 
-    get_url = lambda s: f'/external?url={quote_plus(s[0])}&headers={quote_plus(s[1])}&cookies={quote_plus(s[2])}'
+    get_url = lambda s: f'/external?src={quote_plus(s[0])}&headers={quote_plus(s[1])}&cookies={quote_plus(s[2])}&url={quote_plus(url)}'
 
     audio_url = get_url(audio_source) if audio_source and audio_source != video_source else None
     video_url = get_url(video_source) if video_source else None
@@ -1090,7 +1091,7 @@ def generate_hls(audio_source, video_source):
     ])
 
 
-def generate_dash(audio_source, video_source, duration):
+def generate_dash(url, audio_source, video_source, duration):
     def get_mp4_dash_ranges(source):
         headers_dict = json.loads(source[1]) | {"Range": "bytes=0-60000"}
         response = requests.get(source[0], headers=headers_dict, cookies=load_http_cookies(source[2]), proxies=proxies)
@@ -1119,7 +1120,7 @@ def generate_dash(audio_source, video_source, duration):
     mpd_src = lambda src, ranges, mediatype: '\n'.join([
        f'        <AdaptationSet mimeType="{mediatype}/mp4" codecs="{src[3]}" subsegmentAlignment="true" subsegmentStartsWithSAP="1">',
        f'          <Representation id="{mediatype}_track" bandwidth="1000000">',
-       f'            <BaseURL><![CDATA[/external?url={quote_plus(src[0])}&headers={quote_plus(src[1])}&cookies={quote_plus(src[2])}]]></BaseURL>',
+       f'            <BaseURL><![CDATA[/external?src={quote_plus(src[0])}&headers={quote_plus(src[1])}&cookies={quote_plus(src[2])}&url={quote_plus(url)}]]></BaseURL>',
        f'            <SegmentBase indexRange="{ranges[1]}" indexRangeExact="true">',
        f'              <Initialization range="{ranges[0]}" />',
         '            </SegmentBase>',
@@ -1163,6 +1164,7 @@ def choose_sources_for_res(sources: dict, res = None):
 
 def get_direct(url = None, meta = None, res = None, simulate = False):
     try:
+        url = url or meta.get('original_url')
         sources = get_video_sources(url, meta, protocols=['http', 'https'])
         a, v = choose_sources_for_res(sources, res)
         if a and (not res or a == v):
@@ -1177,7 +1179,7 @@ def get_direct(url = None, meta = None, res = None, simulate = False):
             if not simulate:
                 print(f'Generating HLS direct for {res}')
                 try:
-                    content = generate_hls(a, v)
+                    content = generate_hls(url, a, v)
                     with open(os.path.join(get_data_dir(url), f'direct-{res or "audio"}.m3u8'), 'w') as f:
                         f.write(content)
                 except Exception as e:
@@ -1190,7 +1192,7 @@ def get_direct(url = None, meta = None, res = None, simulate = False):
             if not simulate:
                 print(f'Generating MPD direct for {res}')
                 try:
-                    content = generate_dash(a, v, get_media_duration(url, meta, a[0] if a else v[0]))
+                    content = generate_dash(url, a, v, get_media_duration(url, meta, a[0] if a else v[0]))
                     with open(os.path.join(get_data_dir(url), f'direct-{res or "audio"}.mpd'), 'w') as f:
                         f.write(content)
                 except Exception as e:

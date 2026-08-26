@@ -148,9 +148,9 @@ def resp_direct():
 
 @app.route('/external')
 def serve_external():
-    url = request.args.get('url')
-    if not url: return jsonify({"error": "URL parameter is required"}), 400
-    return stream_media_file(url, request.args.get('headers'), request.args.get('cookies'))
+    src = request.args.get('src')
+    url = get_url(request)
+    return stream_media_file(url, src, request.args.get('headers'), request.args.get('cookies'))
 
 
 @app.route('/subtitle')
