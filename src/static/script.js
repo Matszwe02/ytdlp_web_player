@@ -183,6 +183,7 @@ function getUrlInfo()
     const urlParams = new URLSearchParams(window.location.search);
     const originalUrl = urlParams.get('v') || urlParams.get('url');
     const encodedUrl = encodeURIComponent(originalUrl);
+    const startTime = urlParams.get('t');
     var quality = urlParams.get('quality');
     if (quality == '') quality = null;
     if (quality == 'null') quality = null;
@@ -191,7 +192,7 @@ function getUrlInfo()
         if (quality == null) quality = `${info.default_quality}`;;
         if (info['height'] == null && info['width'] == null) quality = 'audio';
     }
-    return { quality: quality, originalUrl: originalUrl, encodedUrl:encodedUrl, urlParams:urlParams };
+    return { quality: quality, originalUrl: originalUrl, encodedUrl:encodedUrl, urlParams:urlParams, startTime: startTime };
 }
 
 
@@ -1811,6 +1812,10 @@ function loadVideo()
             player.play();
         }
 
+        if (url.startTime && parseFloat(url.startTime) > 0)
+        {
+            player.currentTime(parseFloat(url.startTime));
+        }
     }
     retryFetch(`/info?url=${url.encodedUrl}`)
         .then(response => response.json())
@@ -1906,6 +1911,10 @@ function loadVideo()
                     if (document.visibilityState === 'hidden')
                     {
                         if (player.currentTime() + 10 > parseFloat(info.duration)) return;
+
+                        url.urlParams.set('t', player.currentTime().toFixed(1));
+                        history.replaceState(null, '', `${window.location.pathname}?${url.urlParams.toString()}`);
+
                         ps.save();
                         clearInterval(ongoingRequest);
                         if (!info.disable_transcoding)
