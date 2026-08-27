@@ -60,10 +60,12 @@ class Processes:
     @staticmethod
     def get():
         proc = {}
-        for i in os.listdir(data_path):
-            if not os.path.isdir(os.path.join(data_path, i)):
-                with open(os.path.join(data_path, i), 'r') as f:
-                    proc[str(i)] = json.load(f)
+        try:
+            for i in os.listdir(data_path):
+                if not os.path.isdir(os.path.join(data_path, i)):
+                    with open(os.path.join(data_path, i), 'r') as f:
+                        proc[str(i)] = json.load(f)
+        except: pass
         return proc
 
     @staticmethod
