@@ -18,6 +18,7 @@ from multiprocessing import Process, Queue
 from urllib.parse import parse_qs, quote_plus, unquote, urlencode, urljoin, urlparse, urlunparse
 from flask import Response, jsonify, request, send_file
 from external import External
+from ffmpeg_video import build_video_encoder_args
 from main import *
 from sb import SponsorBlock
 
@@ -485,8 +486,7 @@ class MediaDownloader:
                 video_file_path = MediaDownloader(self.url, 'audio' if 'audio' in self.media_type else f'video-{self.res}').run()
 
         ffmpeg_command = [
-            '-c:v', 'libx264',
-            '-crf', '22',
+            *build_video_encoder_args(video_encoder),
             '-r', f'{self.meta.get("fps") or "30"}',
             '-c:a', 'aac',
             '-ar', '44100',

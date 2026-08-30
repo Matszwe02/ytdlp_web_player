@@ -115,6 +115,36 @@ OR
   - then you can access the HTTPS app with https://localhost:5001
   - your browser will warn you about not secure connection, you need to click on "allow"
 
+### NVIDIA NVENC in Docker
+
+HLS video transcoding uses `libx264` with CRF 22 by default. To encode H.264 with an NVIDIA GPU instead, set `FFMPEG_VIDEO_ENCODER=h264_nvenc`. The only supported values are `libx264` and `h264_nvenc`; an unsupported value is logged and safely falls back to `libx264`. The Dockerfile uses a Debian FFmpeg package and verifies `h264_nvenc` during image build; the previous Alpine package does not enable NVENC.
+
+Install the NVIDIA driver and NVIDIA Container Toolkit on the Docker host, then build this repository's image (the pre-built `stable` image is not a substitute until it has been rebuilt with this Dockerfile). For example:
+
+```yaml
+services:
+  ytdlp_web_player:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "5764:5000"
+    gpus: all
+    environment:
+      FFMPEG_VIDEO_ENCODER: h264_nvenc
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,video,utility
+```
+
+Verify that the image exposes NVENC before starting a transcode:
+
+```sh
+docker compose run --rm --no-deps ytdlp_web_player ffmpeg -hide_banner -encoders | grep nvenc
+```
+
+The output must include `h264_nvenc`. Encoder discovery only proves the FFmpeg build has NVENC support: an actual transcode also needs a compatible NVIDIA driver, GPU access in the container, and a GPU that supports NVENC. If any of these are missing, FFmpeg reports an NVENC initialization error. Set `FFMPEG_VIDEO_ENCODER=libx264` or remove it to return to CPU encoding.
+
+This first hardware-acceleration option changes H.264 encoding only. Input decoding, `scale` filtering, selected resolution/FPS, AAC audio, and HLS settings remain CPU/current behavior. The encoder helper is deliberately separate so CUDA decoding, `scale_cuda`, or additional encoders can be added later.
+
 ### Run locally (Python)
 
 - Create and activate a virtual environment in `src/` and install `requirements.txt`

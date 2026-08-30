@@ -1,15 +1,19 @@
-FROM python:3.13-alpine AS builder
-# RUN apt-get update && apt-get install -y git
-RUN apk add --no-cache git
-RUN pip install GitPython
+FROM python:3.13-slim AS builder
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir GitPython
 WORKDIR /build
 COPY . /build/
 RUN python src/version.py
 
 
-FROM python:3.13-alpine
+FROM python:3.13-slim
 
-RUN apk add --no-cache ffmpeg deno
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg nodejs \
+    && ffmpeg -hide_banner -encoders | grep -q 'h264_nvenc' \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY src/requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
