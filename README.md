@@ -117,33 +117,68 @@ OR
 
 ### NVIDIA NVENC in Docker
 
-HLS video transcoding uses `libx264` with CRF 22 by default. To encode H.264 with an NVIDIA GPU instead, set `FFMPEG_VIDEO_ENCODER=h264_nvenc`. The only supported values are `libx264` and `h264_nvenc`; an unsupported value is logged and safely falls back to `libx264`. The Dockerfile uses a Debian FFmpeg package and verifies `h264_nvenc` during image build; the previous Alpine package does not enable NVENC.
+HLS video transcoding uses `libx264` with CRF 22 by default. NVIDIA GPU encoding can optionally be enabled by setting:
 
-Install the NVIDIA driver and NVIDIA Container Toolkit on the Docker host, then build this repository's image (the pre-built `stable` image is not a substitute until it has been rebuilt with this Dockerfile). For example:
+```env
+FFMPEG_VIDEO_ENCODER=h264_nvenc
+```
+
+Supported values are:
+
+* `libx264` — default CPU encoder
+* `h264_nvenc` — NVIDIA NVENC H.264 encoder
+
+Unsupported values are logged and fall back to `libx264`.
+
+The Docker image includes an FFmpeg build with `h264_nvenc` support. To use NVENC at runtime, the Docker host must also have a compatible NVIDIA driver and the NVIDIA Container Toolkit installed.
+
+Example Docker Compose configuration:
 
 ```yaml
 services:
   ytdlp_web_player:
     build: .
     restart: unless-stopped
+
     ports:
       - "5764:5000"
+
     gpus: all
+
     environment:
       FFMPEG_VIDEO_ENCODER: h264_nvenc
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,video,utility
 ```
 
-Verify that the image exposes NVENC before starting a transcode:
+You can verify that FFmpeg exposes NVENC with:
 
 ```sh
-docker compose run --rm --no-deps ytdlp_web_player ffmpeg -hide_banner -encoders | grep nvenc
+docker compose run --rm --no-deps ytdlp_web_player \
+  ffmpeg -hide_banner -encoders | grep nvenc
 ```
 
-The output must include `h264_nvenc`. Encoder discovery only proves the FFmpeg build has NVENC support: an actual transcode also needs a compatible NVIDIA driver, GPU access in the container, and a GPU that supports NVENC. If any of these are missing, FFmpeg reports an NVENC initialization error. Set `FFMPEG_VIDEO_ENCODER=libx264` or remove it to return to CPU encoding.
+The output should include:
 
-This first hardware-acceleration option changes H.264 encoding only. Input decoding, `scale` filtering, selected resolution/FPS, AAC audio, and HLS settings remain CPU/current behavior. The encoder helper is deliberately separate so CUDA decoding, `scale_cuda`, or additional encoders can be added later.
+```text
+h264_nvenc
+```
+
+This only confirms that the FFmpeg build supports NVENC. Hardware encoding also requires a compatible NVIDIA GPU, driver, and working GPU access from inside the container.
+
+To return to CPU encoding, remove `FFMPEG_VIDEO_ENCODER` or set:
+
+```env
+FFMPEG_VIDEO_ENCODER=libx264
+```
+
+#### Scope of hardware acceleration
+
+This option accelerates **H.264 encoding only**.
+
+Input decoding, video scaling with the existing `scale` filter, audio encoding, resolution/FPS selection, and HLS generation continue to use the existing code paths.
+
+CUDA/NVDEC decoding, GPU-based scaling such as `scale_cuda`, and other hardware encoders are not enabled by this option.
 
 ### Run locally (Python)
 
