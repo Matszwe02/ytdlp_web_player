@@ -57,10 +57,15 @@ class External:
     @staticmethod
     def download_ffmpeg() -> str|None:
         try:
+            if f := shutil.which("ffmpeg"):
+                return os.path.abspath(f)
+
             p = os.path.dirname(__file__)
-            for f in os.listdir(p):
-                if f.startswith('ffmpeg'): return os.path.abspath(os.path.join(p, f))
-            if f := shutil.which("ffmpeg"): return os.path.abspath(f)
+            for name in ('ffmpeg', 'ffmpeg.exe'):
+                bundled_ffmpeg = os.path.join(p, name)
+                if os.path.isfile(bundled_ffmpeg) and os.access(bundled_ffmpeg, os.X_OK):
+                    return os.path.abspath(bundled_ffmpeg)
+
             try:
                 import pyffmpeg # type: ignore
             except Exception:
