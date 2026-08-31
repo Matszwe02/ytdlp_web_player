@@ -115,6 +115,12 @@ OR
   - then you can access the HTTPS app with https://localhost:5001
   - your browser will warn you about not secure connection, you need to click on "allow"
 
+### FFmpeg video encoder
+
+`FFMPEG_VIDEO_ENCODER` accepts `auto` (default: use NVENC when available, otherwise `libx264`), `libx264` (force CPU encoding), or `h264_nvenc` (prefer NVENC and fall back to `libx264`).
+
+NVIDIA Docker users need GPU passthrough via the NVIDIA Container Toolkit (for example, `gpus: all`) before setting `FFMPEG_VIDEO_ENCODER=h264_nvenc`.
+
 ### Run locally (Python)
 
 - Create and activate a virtual environment in `src/` and install `requirements.txt`

@@ -30,6 +30,7 @@ autoplay = (os.environ.get('AUTOPLAY', 'False')).lower() == 'true'
 min_live_buffer = float(os.environ.get('MIN_LIVE_BUFFER', '1'))
 always_transcode = (os.environ.get('ALWAYS_TRANSCODE', 'False')).lower() == 'true'
 disable_transcoding = os.environ.get('DISABLE_TRANSCODING', 'False').lower() == 'true'
+video_encoder = os.environ.get('FFMPEG_VIDEO_ENCODER', 'auto')
 max_processes = int(os.environ.get('MAX_PROCESSES', '5'))
 autoskip_sb_segments = [seg for seg in (os.environ.get('AUTOSKIP_SB_SEGMENTS') or '').split(',') if seg != '']
 cookies_only_on_failure = (os.environ.get('COOKIES_ONLY_ON_FAILURE', 'True')).lower() == 'true'
@@ -50,6 +51,7 @@ hls_audio_duration = 10
 
 os.makedirs(data_path, exist_ok=True)
 print(f'Data path: {data_path}')
+print(f'FFmpeg H.264 video encoder: {video_encoder}')
 ffmpeg = External.download_ffmpeg()
 if disable_transcoding:
     ffmpeg = None
