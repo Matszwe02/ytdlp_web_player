@@ -12,7 +12,6 @@ FROM python:3.13-slim
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y ffmpeg nodejs \
-    && ffmpeg -hide_banner -encoders | grep -q 'h264_nvenc' \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY src/requirements.txt requirements.txt
