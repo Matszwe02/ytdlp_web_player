@@ -115,70 +115,11 @@ OR
   - then you can access the HTTPS app with https://localhost:5001
   - your browser will warn you about not secure connection, you need to click on "allow"
 
-### NVIDIA NVENC in Docker
+### FFmpeg video encoder
 
-HLS video transcoding uses `libx264` with CRF 22 by default. NVIDIA GPU encoding can optionally be enabled by setting:
+`FFMPEG_VIDEO_ENCODER` accepts `auto` (default: use NVENC when available, otherwise `libx264`), `libx264` (force CPU encoding), or `h264_nvenc` (prefer NVENC and fall back to `libx264`).
 
-```env
-FFMPEG_VIDEO_ENCODER=h264_nvenc
-```
-
-Supported values are:
-
-* `libx264` — default CPU encoder
-* `h264_nvenc` — NVIDIA NVENC H.264 encoder
-
-Unsupported values are logged and fall back to `libx264`.
-
-The Docker image includes an FFmpeg build with `h264_nvenc` support. To use NVENC at runtime, the Docker host must also have a compatible NVIDIA driver and the NVIDIA Container Toolkit installed.
-
-Example Docker Compose configuration:
-
-```yaml
-services:
-  ytdlp_web_player:
-    build: .
-    restart: unless-stopped
-
-    ports:
-      - "5764:5000"
-
-    gpus: all
-
-    environment:
-      FFMPEG_VIDEO_ENCODER: h264_nvenc
-      NVIDIA_VISIBLE_DEVICES: all
-      NVIDIA_DRIVER_CAPABILITIES: compute,video,utility
-```
-
-You can verify that FFmpeg exposes NVENC with:
-
-```sh
-docker compose run --rm --no-deps ytdlp_web_player \
-  ffmpeg -hide_banner -encoders | grep nvenc
-```
-
-The output should include:
-
-```text
-h264_nvenc
-```
-
-This only confirms that the FFmpeg build supports NVENC. Hardware encoding also requires a compatible NVIDIA GPU, driver, and working GPU access from inside the container.
-
-To return to CPU encoding, remove `FFMPEG_VIDEO_ENCODER` or set:
-
-```env
-FFMPEG_VIDEO_ENCODER=libx264
-```
-
-#### Scope of hardware acceleration
-
-This option accelerates **H.264 encoding only**.
-
-Input decoding, video scaling with the existing `scale` filter, audio encoding, resolution/FPS selection, and HLS generation continue to use the existing code paths.
-
-CUDA/NVDEC decoding, GPU-based scaling such as `scale_cuda`, and other hardware encoders are not enabled by this option.
+NVIDIA Docker users need GPU passthrough via the NVIDIA Container Toolkit (for example, `gpus: all`) before setting `FFMPEG_VIDEO_ENCODER=h264_nvenc`.
 
 ### Run locally (Python)
 

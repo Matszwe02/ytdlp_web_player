@@ -18,7 +18,7 @@ from multiprocessing import Process, Queue
 from urllib.parse import parse_qs, quote_plus, unquote, urlencode, urljoin, urlparse, urlunparse
 from flask import Response, jsonify, request, send_file
 from external import External
-from ffmpeg_video import build_video_encoder_args
+from ffmpeg import FFMPEG, build_video_encoder_args
 from main import *
 from sb import SponsorBlock
 
@@ -116,6 +116,9 @@ class Processes:
             time.sleep(0.2)
         return cancelled_count
 
+
+def new_ffmpeg(url, ffmpeg_command=None):
+    return FFMPEG(url, ffmpeg, Processes, proxy, ffmpeg_command)
 
 
 class YTDLP:
@@ -223,59 +226,6 @@ class YTDLP:
 
 
 
-class FFMPEG:
-    def __init__(self, url, ffmpeg_command=None):
-        """
-        Provide ffmpeg_command to run synchronously. Check with `success`
-        """
-        self._p = None
-        self.pid = None
-        self.ffmpeg = ffmpeg
-        self.ff_id = sha1(f'{time.time()}'.encode()).hexdigest()[:6]
-        self.success = False
-        self.stdout = ''
-        self.start_time = time.time()
-        self.url = url
-        self.affected_files = []
-        if ffmpeg_command and self.ffmpeg:
-            self.run(ffmpeg_command)
-
-    def kill(self):
-        if self._p is None: return
-        Processes.rm(self.pid, kill=True)
-        print(f'[FFMPEG {self.ff_id}] Killed')
-
-    def run(self, ffmpeg_command):
-        """
-        Also runs synchronously, but can be placed in `Thread`
-        """
-        if not self.ffmpeg: return None
-        ffmpeg_command = [self.ffmpeg] + ffmpeg_command
-        ffmpeg_env = {f"{proxy.split('://')[0]}_proxy": proxy} if proxy else None
-        print(f'[FFMPEG {self.ff_id}] Executing {ffmpeg_command}')
-        self._p = subprocess.Popen(ffmpeg_command, stdout = subprocess.PIPE, stderr = subprocess.STDOUT, env=ffmpeg_env)
-        self.pid = self._p.pid
-        Processes.setitem(self.pid, [self.url, f'FFMPEG {self.ff_id}', time.time()])
-        for line in self._p.stdout:
-            line_out = line.decode().strip()
-            print(f'[FFMPEG {self.ff_id}] {line_out}')
-            self.stdout += line_out + '\n'
-            if time.time() - self.start_time > 3600:
-                self.kill()
-                self.success = False
-                raise TimeoutError()
-        self._p.wait()
-        Processes.rm(self.pid)
-        if self._p.returncode != 0:
-            self.success = False
-            for file in self.affected_files:
-                if os.path.exists(file): os.remove(file)
-            raise RuntimeError(f'FFMPEG exited unexpectedly with return code {self._p.returncode}')
-        print(f'[FFMPEG {self.ff_id}] Finished')
-        self.success = True
-
-
-
 class MediaDownloader:
     def __init__(self, url: str, media_type: str):
         self.url = re.sub(r'(https?):/{1,}', r'\1://', url)
@@ -354,7 +304,7 @@ class MediaDownloader:
                         '-frames:v', '1',
                         os.path.join(self.data_dir, 'thumb-orig.jpg')
                     ]
-                    FFMPEG(self.url, ffmpeg_command)
+                    new_ffmpeg(self.url, ffmpeg_command)
                 except Exception as e:
                     pprint_exc(e)
                 thumb_file = check_media(url=self.url, media_type='thumb-orig')
@@ -427,13 +377,13 @@ class MediaDownloader:
         height_param = "" if self.media_type.startswith('video-best') else f'[height<={self.res}]'
         if self.timestamps:
             if vid := check_res_at_least(self.url, self.res):
-                FFMPEG(self.url, ['-i', vid, "-ss", f'{self.start_time}', "-to", f'{self.end_time}', '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
+                new_ffmpeg(self.url, ['-i', vid, "-ss", f'{self.start_time}', "-to", f'{self.end_time}', '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
             else:
                 self.ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(self.data_dir, f'{self.media_type}.%(ext)s')})
                 YTDLP.download(self.url, self.ydl_opts)
         else:
             if vid := check_res_at_least(self.url, self.res):
-                FFMPEG(self.url, ['-i', vid, '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
+                new_ffmpeg(self.url, ['-i', vid, '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
             else:
                 success = False
                 temp_video = None
@@ -442,7 +392,7 @@ class MediaDownloader:
                     YTDLP.download(self.url, self.ydl_opts)
                     audio_file = check_media(self.url, 'audio') or MediaDownloader(self.url, 'audio').run()
                     temp_video = check_media(self.url, f'temp-{self.media_type}')
-                    success = FFMPEG(self.url, ['-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]).success
+                    success = new_ffmpeg(self.url, ['-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]).success
                 except Exception as e:
                     pprint_exc(e)
                 finally:
@@ -486,7 +436,7 @@ class MediaDownloader:
                 video_file_path = MediaDownloader(self.url, 'audio' if 'audio' in self.media_type else f'video-{self.res}').run()
 
         ffmpeg_command = [
-            *build_video_encoder_args(video_encoder),
+            *build_video_encoder_args(video_encoder, ffmpeg),
             '-r', f'{self.meta.get("fps") or "30"}',
             '-c:a', 'aac',
             '-ar', '44100',
@@ -525,7 +475,7 @@ class MediaDownloader:
             nonlocal video_file_path
             try:
                 if not video_file_path:
-                    ff = FFMPEG(self.url)
+                    ff = new_ffmpeg(self.url)
                     ff.affected_files = [m3u8_path, temp_m3u8_path]
                     Thread(target=ff.run, args=[ffmpeg_command]).start()
                     time.sleep(2)
@@ -536,7 +486,7 @@ class MediaDownloader:
                     if os.path.exists(m3u8_path): os.rename(m3u8_path, temp_m3u8_path)
                     MediaDownloader(self.url, self.media_type).run()
                 else:
-                    ff = FFMPEG(self.url, ffmpeg_command)
+                    ff = new_ffmpeg(self.url, ffmpeg_command)
                     ff.affected_files = [m3u8_path, temp_m3u8_path]
                     if ff.success:
                         print(f"FFMPEG Finished HLS Conversion!")
@@ -567,7 +517,7 @@ class MediaDownloader:
             '-preset', 'veryfast',
             os.path.join(get_data_dir(get_url(request)), 'low.mp4')
         ]
-        FFMPEG(self.url, ffmpeg_command)
+        new_ffmpeg(self.url, ffmpeg_command)
 
 
     def sub(self):
@@ -636,7 +586,7 @@ class MediaDownloader:
             ]
 
             try:
-                if not FFMPEG(self.url, ffmpeg_command).success: raise RuntimeError('FFMPEG failed to extract sprite')
+                if not new_ffmpeg(self.url, ffmpeg_command).success: raise RuntimeError('FFMPEG failed to extract sprite')
                 frame_files = sorted(os.listdir(sprite_dir))
                 num_frames = len(frame_files)
                 num_rows = math.ceil(num_frames / frames_per_row)
@@ -848,7 +798,7 @@ def get_media_duration(url, meta, media):
     except:
         pass
     ffmpeg_command = ['-i', media, '-hide_banner', '-f', 'null', '-stats']
-    ff = FFMPEG(url)
+    ff = new_ffmpeg(url)
     try: ff.run(ffmpeg_command)
     except Exception: pass
     info = ff.stdout
@@ -865,7 +815,7 @@ def get_media_res(url, meta, media):
         if meta.get("width") and meta.get("height"): return int(meta.get("width")), int(meta.get("height"))
     except: pass
     ffmpeg_command = ['-i', media, '-hide_banner', '-f', 'null', '-stats']
-    ff = FFMPEG(url)
+    ff = new_ffmpeg(url)
     try: ff.run(ffmpeg_command)
     except Exception: pass
     info = ff.stdout
