@@ -158,6 +158,71 @@ body
 }
 
 
+#player-layout
+{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.media-progress-container
+{
+    width: min(600px, 60vw);
+    max-width: 90vw;
+    margin-top: 14px;
+    color: #eee;
+    text-align: center;
+    font-size: 14px;
+}
+
+.media-progress-container[hidden]
+{
+    display: none;
+}
+
+.media-progress-track
+{
+    width: 100%;
+    height: 9px;
+    overflow: hidden;
+    border: 1px solid #777;
+    border-radius: 3px;
+    background-color: #333;
+}
+
+.media-progress-fill
+{
+    width: 0;
+    height: 100%;
+    background-color: #eee;
+    transition: width 0.15s linear;
+}
+
+.media-progress-text
+{
+    margin-top: 7px;
+    text-shadow: 0 1px 2px #000;
+}
+
+body.iframe-player-page #player-layout
+{
+    width: 100vw;
+    height: 100vh;
+}
+
+body.iframe-player-page.download-progress-visible #videoPlayer
+{
+    height: calc(100vh - 54px) !important;
+    min-height: calc(100vh - 54px) !important;
+}
+
+body.iframe-player-page .media-progress-container
+{
+    flex: 0 0 40px;
+    margin-top: 8px;
+}
+
+
 #videoPlayer:not(.vjs-fullscreen):not(.fit-contain) video
 {
     object-fit: cover !important;

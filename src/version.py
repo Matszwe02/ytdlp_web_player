@@ -18,4 +18,4 @@ for tag in repo.tags or []:
         version_string = str(tag)
 
 with open('version.txt', 'w') as f:
-    f.write(version_string)
+    f.write("fengax:0.0.8")

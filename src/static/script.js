@@ -12,6 +12,8 @@ let usesHls = false;
 let ongoingRequest = null;
 let audioContext = null;
 let audioSource = null;
+let activeCacheProgress = null;
+let playbackSourcePreference = null;
 
 
 
@@ -90,6 +92,96 @@ function tryStopPropagation(event)
     }
     catch (error) {}
     player.el_.focus();
+}
+
+
+function updateCacheProgress(data)
+{
+    const container = document.getElementById('download-progress-container');
+    const track = document.getElementById('download-progress-track');
+    const fill = document.getElementById('download-progress-fill');
+    const label = document.getElementById('download-progress-text');
+    if (!container || !track || !fill || !label) return;
+
+    const percent = Math.max(0, Math.min(100, Number(data.percent) || 0));
+    fill.style.width = `${percent}%`;
+    track.setAttribute('aria-valuenow', `${Math.round(percent)}`);
+
+    if (data.status === 'encoding')
+    {
+        fill.style.width = '100%';
+        track.setAttribute('aria-valuenow', '100');
+        label.textContent = 'Encoding video with FFMPEG';
+        return;
+    }
+
+    if (data.status === 'error')
+    {
+        label.textContent = 'Unable to cache video';
+        return;
+    }
+
+    const bytesToMb = value => (Math.max(0, Number(value) || 0) / 1000000).toFixed(2);
+    label.textContent = `${bytesToMb(data.downloaded_bytes)}MB/${bytesToMb(data.total_bytes)}MB - (${bytesToMb(data.speed)}MB/s)`;
+}
+
+
+function stopCacheProgress(quality = null)
+{
+    if (!activeCacheProgress || (quality !== null && activeCacheProgress.quality !== quality)) return;
+    activeCacheProgress.eventSource.close();
+    activeCacheProgress = null;
+
+    const container = document.getElementById('download-progress-container');
+    if (container) container.hidden = true;
+    document.body.classList.remove('download-progress-visible');
+}
+
+
+function startCacheProgress(quality)
+{
+    quality = `${quality || ''}`;
+    if (quality !== 'best' && !/^\d{1,4}$/.test(quality)) return;
+    if (activeCacheProgress?.quality === quality) return;
+    if (activeCacheProgress) stopCacheProgress();
+
+    const container = document.getElementById('download-progress-container');
+    if (container) container.hidden = false;
+    document.body.classList.add('download-progress-visible');
+    updateCacheProgress({ status: 'preparing', percent: 0, downloaded_bytes: 0, total_bytes: 0, speed: 0 });
+
+    const url = getUrlInfo();
+    const progressUrl = `/cache-progress-stream?url=${url.encodedUrl}&quality=${encodeURIComponent(quality)}`;
+    const eventSource = new EventSource(progressUrl);
+    activeCacheProgress = { quality: quality, eventSource: eventSource };
+
+    const handleState = data => {
+        if (!activeCacheProgress || activeCacheProgress.quality !== quality) return false;
+        if (data.status === 'ready')
+        {
+            stopCacheProgress(quality);
+            return false;
+        }
+        updateCacheProgress(data);
+        return true;
+    };
+
+    eventSource.onmessage = event => {
+        if (!activeCacheProgress || activeCacheProgress.quality !== quality) return;
+        try
+        {
+            handleState(JSON.parse(event.data));
+        }
+        catch (error)
+        {
+            console.error('Unable to read cache progress event', error);
+        }
+    };
+
+    eventSource.onerror = error => {
+        if (!activeCacheProgress || activeCacheProgress.quality !== quality) return;
+        console.error('Cache progress stream disconnected; waiting for reconnect', error);
+    };
 }
 
 
@@ -340,7 +432,7 @@ function loadChapters()
 }
 
 
-function getVideoSource()
+function getVideoSource(playbackSource = playbackSourcePreference)
 {
     var url = getUrlInfo();
     console.log(`Video quality: ${url.quality}`);
@@ -352,6 +444,11 @@ function getVideoSource()
     {
         downloadUrl = `/hls?url=${url.encodedUrl}&quality=${url.quality}`;
         videoType = 'application/x-mpegURL';
+    }
+    else if (playbackSource === 'local' || playbackSource === 'stream')
+    {
+        downloadUrl += `&playback=${playbackSource}`;
+        if (playbackSource === 'local') videoType = 'video/mp4';
     }
 
     console.log(`Video source: src=${downloadUrl} type=${videoType}`);
@@ -440,9 +537,12 @@ function setVideoQuality(height = null, button = null)
         });
     }
     history.replaceState(null, '', `${window.location.pathname}?${url.urlParams.toString()}`);
+    if (parseFloat(info.duration) > 0)
+        startCacheProgress(height === 'audio' ? info.cache_quality : height);
 
     if (usesHls)
     {
+        playbackSourcePreference = 'stream';
         console.log('Fetching HLS...');
         retryFetch(getVideoSource()[0])
             .then(response => response.text())
@@ -471,9 +571,11 @@ function setVideoQuality(height = null, button = null)
     }
     else
     {
+        playbackSourcePreference = null;
         console.log('Fetching Direct...');
-        retryFetch(getVideoSource()[0], 2, undefined, undefined, undefined, true)
+        retryFetch(getVideoSource(null)[0], { cache: 'no-store' }, undefined, undefined, undefined, true)
             .then(response => {
+                playbackSourcePreference = response.headers.get('X-Playback-Source') === 'local' ? 'local' : 'stream';
                 applyVideoQuality();
                 buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
                 button?.classList?.add('vjs-menu-option-selected');
@@ -797,32 +899,55 @@ class DownloadButton extends videojs.getComponent('Button')
                 }
                 else
                 {
+                    if (this.downloadRequestPending) return;
+                    this.downloadRequestPending = true;
+
                     var url = getUrlInfo();
                     const currentQuality = url.quality || info.default_quality;
                     var quality = option.quality;
                     if (option.quality == 'current') quality = currentQuality;
 
                     const link = document.createElement('a');
-                    link.href = `/download?url=${url.encodedUrl}&quality=${quality}`;
+                    let downloadUrl = `/download?url=${url.encodedUrl}&quality=${quality}`;
+                    const isTrimmedDownload = this.startTime != null && this.endTime != null;
 
-                    if (this.startTime != null && this.endTime != null)
-                        link.href += `&start=${this.startTime.toFixed(1)}&end=${this.endTime.toFixed(1)}`;
+                    if (isTrimmedDownload)
+                        downloadUrl += `&start=${this.startTime.toFixed(1)}&end=${this.endTime.toFixed(1)}`;
 
+                    link.href = downloadUrl;
                     link.download = 'file';
 
-                    retryFetch(link.href, {}, 100, undefined, true, true).then(response => {
+                    if (quality !== 'audio')
+                    {
+                        startCacheProgress(quality);
+                        // Start the real browser download while this click still has
+                        // user activation. The request can wait for an active cache
+                        // job, so a separate HEAD preparation request is unnecessary.
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
-                    })
+                        this.downloadRequestPending = false;
+                    }
+                    else
+                    {
+                        retryFetch(downloadUrl, {}, 100, undefined, true, true)
+                            .then(response => {
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                            })
+                            .catch(error => {
+                                console.error('Unable to prepare download', error);
+                            })
+                            .finally(() => {
+                                this.downloadRequestPending = false;
+                            });
+                    }
 
                     this.handleCloseMenu(true);
-                    retryFetch(link.href)
-                        .then(response => response.text())
                 }
             };
 
-            button.addEventListener('touchend', handleEvent);
             button.addEventListener('click', handleEvent);
 
             menu.appendChild(button);

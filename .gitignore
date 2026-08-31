@@ -16,3 +16,5 @@ app/*.png
 dist
 build
 *.spec
+.idea
+**/.DS_Store
