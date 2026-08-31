@@ -1,6 +1,3 @@
-FROM denoland/deno:bin-2.9.6 AS deno
-
-
 FROM python:3.13-slim AS builder
 RUN apt-get update \
     && apt-get install --no-install-recommends -y git \
@@ -14,9 +11,9 @@ RUN python src/version.py
 FROM python:3.13-slim
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y ffmpeg \
+    && apt-get install --no-install-recommends -y ffmpeg nodejs \
+    && ffmpeg -hide_banner -encoders | grep -q 'h264_nvenc' \
     && rm -rf /var/lib/apt/lists/*
-COPY --from=deno /deno /usr/local/bin/deno
 WORKDIR /app
 COPY src/requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
