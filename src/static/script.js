@@ -104,14 +104,14 @@ function updateCacheProgress(data)
     const label = document.getElementById('download-progress-text');
     if (!container || !track || !fill || !label) return;
 
-    const percent = Math.max(0, Math.min(100, Number(data.percent) || 0));
+    const percent = data.status === 'encoding'
+        ? 100
+        : Math.max(0, Math.min(100, Number(data.percent) || 0));
     fill.style.width = `${percent}%`;
     track.setAttribute('aria-valuenow', `${Math.round(percent)}`);
 
     if (data.status === 'encoding')
     {
-        fill.style.width = '100%';
-        track.setAttribute('aria-valuenow', '100');
         label.textContent = 'Encoding video with FFMPEG';
         return;
     }
@@ -135,6 +135,31 @@ function triggerFileDownload(downloadUrl)
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+
+
+function prepareDownload(downloadUrl, quality)
+{
+    if (quality === 'audio')
+    {
+        return retryFetch(downloadUrl, {}, 100, undefined, true, true)
+            .then(() => triggerFileDownload(downloadUrl));
+    }
+
+    startCacheProgress(quality);
+    return retryFetch(downloadUrl, { cache: 'no-store' }, 0, undefined, false, true)
+        .then(response => {
+            if (response.status === 202)
+            {
+                pendingVideoDownload = { url: downloadUrl, quality: `${quality}` };
+                // The cache may have become ready between the HEAD response and
+                // this callback. Reopen SSE if it already closed on readiness.
+                startCacheProgress(quality);
+                return;
+            }
+            pendingVideoDownload = null;
+            triggerFileDownload(downloadUrl);
+        });
 }
 
 
@@ -165,10 +190,10 @@ function startCacheProgress(quality)
     const url = getUrlInfo();
     const progressUrl = `/cache-progress-stream?url=${url.encodedUrl}&quality=${encodeURIComponent(quality)}`;
     const eventSource = new EventSource(progressUrl);
-    activeCacheProgress = { quality: quality, eventSource: eventSource };
+    activeCacheProgress = { quality, eventSource };
 
     const handleState = data => {
-        if (!activeCacheProgress || activeCacheProgress.quality !== quality) return false;
+        if (!activeCacheProgress || activeCacheProgress.quality !== quality) return;
         if (data.status === 'ready')
         {
             const pendingDownload = pendingVideoDownload?.quality === quality
@@ -177,12 +202,11 @@ function startCacheProgress(quality)
             if (pendingDownload) pendingVideoDownload = null;
             stopCacheProgress(quality);
             if (pendingDownload) triggerFileDownload(pendingDownload.url);
-            return false;
+            return;
         }
         if (data.status === 'error' && pendingVideoDownload?.quality === quality)
             pendingVideoDownload = null;
         updateCacheProgress(data);
-        return true;
     };
 
     eventSource.onmessage = event => {
@@ -901,7 +925,8 @@ class DownloadButton extends videojs.getComponent('Button')
 
             const handleEvent = (event) => {
                 tryStopPropagation(event);
-                if (option.quality == 'trim') {
+                if (option.quality == 'trim')
+                {
                     if (this.startBtn.style.display === 'block')
                     {
                         this.startBtn.style.display = 'none';
@@ -915,63 +940,32 @@ class DownloadButton extends videojs.getComponent('Button')
                         this.endTime = null;
                         this.updateTimeLabels();
                     }
+                    return;
                 }
-                else
-                {
-                    if (this.downloadRequestPending) return;
-                    this.downloadRequestPending = true;
 
-                    var url = getUrlInfo();
-                    const currentQuality = url.quality || info.default_quality;
-                    var quality = option.quality;
-                    if (option.quality == 'current') quality = currentQuality;
+                if (this.downloadRequestPending) return;
+                this.downloadRequestPending = true;
 
-                    let downloadUrl = `/download?url=${url.encodedUrl}&quality=${quality}`;
-                    const isTrimmedDownload = this.startTime != null && this.endTime != null;
+                const url = getUrlInfo();
+                const currentQuality = url.quality || info.default_quality;
+                const quality = option.quality == 'current' ? currentQuality : option.quality;
+                let downloadUrl = `/download?url=${url.encodedUrl}&quality=${quality}`;
 
-                    if (isTrimmedDownload)
-                        downloadUrl += `&start=${this.startTime.toFixed(1)}&end=${this.endTime.toFixed(1)}`;
+                if (this.startTime != null && this.endTime != null)
+                    downloadUrl += `&start=${this.startTime.toFixed(1)}&end=${this.endTime.toFixed(1)}`;
 
-                    if (quality !== 'audio')
-                    {
-                        startCacheProgress(quality);
-                        retryFetch(downloadUrl, { cache: 'no-store' }, 0, undefined, false, true)
-                            .then(response => {
-                                if (response.status === 202)
-                                {
-                                    pendingVideoDownload = { url: downloadUrl, quality: `${quality}` };
-                                    // The cache may have become ready between the HEAD
-                                    // response and this callback. Reopen SSE if its prior
-                                    // ready event already closed the connection.
-                                    startCacheProgress(quality);
-                                    return;
-                                }
-                                pendingVideoDownload = null;
-                                triggerFileDownload(downloadUrl);
-                            })
-                            .catch(error => {
-                                console.error('Unable to prepare video download', error);
-                            })
-                            .finally(() => {
-                                this.downloadRequestPending = false;
-                            });
-                    }
-                    else
-                    {
-                        retryFetch(downloadUrl, {}, 100, undefined, true, true)
-                            .then(response => {
-                                triggerFileDownload(downloadUrl);
-                            })
-                            .catch(error => {
-                                console.error('Unable to prepare download', error);
-                            })
-                            .finally(() => {
-                                this.downloadRequestPending = false;
-                            });
-                    }
+                prepareDownload(downloadUrl, quality)
+                    .catch(error => {
+                        const message = quality === 'audio'
+                            ? 'Unable to prepare download'
+                            : 'Unable to prepare video download';
+                        console.error(message, error);
+                    })
+                    .finally(() => {
+                        this.downloadRequestPending = false;
+                    });
 
-                    this.handleCloseMenu(true);
-                }
+                this.handleCloseMenu(true);
             };
 
             button.addEventListener('click', handleEvent);

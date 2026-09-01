@@ -62,12 +62,7 @@
                     </p>
                 </video>
             </div>
-            <div id="download-progress-container" class="media-progress-container" hidden aria-live="polite">
-                <div id="download-progress-track" class="media-progress-track" role="progressbar" aria-label="Video cache download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                    <div id="download-progress-fill" class="media-progress-fill"></div>
-                </div>
-                <div id="download-progress-text" class="media-progress-text">0.00MB/0.00MB - (0.00MB/s)</div>
-            </div>
+            {% include '_download_progress.html' %}
         </div>
         
         <div id="expandable-menu-container">

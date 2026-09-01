@@ -34,10 +34,6 @@ class CacheLockStore:
         self.job_lock_path = os.path.join(self.data_dir, f'{media_type}.cache-start.temp')
 
     @staticmethod
-    def _exists(path):
-        return os.path.exists(path)
-
-    @staticmethod
     def _try_acquire(path, cleanup_on_error=False):
         try:
             descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
@@ -66,10 +62,10 @@ class CacheLockStore:
             return False
 
     def media_lock_exists(self):
-        return self._exists(self.media_lock_path)
+        return os.path.exists(self.media_lock_path)
 
     def job_lock_exists(self):
-        return self._exists(self.job_lock_path)
+        return os.path.exists(self.job_lock_path)
 
     def any_lock_exists(self):
         return self.media_lock_exists() or self.job_lock_exists()
@@ -336,24 +332,25 @@ class DownloadProgress:
         if event.get('type') == 'postprocessor' and event.get('status') == 'started' and is_ffmpeg:
             self.encoding()
 
-    def encoding(self):
-        self.state.update({'status': 'encoding', 'percent': 100, 'speed': 0})
+    def _transition(self, **changes):
+        self.state.update(changes)
         self._write(force=True)
+
+    def encoding(self):
+        self._transition(status='encoding', percent=100, speed=0)
 
     def ready(self, file_size):
         file_size = self.number(file_size)
-        self.state.update({
-            'status': 'ready',
-            'percent': 100,
-            'downloaded_bytes': file_size,
-            'total_bytes': file_size,
-            'speed': 0,
-        })
-        self._write(force=True)
+        self._transition(
+            status='ready',
+            percent=100,
+            downloaded_bytes=file_size,
+            total_bytes=file_size,
+            speed=0,
+        )
 
     def error(self, message):
-        self.state.update({'status': 'error', 'message': str(message), 'speed': 0})
-        self._write(force=True)
+        self._transition(status='error', message=str(message), speed=0)
 
 
 
@@ -437,26 +434,25 @@ class YTDLP:
             p.start()
             Processes.setitem(p.pid, [url, f'YT-DLP {logger.yt_id}', time.time()])
             errors = []
-            while p.is_alive():
-                try:
-                    message = q.get(timeout=0.1)
-                except Empty:
-                    continue
+
+            def handle_message(message):
                 if message.get('type') == 'error':
                     errors.append(message.get('message'))
                 elif progress_callback:
                     progress_callback(message)
+
+            while p.is_alive():
+                try:
+                    handle_message(q.get(timeout=0.1))
+                except Empty:
+                    continue
             p.join()
             Processes.rm(p.pid)
             while True:
                 try:
-                    message = q.get_nowait()
+                    handle_message(q.get_nowait())
                 except Empty:
                     break
-                if message.get('type') == 'error':
-                    errors.append(message.get('message'))
-                elif progress_callback:
-                    progress_callback(message)
             for error in errors:
                 logger.error(error)
             logger.info(f'Exited with code {p.exitcode}')
@@ -731,6 +727,10 @@ class MediaDownloader:
             cache_audio_progress.error(error)
             raise
 
+    def _download_with_progress(self):
+        callback = self.progress.handle_ytdlp_event if self.progress else None
+        YTDLP.download(self.url, self.ydl_opts, callback)
+
 
     def video(self):
         if self.meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
@@ -738,23 +738,25 @@ class MediaDownloader:
 
         height_param = "" if self.media_type.startswith('video-best') else f'[height<={self.res}]'
         if self.timestamps:
-            vid = get_ready_cached_video(self.url, self.cache_quality) if self.cache_quality else None
-            if vid or (vid := check_res_at_least(self.url, self.res)):
+            vid = (
+                get_ready_cached_video(self.url, self.cache_quality) if self.cache_quality else None
+            ) or check_res_at_least(self.url, self.res)
+            if vid:
                 if self.progress: self.progress.encoding()
-                FFMPEG(self.url, ['-i', vid, "-ss", f'{self.start_time}', "-to", f'{self.end_time}', '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
+                FFMPEG(self.url, ['-i', vid, "-ss", f'{self.start_time}', "-to", f'{self.end_time}', '-vf', f'scale=-2:{self.res}', os.path.join(self.data_dir, self.media_type + '.mp4')])
             else:
                 self.ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(self.data_dir, f'{self.media_type}.%(ext)s')})
-                YTDLP.download(self.url, self.ydl_opts, self.progress.handle_ytdlp_event if self.progress else None)
+                self._download_with_progress()
         else:
             if vid := check_res_at_least(self.url, self.res):
                 if self.progress: self.progress.encoding()
-                FFMPEG(self.url, ['-i', vid, '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
+                FFMPEG(self.url, ['-i', vid, '-vf', f'scale=-2:{self.res}', os.path.join(self.data_dir, self.media_type + '.mp4')])
             else:
                 success = False
                 temp_video = None
                 try:
                     self.ydl_opts.update({"format": f"bestvideo{height_param}/best", "outtmpl": os.path.join(self.data_dir, f'temp-{self.media_type}.%(ext)s')})
-                    YTDLP.download(self.url, self.ydl_opts, self.progress.handle_ytdlp_event if self.progress else None)
+                    self._download_with_progress()
                     audio_file = check_media(self.url, 'audio') or MediaDownloader(self.url, 'audio').run()
                     temp_video = check_media(self.url, f'temp-{self.media_type}')
                     if not audio_file or not temp_video:
@@ -780,7 +782,7 @@ class MediaDownloader:
                 if not success:
                     print(f'Falling back to standard video download due to FFMPEG error')
                     self.ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(self.data_dir, f'{self.media_type}.%(ext)s')})
-                    YTDLP.download(self.url, self.ydl_opts, self.progress.handle_ytdlp_event if self.progress else None)
+                    self._download_with_progress()
 
 
     def hls(self):
@@ -1047,13 +1049,17 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
             playlist_base_url = response_url
 
             def proxy_playlist_url(resource_url):
-                resolved_url = urljoin(playlist_base_url, resource_url)
-                return f'/external?src={quote_plus(resolved_url)}&headers={quote_plus(headers or "")}&cookies={quote_plus(cookies or "")}&url={quote_plus(url or "")}'
+                query = urlencode({
+                    'src': urljoin(playlist_base_url, resource_url),
+                    'headers': headers or '',
+                    'cookies': cookies or '',
+                    'url': url or '',
+                })
+                return f'/external?{query}'
 
             def replace_src(match):
                 prefix, orig_src, suffix = match.groups()
-                new_src = proxy_playlist_url(orig_src)
-                return f'{prefix}{new_src}{suffix}'
+                return f'{prefix}{proxy_playlist_url(orig_src)}{suffix}'
             raw_lines = response.content.decode('utf-8', errors='ignore').splitlines()
             skipline = False
             for idx, line in enumerate(raw_lines):
@@ -1072,8 +1078,7 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
                 if line_str.startswith('#'):
                     lines.append(src_regex.sub(replace_src, line))
                 else:
-                    line = proxy_playlist_url(line_str)
-                    lines.append(line)
+                    lines.append(proxy_playlist_url(line_str))
 
             resp = Response('\n'.join(lines), status=response.status_code, mimetype=mime_type)
             return resp
@@ -1084,10 +1089,9 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
 
         resp = Response(generate(), status=response.status_code, mimetype=mime_type)
 
-        if 'Content-Length' in response.headers:
-            resp.headers['Content-Length'] = response.headers['Content-Length']
-        if 'Content-Range' in response.headers:
-            resp.headers['Content-Range'] = response.headers['Content-Range']
+        for header in ('Content-Length', 'Content-Range'):
+            if header in response.headers:
+                resp.headers[header] = response.headers[header]
         resp.headers['Accept-Ranges'] = 'bytes'
         return resp
     except requests.exceptions.RequestException as e:
@@ -1237,25 +1241,27 @@ def probe_media_streams(path: str):
         return None
 
 
+def _has_compatible_video_streams(streams):
+    if streams is None:
+        return False
+    return (
+        any(stream.get('codec_type') == 'video' for stream in streams)
+        and any(stream.get('codec_type') == 'audio' for stream in streams)
+        and not any(
+            stream.get('codec_type') == 'audio'
+            and stream.get('codec_name') in {'mp2', 'mp3'}
+            for stream in streams
+        )
+    )
+
+
 def is_compatible_cached_media(path: str, media_type: str):
     """Reject cached MP4 downloads whose audio codec is not broadly compatible."""
     if not media_type.startswith('video') or os.path.splitext(path)[1].lower() != '.mp4':
         return True
 
     streams = probe_media_streams(path)
-    if streams is None:
-        return True
-    if not any(stream.get('codec_type') == 'video' for stream in streams):
-        return False
-    if not any(stream.get('codec_type') == 'audio' for stream in streams):
-        return False
-
-    incompatible_audio_codecs = {'mp2', 'mp3'}
-    return not any(
-        stream.get('codec_type') == 'audio'
-        and stream.get('codec_name') in incompatible_audio_codecs
-        for stream in streams
-    )
+    return streams is None or _has_compatible_video_streams(streams)
 
 
 def get_ready_cached_video(url: str, quality: str, validate=True):
@@ -1273,18 +1279,7 @@ def get_ready_cached_video(url: str, quality: str, validate=True):
     if not validate:
         return path
 
-    streams = probe_media_streams(path)
-    if streams is None:
-        return None
-    if not any(stream.get('codec_type') == 'video' for stream in streams):
-        return None
-    if not any(stream.get('codec_type') == 'audio' for stream in streams):
-        return None
-    if any(
-        stream.get('codec_type') == 'audio'
-        and stream.get('codec_name') in {'mp2', 'mp3'}
-        for stream in streams
-    ):
+    if not _has_compatible_video_streams(probe_media_streams(path)):
         return None
     return path
 
@@ -1342,17 +1337,18 @@ def read_video_cache_progress(url, quality):
         audio_progress.start()
         audio_state = audio_progress.state
 
+    component_states = (video_state, audio_state)
     downloaded = sum(
         DownloadProgress.number(state.get('downloaded_bytes'))
-        for state in (video_state, audio_state)
+        for state in component_states
     )
     total = sum(
         DownloadProgress.number(state.get('total_bytes'))
-        for state in (video_state, audio_state)
+        for state in component_states
     )
     speed = sum(
         DownloadProgress.number(state.get('speed'))
-        for state in (video_state, audio_state)
+        for state in component_states
         if state.get('status') == 'downloading'
     )
 
@@ -1362,7 +1358,7 @@ def read_video_cache_progress(url, quality):
     percent = min(99, downloaded / total * 100) if total else 0
     status = 'downloading' if any(
         state.get('status') in {'downloading', 'ready'}
-        for state in (video_state, audio_state)
+        for state in component_states
     ) else 'preparing'
 
     return {
@@ -1379,10 +1375,10 @@ def read_video_cache_progress(url, quality):
 
 
 def _cache_video_worker(url, quality):
+    media_type = f'video-{quality}'
     progress = DownloadProgress(url, cache_progress_id(quality))
-    lock_store = CacheLockStore(url, f'video-{quality}')
+    lock_store = CacheLockStore(url, media_type)
     try:
-        media_type = f'video-{quality}'
         cached_video = MediaDownloader(url, media_type, progress).run()
         ready_video = get_ready_cached_video(url, quality)
         if not cached_video or not ready_video:
@@ -1410,10 +1406,7 @@ def ensure_video_cache(url, quality):
     lock_store = CacheLockStore(url, media_type)
     lock_store.remove_stale_job_lock(CACHE_START_MARKER_MAX_AGE)
 
-    if lock_store.any_lock_exists():
-        return read_video_cache_progress(url, quality)
-
-    if not lock_store.try_acquire_job_lock():
+    if lock_store.any_lock_exists() or not lock_store.try_acquire_job_lock():
         return read_video_cache_progress(url, quality)
 
     progress = DownloadProgress(url, cache_progress_id(quality))
@@ -1429,14 +1422,12 @@ def start_video_cache_if_new(url, quality):
         return None
 
     progress_id = cache_progress_id(quality)
-    if DownloadProgress.read(url, progress_id) is not None:
-        return read_video_cache_progress(url, quality)
-
     media_type = f'video-{quality}'
-    if CacheLockStore(url, media_type).any_lock_exists():
-        return read_video_cache_progress(url, quality)
-
-    if get_ready_cached_video(url, quality):
+    if (
+        DownloadProgress.read(url, progress_id) is not None
+        or CacheLockStore(url, media_type).any_lock_exists()
+        or get_ready_cached_video(url, quality)
+    ):
         return read_video_cache_progress(url, quality)
 
     return ensure_video_cache(url, quality)
