@@ -14,6 +14,7 @@ let audioContext = null;
 let audioSource = null;
 let activeCacheProgress = null;
 let playbackSourcePreference = null;
+let pendingVideoDownload = null;
 
 
 
@@ -126,6 +127,17 @@ function updateCacheProgress(data)
 }
 
 
+function triggerFileDownload(downloadUrl)
+{
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = 'file';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+
 function stopCacheProgress(quality = null)
 {
     if (!activeCacheProgress || (quality !== null && activeCacheProgress.quality !== quality)) return;
@@ -159,9 +171,16 @@ function startCacheProgress(quality)
         if (!activeCacheProgress || activeCacheProgress.quality !== quality) return false;
         if (data.status === 'ready')
         {
+            const pendingDownload = pendingVideoDownload?.quality === quality
+                ? pendingVideoDownload
+                : null;
+            if (pendingDownload) pendingVideoDownload = null;
             stopCacheProgress(quality);
+            if (pendingDownload) triggerFileDownload(pendingDownload.url);
             return false;
         }
+        if (data.status === 'error' && pendingVideoDownload?.quality === quality)
+            pendingVideoDownload = null;
         updateCacheProgress(data);
         return true;
     };
@@ -907,34 +926,41 @@ class DownloadButton extends videojs.getComponent('Button')
                     var quality = option.quality;
                     if (option.quality == 'current') quality = currentQuality;
 
-                    const link = document.createElement('a');
                     let downloadUrl = `/download?url=${url.encodedUrl}&quality=${quality}`;
                     const isTrimmedDownload = this.startTime != null && this.endTime != null;
 
                     if (isTrimmedDownload)
                         downloadUrl += `&start=${this.startTime.toFixed(1)}&end=${this.endTime.toFixed(1)}`;
 
-                    link.href = downloadUrl;
-                    link.download = 'file';
-
                     if (quality !== 'audio')
                     {
                         startCacheProgress(quality);
-                        // Start the real browser download while this click still has
-                        // user activation. The request can wait for an active cache
-                        // job, so a separate HEAD preparation request is unnecessary.
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                        this.downloadRequestPending = false;
+                        retryFetch(downloadUrl, { cache: 'no-store' }, 0, undefined, false, true)
+                            .then(response => {
+                                if (response.status === 202)
+                                {
+                                    pendingVideoDownload = { url: downloadUrl, quality: `${quality}` };
+                                    // The cache may have become ready between the HEAD
+                                    // response and this callback. Reopen SSE if its prior
+                                    // ready event already closed the connection.
+                                    startCacheProgress(quality);
+                                    return;
+                                }
+                                pendingVideoDownload = null;
+                                triggerFileDownload(downloadUrl);
+                            })
+                            .catch(error => {
+                                console.error('Unable to prepare video download', error);
+                            })
+                            .finally(() => {
+                                this.downloadRequestPending = false;
+                            });
                     }
                     else
                     {
                         retryFetch(downloadUrl, {}, 100, undefined, true, true)
                             .then(response => {
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
+                                triggerFileDownload(downloadUrl);
                             })
                             .catch(error => {
                                 console.error('Unable to prepare download', error);

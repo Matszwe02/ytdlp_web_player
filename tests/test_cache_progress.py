@@ -2,6 +2,7 @@ import os
 import json
 import sys
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -224,41 +225,34 @@ class CacheProgressTests(unittest.TestCase):
         self.assertEqual(state['downloaded_bytes'], len(b'ready video'))
         self.assertEqual(state['total_bytes'], len(b'ready video'))
 
-    def test_download_waiter_uses_existing_canonical_cache_job(self):
+    def test_simultaneous_cache_requests_start_one_canonical_job(self):
         with tempfile.TemporaryDirectory() as data_dir:
-            video_path = os.path.join(data_dir, 'video-720.mp4')
-            progress_state = {
-                'status': 'downloading',
-                'percent': 50,
-                'downloaded_bytes': 50,
-                'total_bytes': 100,
-                'speed': 10,
-            }
+            barrier = threading.Barrier(2)
+            results = []
+            errors = []
 
-            def finish_cache(_seconds):
-                with open(video_path, 'wb') as video_file:
-                    video_file.write(b'ready video')
+            def request_cache():
+                try:
+                    barrier.wait()
+                    results.append(addons.ensure_video_cache('https://example.com/video', '720'))
+                except Exception as error:
+                    errors.append(error)
 
             with (
                 patch.object(addons, 'get_data_dir', return_value=data_dir),
-                patch.object(addons, 'ensure_video_cache', return_value=progress_state) as ensure_video_cache,
-                patch.object(
-                    addons,
-                    'get_ready_cached_video',
-                    side_effect=[None, video_path],
-                ),
-                patch.object(addons, 'read_video_cache_progress', return_value=progress_state),
-                patch.object(addons.time, 'sleep', side_effect=finish_cache),
+                patch.object(addons, 'get_ready_cached_video', return_value=None),
+                patch.object(addons, 'Thread', DeferredThread),
             ):
-                result = addons.wait_for_video_cache(
-                    'https://example.com/video',
-                    '720',
-                    max_attempts=2,
-                    retry_interval=0,
-                )
+                requests = [threading.Thread(target=request_cache) for _ in range(2)]
+                for request in requests:
+                    request.start()
+                for request in requests:
+                    request.join()
 
-        ensure_video_cache.assert_called_once_with('https://example.com/video', '720')
-        self.assertEqual(result, video_path)
+        self.assertEqual(errors, [])
+        self.assertEqual(len(results), 2)
+        self.assertTrue(all(state['status'] == 'preparing' for state in results))
+        self.assertEqual(len(DeferredThread.instances), 1)
 
 
 class CacheProgressEndpointTests(unittest.TestCase):

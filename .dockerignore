@@ -8,9 +8,3 @@
 **/__pycache__/
 **/.ssl/
 **/cookies.txt
-
-# Ignore a virtual environment created directly inside src
-src/bin/
-src/lib/
-src/share/
-src/pyvenv.cfg

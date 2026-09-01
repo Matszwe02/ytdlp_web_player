@@ -125,7 +125,24 @@ def download_media():
         is_full_video_download = cache_quality is not None and not is_trimmed
 
         if cache_quality is not None:
-            cached_video = wait_for_video_cache(url, cache_quality)
+            cache_state = ensure_video_cache(url, cache_quality) or DownloadProgress.initial_state()
+            if cache_state.get('status') != 'ready':
+                response = Response(status=202)
+                response.headers['X-Cache-Status'] = cache_state.get('status') or 'preparing'
+                response.headers['Retry-After'] = '1'
+                response.headers['Cache-Control'] = 'no-store'
+                return response
+
+            # ensure_video_cache only reports ready after validating the MP4.
+            # Avoid running FFprobe again for the immediately following response.
+            cached_video = get_ready_cached_video(url, cache_quality, validate=False)
+            if not cached_video:
+                response = Response(status=202)
+                response.headers['X-Cache-Status'] = 'preparing'
+                response.headers['Retry-After'] = '1'
+                response.headers['Cache-Control'] = 'no-store'
+                return response
+
             if is_full_video_download:
                 try:
                     video_title = get_meta(url, float('inf')).get('title')

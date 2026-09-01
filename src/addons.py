@@ -1228,8 +1228,6 @@ def get_ready_cached_video(url: str, quality: str, validate=True):
 CACHE_PROGRESS_PREFIX = 'cache-'
 CACHE_AUDIO_PROGRESS_ID = f'{CACHE_PROGRESS_PREFIX}audio'
 CACHE_START_MARKER_MAX_AGE = 30
-CACHE_WAIT_MAX_ATTEMPTS = 600
-CACHE_WAIT_INTERVAL_SECONDS = 1
 
 
 def normalize_cache_quality(quality):
@@ -1374,40 +1372,6 @@ def ensure_video_cache(url, quality):
     progress.start()
     Thread(target=_cache_video_worker, args=(url, quality, start_marker), daemon=True).start()
     return progress.state
-
-
-def wait_for_video_cache(
-    url,
-    quality,
-    max_attempts=CACHE_WAIT_MAX_ATTEMPTS,
-    retry_interval=CACHE_WAIT_INTERVAL_SECONDS,
-):
-    """Wait for the canonical cache job instead of starting a second downloader."""
-    quality = normalize_cache_quality(quality)
-    if not url or not quality:
-        return None
-
-    ensure_video_cache(url, quality)
-    data_dir = get_data_dir(url)
-    media_type = f'video-{quality}'
-    media_lock = os.path.join(data_dir, f'{media_type}.temp')
-    start_marker = os.path.join(data_dir, f'{media_type}.cache-start.temp')
-
-    for attempt in range(max_attempts):
-        if ready_video := get_ready_cached_video(url, quality):
-            progress = DownloadProgress(url, cache_progress_id(quality))
-            progress.ready(os.path.getsize(ready_video))
-            return ready_video
-
-        state = read_video_cache_progress(url, quality) or DownloadProgress.initial_state()
-        job_active = os.path.exists(media_lock) or os.path.exists(start_marker)
-        if state.get('status') == 'error' and not job_active:
-            raise RuntimeError(state.get('message') or f'Cache job failed for video-{quality}')
-
-        if attempt < max_attempts - 1:
-            time.sleep(retry_interval)
-
-    raise TimeoutError(f'Timed out waiting for canonical cache job video-{quality}')
 
 
 def start_video_cache_if_new(url, quality):
