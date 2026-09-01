@@ -215,49 +215,8 @@ class Processes:
 
 
 
-class CacheProgressStore:
-    """Filesystem store for cache-job progress records."""
-
-    def __init__(self, url, progress_id):
-        self.progress_id = progress_id if self.valid_id(progress_id) else None
-        self.path = self.get_path(url, self.progress_id) if self.progress_id else None
-
-    @staticmethod
-    def valid_id(progress_id):
-        return isinstance(progress_id, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,80}', progress_id) is not None
-
-    @staticmethod
-    def get_path(url, progress_id):
-        return os.path.join(get_data_dir(url), f'download-progress-{progress_id}.json')
-
-    def read(self):
-        if not self.path:
-            return None
-        try:
-            with open(self.path, 'r') as progress_file:
-                return json.load(progress_file)
-        except (FileNotFoundError, json.JSONDecodeError):
-            return None
-
-    def write(self, state):
-        if not self.path:
-            return
-
-        os.makedirs(os.path.dirname(self.path), exist_ok=True)
-        temp_path = f'{self.path}.{os.getpid()}.{time.time_ns()}.temp'
-        try:
-            with open(temp_path, 'w') as progress_file:
-                json.dump(state, progress_file)
-            os.replace(temp_path, self.path)
-        finally:
-            try:
-                os.remove(temp_path)
-            except FileNotFoundError:
-                pass
-
-
 class DownloadProgress:
-    """Tracks cache-job progress and delegates its persistence to the store."""
+    """Persists download progress so it can be read by any web worker."""
 
     update_interval = 0.2
     ffmpeg_postprocessors = {
@@ -269,9 +228,8 @@ class DownloadProgress:
 
     def __init__(self, url: str, progress_id: str | None):
         self.url = url
-        self.store = CacheProgressStore(url, progress_id)
-        self.progress_id = self.store.progress_id
-        self.path = self.store.path
+        self.progress_id = progress_id if self.valid_id(progress_id) else None
+        self.path = self.get_path(url, self.progress_id) if self.progress_id else None
         self.last_write = 0
         self.state = self.initial_state()
 
@@ -287,24 +245,36 @@ class DownloadProgress:
 
     @staticmethod
     def valid_id(progress_id):
-        return CacheProgressStore.valid_id(progress_id)
+        return isinstance(progress_id, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,80}', progress_id) is not None
 
     @staticmethod
     def get_path(url, progress_id):
-        return CacheProgressStore.get_path(url, progress_id)
+        return os.path.join(get_data_dir(url), f'download-progress-{progress_id}.json')
 
     @classmethod
     def read(cls, url, progress_id):
-        return CacheProgressStore(url, progress_id).read()
+        if not cls.valid_id(progress_id): return None
+        try:
+            with open(cls.get_path(url, progress_id), 'r') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None
 
     def _write(self, force=False):
-        if not self.progress_id: return
+        if not self.path: return
         now = time.time()
         if not force and now - self.last_write < self.update_interval: return
 
         self.last_write = now
         self.state['timestamp'] = now
-        self.store.write(self.state)
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        temp_path = f'{self.path}.{os.getpid()}.{time.time_ns()}.temp'
+        try:
+            with open(temp_path, 'w') as f:
+                json.dump(self.state, f)
+            os.replace(temp_path, self.path)
+        finally:
+            if os.path.exists(temp_path): os.remove(temp_path)
 
     def start(self):
         self._write(force=True)
@@ -1343,7 +1313,7 @@ def read_video_cache_progress(url, quality):
         return None
 
     progress = DownloadProgress(url, progress_id)
-    video_state = CacheProgressStore(url, progress_id).read() or DownloadProgress.initial_state()
+    video_state = DownloadProgress.read(url, progress_id) or DownloadProgress.initial_state()
     ready_video = get_ready_cached_video(url, quality)
     if ready_video:
         file_size = os.path.getsize(ready_video)
@@ -1361,7 +1331,7 @@ def read_video_cache_progress(url, quality):
         return video_state
 
     audio_progress = DownloadProgress(url, CACHE_AUDIO_PROGRESS_ID)
-    audio_state = CacheProgressStore(url, CACHE_AUDIO_PROGRESS_ID).read() or DownloadProgress.initial_state()
+    audio_state = DownloadProgress.read(url, CACHE_AUDIO_PROGRESS_ID) or DownloadProgress.initial_state()
     audio_file = _find_cached_media(url, 'audio')
     if audio_file:
         audio_size = os.path.getsize(audio_file)
@@ -1459,7 +1429,7 @@ def start_video_cache_if_new(url, quality):
         return None
 
     progress_id = cache_progress_id(quality)
-    if CacheProgressStore(url, progress_id).read() is not None:
+    if DownloadProgress.read(url, progress_id) is not None:
         return read_video_cache_progress(url, quality)
 
     media_type = f'video-{quality}'
