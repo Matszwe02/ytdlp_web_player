@@ -11,6 +11,7 @@ import io
 import requests
 import shutil
 import struct
+from queue import Empty
 from PIL import Image
 from datetime import datetime
 from hashlib import sha1
@@ -24,35 +25,128 @@ from sb import SponsorBlock
 yt_dlp = External.yt_dlp()
 
 
+class CacheLockStore:
+    """Filesystem store for cache-job and media-generation locks."""
+
+    def __init__(self, url, media_type):
+        self.data_dir = get_data_dir(url)
+        self.media_lock_path = os.path.join(self.data_dir, f'{media_type}.temp')
+        self.job_lock_path = os.path.join(self.data_dir, f'{media_type}.cache-start.temp')
+
+    @staticmethod
+    def _try_acquire(path, cleanup_on_error=False):
+        try:
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        except FileExistsError:
+            return False
+
+        try:
+            with os.fdopen(descriptor, 'w') as lock_file:
+                lock_file.write(datetime.now().isoformat())
+        except Exception:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+            if cleanup_on_error:
+                CacheLockStore._release(path)
+            raise
+        return True
+
+    @staticmethod
+    def _release(path):
+        try:
+            os.remove(path)
+            return True
+        except FileNotFoundError:
+            return False
+
+    def media_lock_exists(self):
+        return os.path.exists(self.media_lock_path)
+
+    def job_lock_exists(self):
+        return os.path.exists(self.job_lock_path)
+
+    def any_lock_exists(self):
+        return self.media_lock_exists() or self.job_lock_exists()
+
+    def try_acquire_media_lock(self):
+        os.makedirs(self.data_dir, exist_ok=True)
+        return self._try_acquire(self.media_lock_path, cleanup_on_error=True)
+
+    def try_acquire_job_lock(self):
+        os.makedirs(self.data_dir, exist_ok=True)
+        return self._try_acquire(self.job_lock_path)
+
+    def release_media_lock(self):
+        return self._release(self.media_lock_path)
+
+    def release_job_lock(self):
+        return self._release(self.job_lock_path)
+
+    def remove_stale_job_lock(self, max_age):
+        if not self.job_lock_exists() or self.media_lock_exists():
+            return False
+        try:
+            if time.time() - os.path.getmtime(self.job_lock_path) <= max_age:
+                return False
+        except FileNotFoundError:
+            return False
+        return self.release_job_lock()
+
+
 class FileCachingLock:
+    max_wait_attempts = 600
+    retry_interval_seconds = 1
+
     def __init__(self, url, media_type):
         self.url = url
         self.media_type = media_type
-        self.data_dir = get_data_dir(url)
+        self.store = CacheLockStore(url, media_type)
+        self.data_dir = self.store.data_dir
+        self.lock_path = self.store.media_lock_path
+        self.acquired = False
 
     def __enter__(self):
-        for _ in range(600):
-            if not os.path.exists(os.path.join(self.data_dir, f'{self.media_type}.temp')):
-                break
-            time.sleep(1)
-            print(f'Waiting for download of {self.media_type} for {self.data_dir.split("/")[-1]}')
-        
-        if cached_media := check_media(url=self.url, media_type=self.media_type):
-            print(f'Cache hit for {self.media_type}!')
-            self.url = None
-            return cached_media
-        
-        os.makedirs(self.data_dir, exist_ok=True)
-        keepalive(self.data_dir)
-        with open(os.path.join(self.data_dir, f'{self.media_type}.temp'), 'w') as f:
-            f.write(datetime.now().isoformat())
-        
-        return None
+        for attempt in range(self.max_wait_attempts):
+            if not self.store.try_acquire_media_lock():
+                if attempt == self.max_wait_attempts - 1:
+                    raise TimeoutError(
+                        f'Timed out waiting for download of {self.media_type} '
+                        f'for {os.path.basename(self.data_dir)}'
+                    )
+                print(f'Waiting for download of {self.media_type} for {os.path.basename(self.data_dir)}')
+                time.sleep(self.retry_interval_seconds)
+                continue
+
+            self.acquired = True
+            try:
+                keepalive(self.data_dir)
+                if cached_media := check_media(url=self.url, media_type=self.media_type):
+                    if is_compatible_cached_media(cached_media, self.media_type):
+                        print(f'Cache hit for {self.media_type}!')
+                        return cached_media
+                    print(f'Removing incompatible cached media: {cached_media}')
+                    try:
+                        os.remove(cached_media)
+                    except FileNotFoundError:
+                        pass
+                return None
+            except Exception:
+                self._release()
+                raise
+
+    def _release(self):
+        if not self.acquired:
+            return
+        try:
+            if not self.store.release_media_lock():
+                print(f'FATAL ERROR trying to unlock {self.media_type} of {self.data_dir}. Media type cannot be downloaded')
+        finally:
+            self.acquired = False
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if self.url:
-            try: os.remove(os.path.join(self.data_dir, f'{self.media_type}.temp'))
-            except: print(f'FATAL ERROR trying to unlock {self.media_type} of {self.data_dir}. Media type cannot be downloaded')
+        self._release()
 
 
 
@@ -117,6 +211,149 @@ class Processes:
 
 
 
+class DownloadProgress:
+    """Persists download progress so it can be read by any web worker."""
+
+    update_interval = 0.2
+    ffmpeg_postprocessors = {
+        'ExtractAudio',
+        'Merger',
+        'VideoConvertor',
+        'VideoRemuxer',
+    }
+
+    def __init__(self, url: str, progress_id: str | None):
+        self.url = url
+        self.progress_id = progress_id if self.valid_id(progress_id) else None
+        self.path = self.get_path(url, self.progress_id) if self.progress_id else None
+        self.last_write = 0
+        self.state = self.initial_state()
+
+    @staticmethod
+    def initial_state():
+        return {
+            'status': 'preparing',
+            'percent': 0,
+            'downloaded_bytes': 0,
+            'total_bytes': 0,
+            'speed': 0,
+        }
+
+    @staticmethod
+    def valid_id(progress_id):
+        return isinstance(progress_id, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,80}', progress_id) is not None
+
+    @staticmethod
+    def get_path(url, progress_id):
+        return os.path.join(get_data_dir(url), f'download-progress-{progress_id}.json')
+
+    @classmethod
+    def read(cls, url, progress_id):
+        if not cls.valid_id(progress_id): return None
+        try:
+            with open(cls.get_path(url, progress_id), 'r') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None
+
+    def _write(self, force=False):
+        if not self.path: return
+        now = time.time()
+        if not force and now - self.last_write < self.update_interval: return
+
+        self.last_write = now
+        self.state['timestamp'] = now
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        temp_path = f'{self.path}.{os.getpid()}.{time.time_ns()}.temp'
+        try:
+            with open(temp_path, 'w') as f:
+                json.dump(self.state, f)
+            os.replace(temp_path, self.path)
+        finally:
+            if os.path.exists(temp_path): os.remove(temp_path)
+
+    def start(self):
+        self._write(force=True)
+
+    @staticmethod
+    def number(value, default=0):
+        try:
+            value = float(value)
+            return value if math.isfinite(value) and value >= 0 else default
+        except (TypeError, ValueError):
+            return default
+
+    def download(self, data):
+        previous_status = self.state.get('status')
+        downloaded = self.number(data.get('downloaded_bytes'))
+        total = self.number(
+            data.get('total_bytes')
+            or data.get('total_bytes_estimate')
+            or data.get('filesize')
+            or data.get('filesize_approx')
+        )
+        speed = self.number(data.get('speed'), self.state.get('speed', 0))
+        status = data.get('status')
+
+        if not total:
+            fragment_index = self.number(data.get('fragment_index'))
+            fragment_count = self.number(data.get('fragment_count'))
+            if fragment_index and fragment_count:
+                total = downloaded * fragment_count / fragment_index
+
+        if status == 'finished':
+            total = max(total, downloaded)
+            percent = 100
+        elif total:
+            total = max(total, downloaded)
+            percent = min(100, downloaded / total * 100)
+        else:
+            percent = 0
+
+        self.state.update({
+            'status': 'downloading',
+            'percent': percent,
+            'downloaded_bytes': downloaded,
+            'total_bytes': total,
+            'speed': speed,
+        })
+        self._write(force=status == 'finished' or previous_status != 'downloading')
+
+    def handle_ytdlp_event(self, event):
+        if event.get('type') == 'download':
+            self.download(event)
+            return
+
+        postprocessor = event.get('postprocessor') or ''
+        # HLS downloads commonly run a FixupM3u8 postprocessor after the video
+        # fragments finish. That is not the final audio/video cache merge, so it
+        # must not make the UI claim that the completed video is being encoded.
+        is_ffmpeg = postprocessor in self.ffmpeg_postprocessors
+        if event.get('type') == 'postprocessor' and event.get('status') == 'started' and is_ffmpeg:
+            self.encoding()
+
+    def _transition(self, **changes):
+        self.state.update(changes)
+        self._write(force=True)
+
+    def encoding(self):
+        self._transition(status='encoding', percent=100, speed=0)
+
+    def ready(self, file_size):
+        file_size = self.number(file_size)
+        self._transition(
+            status='ready',
+            percent=100,
+            downloaded_bytes=file_size,
+            total_bytes=file_size,
+            speed=0,
+        )
+
+    def error(self, message):
+        self._transition(status='error', message=str(message), speed=0)
+
+
+
 class YTDLP:
 
     class Logger:
@@ -146,21 +383,48 @@ class YTDLP:
     @staticmethod
     def _ydl_runner(url, opts, with_info, arg, queue, yt_id = None):
         logger = YTDLP.Logger(url, opts, 'download', yt_id)
+        def progress_hook(data):
+            info = data.get('info_dict') or {}
+            queue.put({
+                'type': 'download',
+                'status': data.get('status'),
+                'downloaded_bytes': data.get('downloaded_bytes'),
+                'total_bytes': data.get('total_bytes'),
+                'total_bytes_estimate': data.get('total_bytes_estimate'),
+                'speed': data.get('speed'),
+                'fragment_index': data.get('fragment_index'),
+                'fragment_count': data.get('fragment_count'),
+                'filesize': info.get('filesize'),
+                'filesize_approx': info.get('filesize_approx'),
+            })
+
+        def postprocessor_hook(data):
+            queue.put({
+                'type': 'postprocessor',
+                'status': data.get('status'),
+                'postprocessor': data.get('postprocessor'),
+            })
+
         try:
             if ffmpeg: os.environ['PATH'] += os.path.dirname(ffmpeg)
             if js_runtime: os.environ['PATH'] += os.path.dirname(js_runtime)
-            with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
+            runner_opts = opts | {'logger': logger}
+            runner_opts['progress_hooks'] = [*(runner_opts.get('progress_hooks') or []), progress_hook]
+            runner_opts['postprocessor_hooks'] = [*(runner_opts.get('postprocessor_hooks') or []), postprocessor_hook]
+            with yt_dlp.YoutubeDL(runner_opts) as ydl:
                 if with_info:
                     ydl.download_with_info_file(arg)
                 else:
                     ydl.download(arg)
         except Exception as e:
-            queue.put(f'{e}')
-        logger.finish()
+            queue.put({'type': 'error', 'message': f'{e}'})
+            raise
+        finally:
+            logger.finish()
 
 
     @staticmethod
-    def download(url, opts):
+    def download(url, opts, progress_callback=None):
         if (proxy): opts["proxy"] = proxy
         logger = YTDLP.Logger(url, opts, 'download')
         def ydl_download(url, opts, with_info = False):
@@ -169,11 +433,30 @@ class YTDLP:
             p = Process(target=YTDLP._ydl_runner, args=(url, opts, with_info, arg, q, logger.yt_id))
             p.start()
             Processes.setitem(p.pid, [url, f'YT-DLP {logger.yt_id}', time.time()])
+            errors = []
+
+            def handle_message(message):
+                if message.get('type') == 'error':
+                    errors.append(message.get('message'))
+                elif progress_callback:
+                    progress_callback(message)
+
+            while p.is_alive():
+                try:
+                    handle_message(q.get(timeout=0.1))
+                except Empty:
+                    continue
             p.join()
             Processes.rm(p.pid)
-            while not q.empty():
-                logger.error(q.get())
+            while True:
+                try:
+                    handle_message(q.get_nowait())
+                except Empty:
+                    break
+            for error in errors:
+                logger.error(error)
             logger.info(f'Exited with code {p.exitcode}')
+            if errors: raise RuntimeError(errors[-1])
             if p.exitcode != 0: raise RuntimeError(f'YT-DLP exited unexpectedly with return code {p.exitcode}')
 
         try:
@@ -276,10 +559,11 @@ class FFMPEG:
 
 
 class MediaDownloader:
-    def __init__(self, url: str, media_type: str):
+    def __init__(self, url: str, media_type: str, progress: DownloadProgress | None = None):
         self.url = re.sub(r'(https?):/{1,}', r'\1://', url)
         self.data_dir = get_data_dir(self.url)
         self.media_type = media_type
+        self.progress = progress
         os.makedirs(self.data_dir, exist_ok=True)
 
 
@@ -310,7 +594,9 @@ class MediaDownloader:
         self.timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', self.media_type)
         self.start_time = None
         self.end_time = None
-        selected_res = re.search(r'(\d+)', self.media_type) and re.search(r'(\d+)', self.media_type).group(1)
+        quality_match = re.match(r'video-(best|\d+)', self.media_type)
+        self.cache_quality = quality_match.group(1) if quality_match else None
+        selected_res = self.cache_quality if self.cache_quality and self.cache_quality.isdigit() else None
         self.res = int(selected_res or get_good_quality(get_video_formats(meta=self.meta)))
 
         if self.timestamps:
@@ -415,8 +701,35 @@ class MediaDownloader:
 
     def audio(self):
         if self.meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
-        self.ydl_opts.update({"format": "bestaudio/best", "extract_audio": True, "outtmpl": os.path.join(self.data_dir, f'{self.media_type}.mp3')})
-        YTDLP.download(self.url, self.ydl_opts)
+        self.ydl_opts.update({
+            "format": "bestaudio/best",
+            "outtmpl": os.path.join(self.data_dir, f'{self.media_type}.%(ext)s'),
+            "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3"}],
+        })
+        cache_audio_progress = DownloadProgress(self.url, CACHE_AUDIO_PROGRESS_ID)
+        cache_audio_progress.start()
+
+        def handle_audio_progress(event):
+            # Audio extraction is still part of preparing the cache inputs. Only
+            # publish byte-download events here; the final merge sets encoding.
+            if event.get('type') == 'download':
+                cache_audio_progress.download(event)
+            if self.progress and self.progress.progress_id != CACHE_AUDIO_PROGRESS_ID:
+                self.progress.handle_ytdlp_event(event)
+
+        try:
+            YTDLP.download(self.url, self.ydl_opts, handle_audio_progress)
+            audio_file = _find_cached_media(self.url, 'audio')
+            if not audio_file:
+                raise RuntimeError('YT-DLP did not produce a complete audio file')
+            cache_audio_progress.ready(os.path.getsize(audio_file))
+        except Exception as error:
+            cache_audio_progress.error(error)
+            raise
+
+    def _download_with_progress(self):
+        callback = self.progress.handle_ytdlp_event if self.progress else None
+        YTDLP.download(self.url, self.ydl_opts, callback)
 
 
     def video(self):
@@ -425,23 +738,43 @@ class MediaDownloader:
 
         height_param = "" if self.media_type.startswith('video-best') else f'[height<={self.res}]'
         if self.timestamps:
-            if vid := check_res_at_least(self.url, self.res):
-                FFMPEG(self.url, ['-i', vid, "-ss", f'{self.start_time}', "-to", f'{self.end_time}', '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
+            vid = (
+                get_ready_cached_video(self.url, self.cache_quality) if self.cache_quality else None
+            ) or check_res_at_least(self.url, self.res)
+            if vid:
+                if self.progress: self.progress.encoding()
+                FFMPEG(self.url, ['-i', vid, "-ss", f'{self.start_time}', "-to", f'{self.end_time}', '-vf', f'scale=-2:{self.res}', os.path.join(self.data_dir, self.media_type + '.mp4')])
             else:
                 self.ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(self.data_dir, f'{self.media_type}.%(ext)s')})
-                YTDLP.download(self.url, self.ydl_opts)
+                self._download_with_progress()
         else:
             if vid := check_res_at_least(self.url, self.res):
-                FFMPEG(self.url, ['-i', vid, '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
+                if self.progress: self.progress.encoding()
+                FFMPEG(self.url, ['-i', vid, '-vf', f'scale=-2:{self.res}', os.path.join(self.data_dir, self.media_type + '.mp4')])
             else:
                 success = False
                 temp_video = None
                 try:
                     self.ydl_opts.update({"format": f"bestvideo{height_param}/best", "outtmpl": os.path.join(self.data_dir, f'temp-{self.media_type}.%(ext)s')})
-                    YTDLP.download(self.url, self.ydl_opts)
+                    self._download_with_progress()
                     audio_file = check_media(self.url, 'audio') or MediaDownloader(self.url, 'audio').run()
                     temp_video = check_media(self.url, f'temp-{self.media_type}')
-                    success = FFMPEG(self.url, ['-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]).success
+                    if not audio_file or not temp_video:
+                        raise RuntimeError('YT-DLP did not produce complete audio and video files')
+                    output_name = os.path.splitext(os.path.basename(temp_video).removeprefix('temp-'))[0] + '.mp4'
+                    output_file = os.path.join(os.path.dirname(temp_video), output_name)
+                    if self.progress: self.progress.encoding()
+                    success = FFMPEG(self.url, [
+                        '-i', audio_file,
+                        '-i', temp_video,
+                        '-map', '1:v:0',
+                        '-map', '0:a:0',
+                        '-c:v', 'copy',
+                        '-c:a', 'aac',
+                        '-b:a', '192k',
+                        '-movflags', '+faststart',
+                        output_file,
+                    ]).success
                 except Exception as e:
                     pprint_exc(e)
                 finally:
@@ -449,7 +782,7 @@ class MediaDownloader:
                 if not success:
                     print(f'Falling back to standard video download due to FFMPEG error')
                     self.ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(self.data_dir, f'{self.media_type}.%(ext)s')})
-                    YTDLP.download(self.url, self.ydl_opts)
+                    self._download_with_progress()
 
 
     def hls(self):
@@ -705,14 +1038,28 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
-        if 'mpegurl' in mime_type.lower():
+        response_url = getattr(response, 'url', None) or src
+        is_hls_playlist = (
+            'mpegurl' in mime_type.lower()
+            or urlparse(response_url).path.lower().endswith('.m3u8')
+        )
+        if is_hls_playlist:
             lines = []
             src_regex = re.compile(r'(URI=["\'])([^"\']*)(["\'])')
+            playlist_base_url = response_url
+
+            def proxy_playlist_url(resource_url):
+                query = urlencode({
+                    'src': urljoin(playlist_base_url, resource_url),
+                    'headers': headers or '',
+                    'cookies': cookies or '',
+                    'url': url or '',
+                })
+                return f'/external?{query}'
 
             def replace_src(match):
                 prefix, orig_src, suffix = match.groups()
-                new_src = f'/external?src={quote_plus(urljoin(src, orig_src))}&headers={quote_plus(headers or "")}&cookies={quote_plus(cookies or "")}&url={quote_plus(url)}'
-                return f'{prefix}{new_src}{suffix}'
+                return f'{prefix}{proxy_playlist_url(orig_src)}{suffix}'
             raw_lines = response.content.decode('utf-8', errors='ignore').splitlines()
             skipline = False
             for idx, line in enumerate(raw_lines):
@@ -731,8 +1078,7 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
                 if line_str.startswith('#'):
                     lines.append(src_regex.sub(replace_src, line))
                 else:
-                    line = f'/external?src={quote_plus(urljoin(url, line_str))}&headers={quote_plus(headers or "")}&cookies={quote_plus(cookies or "")}&url={quote_plus(url)}'
-                    lines.append(line)
+                    lines.append(proxy_playlist_url(line_str))
 
             resp = Response('\n'.join(lines), status=response.status_code, mimetype=mime_type)
             return resp
@@ -743,10 +1089,9 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
 
         resp = Response(generate(), status=response.status_code, mimetype=mime_type)
 
-        if 'Content-Length' in response.headers:
-            resp.headers['Content-Length'] = response.headers['Content-Length']
-        if 'Content-Range' in response.headers:
-            resp.headers['Content-Range'] = response.headers['Content-Range']
+        for header in ('Content-Length', 'Content-Range'):
+            if header in response.headers:
+                resp.headers[header] = response.headers[header]
         resp.headers['Accept-Ranges'] = 'bytes'
         return resp
     except requests.exceptions.RequestException as e:
@@ -757,47 +1102,18 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
 
 
 def send_file_partial(path, download_name: str | None = None):
-    """ 
-        Simple wrapper around send_file which handles HTTP 206 Partial Content
-        (byte ranges)
-        TODO: handle all send_file args, mirror send_file's error handling
-        (if it has any)
-    """
-    range_header = request.headers.get('Range')
-    if not range_header: return send_file(path, download_name=download_name)
-    
-    size = os.path.getsize(path)    
-    byte1, byte2 = 0, None
-    
-    m = re.search(r'(\d+)-(\d*)', range_header)
-    g = m.groups()
-    
-    if g[0]: byte1 = int(g[0])
-    if g[1]: byte2 = int(g[1])
-
-    length = size - byte1
-    if byte2 is not None:
-        length = byte2 - byte1
-    
-    data = None
-    with open(path, 'rb') as f:
-        f.seek(byte1)
-        data = f.read(length)
-
-    rv = Response(data, 
-        206,
-        mimetype=mimetypes.guess_type(path)[0], 
-        direct_passthrough=True)
-    rv.headers.add('Content-Range', 'bytes {0}-{1}/{2}'.format(byte1, byte1 + length - 1, size))
-
-    return rv
+    """Serve local media with Flask's conditional byte-range support."""
+    response = send_file(path, download_name=download_name, conditional=True)
+    response.headers['Accept-Ranges'] = 'bytes'
+    return response
 
 
 
-def host_file(url: str, media_type='video', download_name: str | None = None):
+def host_file(url: str, media_type='video', download_name: str | None = None, progress: DownloadProgress | None = None):
     if not url: return jsonify({"error": "URL parameter is required"}), 400
-    file = MediaDownloader(url, media_type).run()
+    file = MediaDownloader(url, media_type, progress).run()
     if file:
+        if progress: progress.ready(os.path.getsize(file))
         if download_name:
             if '-' in media_type: download_name += '-' + media_type.split('-', 1)[-1]
             download_name += os.path.splitext(file)[1]
@@ -897,6 +1213,226 @@ def get_data_dir(url):
     return data_dir
 
 
+def probe_media_streams(path: str):
+    ffprobe = shutil.which('ffprobe')
+    if not ffprobe and ffmpeg:
+        candidate = os.path.join(os.path.dirname(ffmpeg), 'ffprobe')
+        if os.path.exists(candidate):
+            ffprobe = candidate
+    if not ffprobe:
+        print(f'FFprobe unavailable; cannot inspect {path}')
+        return None
+
+    try:
+        result = subprocess.run([
+            ffprobe,
+            '-v', 'error',
+            '-show_entries', 'stream=codec_type,codec_name',
+            '-of', 'json',
+            path,
+        ], capture_output=True, text=True, timeout=10)
+        if result.returncode != 0:
+            print(f'FFprobe could not inspect {path}: {result.stderr.strip()}')
+            return None
+
+        return json.loads(result.stdout).get('streams') or []
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as error:
+        print(f'Could not inspect media {path}: {error}')
+        return None
+
+
+def _has_compatible_video_streams(streams):
+    if streams is None:
+        return False
+    return (
+        any(stream.get('codec_type') == 'video' for stream in streams)
+        and any(stream.get('codec_type') == 'audio' for stream in streams)
+        and not any(
+            stream.get('codec_type') == 'audio'
+            and stream.get('codec_name') in {'mp2', 'mp3'}
+            for stream in streams
+        )
+    )
+
+
+def is_compatible_cached_media(path: str, media_type: str):
+    """Reject cached MP4 downloads whose audio codec is not broadly compatible."""
+    if not media_type.startswith('video') or os.path.splitext(path)[1].lower() != '.mp4':
+        return True
+
+    streams = probe_media_streams(path)
+    return streams is None or _has_compatible_video_streams(streams)
+
+
+def get_ready_cached_video(url: str, quality: str, validate=True):
+    """Return a complete local MP4 with video and audio, without waiting on an active cache job."""
+    if not quality or quality == 'audio':
+        return None
+
+    media_type = f'video-{quality}'
+    if CacheLockStore(url, media_type).media_lock_exists():
+        return None
+
+    path = check_media(url, media_type)
+    if not path or os.path.splitext(path)[1].lower() != '.mp4':
+        return None
+    if not validate:
+        return path
+
+    if not _has_compatible_video_streams(probe_media_streams(path)):
+        return None
+    return path
+
+
+CACHE_PROGRESS_PREFIX = 'cache-'
+CACHE_AUDIO_PROGRESS_ID = f'{CACHE_PROGRESS_PREFIX}audio'
+CACHE_START_MARKER_MAX_AGE = 30
+
+
+def normalize_cache_quality(quality):
+    quality = str(quality or '')
+    if quality == 'best' or re.fullmatch(r'\d{1,4}', quality):
+        return quality
+    return None
+
+
+def cache_progress_id(quality):
+    quality = normalize_cache_quality(quality)
+    return f'{CACHE_PROGRESS_PREFIX}{quality}' if quality else None
+
+
+def read_video_cache_progress(url, quality):
+    """Return aggregate video + audio cache progress for a validated MP4."""
+    progress_id = cache_progress_id(quality)
+    if not progress_id:
+        return None
+
+    progress = DownloadProgress(url, progress_id)
+    video_state = DownloadProgress.read(url, progress_id) or DownloadProgress.initial_state()
+    ready_video = get_ready_cached_video(url, quality)
+    if ready_video:
+        file_size = os.path.getsize(ready_video)
+        if video_state.get('status') != 'ready' or video_state.get('total_bytes') != file_size:
+            progress.ready(file_size)
+            video_state = progress.state
+        return video_state
+
+    if video_state.get('status') == 'ready':
+        video_state = DownloadProgress.initial_state()
+
+    # These states describe the cache job as a whole and must take precedence
+    # over its individual download components.
+    if video_state.get('status') in {'encoding', 'error'}:
+        return video_state
+
+    audio_progress = DownloadProgress(url, CACHE_AUDIO_PROGRESS_ID)
+    audio_state = DownloadProgress.read(url, CACHE_AUDIO_PROGRESS_ID) or DownloadProgress.initial_state()
+    audio_file = _find_cached_media(url, 'audio')
+    if audio_file:
+        audio_size = os.path.getsize(audio_file)
+        if audio_state.get('status') != 'ready' or audio_state.get('total_bytes') != audio_size:
+            audio_progress.ready(audio_size)
+            audio_state = audio_progress.state
+    elif audio_state.get('status') == 'ready':
+        audio_progress.start()
+        audio_state = audio_progress.state
+
+    component_states = (video_state, audio_state)
+    downloaded = sum(
+        DownloadProgress.number(state.get('downloaded_bytes'))
+        for state in component_states
+    )
+    total = sum(
+        DownloadProgress.number(state.get('total_bytes'))
+        for state in component_states
+    )
+    speed = sum(
+        DownloadProgress.number(state.get('speed'))
+        for state in component_states
+        if state.get('status') == 'downloading'
+    )
+
+    # Until the final MP4 exists, reserve 100% for the transition to the actual
+    # FFmpeg merge. This also avoids showing 100% while the audio size is not yet
+    # known or while both downloaded inputs are waiting to be merged.
+    percent = min(99, downloaded / total * 100) if total else 0
+    status = 'downloading' if any(
+        state.get('status') in {'downloading', 'ready'}
+        for state in component_states
+    ) else 'preparing'
+
+    return {
+        'status': status,
+        'percent': percent,
+        'downloaded_bytes': downloaded,
+        'total_bytes': total,
+        'speed': speed,
+        'timestamp': max(
+            DownloadProgress.number(video_state.get('timestamp')),
+            DownloadProgress.number(audio_state.get('timestamp')),
+        ),
+    }
+
+
+def _cache_video_worker(url, quality):
+    media_type = f'video-{quality}'
+    progress = DownloadProgress(url, cache_progress_id(quality))
+    lock_store = CacheLockStore(url, media_type)
+    try:
+        cached_video = MediaDownloader(url, media_type, progress).run()
+        ready_video = get_ready_cached_video(url, quality)
+        if not cached_video or not ready_video:
+            raise RuntimeError(f'Cache did not produce a ready MP4 for {media_type}')
+        progress.ready(os.path.getsize(ready_video))
+    except Exception as error:
+        pprint_exc(error)
+        progress.error(error)
+    finally:
+        lock_store.release_job_lock()
+
+
+def ensure_video_cache(url, quality):
+    """Start one persistent background cache job and return its current state."""
+    quality = normalize_cache_quality(quality)
+    if not url or not quality:
+        return None
+
+    if ready_video := get_ready_cached_video(url, quality):
+        progress = DownloadProgress(url, cache_progress_id(quality))
+        progress.ready(os.path.getsize(ready_video))
+        return progress.state
+
+    media_type = f'video-{quality}'
+    lock_store = CacheLockStore(url, media_type)
+    lock_store.remove_stale_job_lock(CACHE_START_MARKER_MAX_AGE)
+
+    if lock_store.any_lock_exists() or not lock_store.try_acquire_job_lock():
+        return read_video_cache_progress(url, quality)
+
+    progress = DownloadProgress(url, cache_progress_id(quality))
+    progress.start()
+    Thread(target=_cache_video_worker, args=(url, quality), daemon=True).start()
+    return progress.state
+
+
+def start_video_cache_if_new(url, quality):
+    """Start a cache job only when this URL and quality have no prior cache state."""
+    quality = normalize_cache_quality(quality)
+    if not url or not quality:
+        return None
+
+    progress_id = cache_progress_id(quality)
+    media_type = f'video-{quality}'
+    if (
+        DownloadProgress.read(url, progress_id) is not None
+        or CacheLockStore(url, media_type).any_lock_exists()
+        or get_ready_cached_video(url, quality)
+    ):
+        return read_video_cache_progress(url, quality)
+
+    return ensure_video_cache(url, quality)
+
+
 def get_global_cookies_file(force = False):
     if cookies_only_on_failure and not force: return None
     if os.path.exists('cookies.txt'): return 'cookies.txt'
@@ -908,24 +1444,29 @@ def keepalive(data_dir):
         f.write(str(int(time.time())))
 
 
-def check_media(url: str, media_type: str):
-    print(f'Checking media for {url=} and {media_type=}')
+def _find_cached_media(url: str, media_type: str):
     data_dir = get_data_dir(url)
     try:
         for i in os.listdir(data_dir):
-            if i.endswith('.part'): continue
+            if '.part' in i: continue
             if i.endswith('.ytdl'): continue
             if i.endswith('.temp'): continue
             if i.count('_') != media_type.count('_'): continue
             if i.startswith(media_type):
-                path = os.path.join(data_dir, i)
-                print(f'Serving {path}')
-                keepalive(data_dir)
-                print(f'Media for {url=} and {media_type=} found')
-                return path
+                return os.path.join(data_dir, i)
     except:
         return None
     return None
+
+
+def check_media(url: str, media_type: str):
+    print(f'Checking media for {url=} and {media_type=}')
+    path = _find_cached_media(url, media_type)
+    if path:
+        print(f'Serving {path}')
+        keepalive(get_data_dir(url))
+        print(f'Media for {url=} and {media_type=} found')
+    return path
 
 
 def get_meta(url: str, max_meta_age = None):
@@ -1328,7 +1869,8 @@ def get_video_info(meta: dict):
     info['width'] = meta.get('width')
     info['height'] = meta.get('height')
     info['url'] = meta.get('original_url')
-    info['default_quality'] = 'audio' if 'Music' in (meta.get('categories') or []) and audio_visualizer else get_good_quality(info['formats'])
+    info['cache_quality'] = get_good_quality(info['formats'])
+    info['default_quality'] = 'audio' if 'Music' in (meta.get('categories') or []) and audio_visualizer else info['cache_quality']
     info['autoplay'] = autoplay
     info['min_live_buffer'] = min_live_buffer
     info['always_transcode'] = always_transcode

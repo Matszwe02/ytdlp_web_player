@@ -1,7 +1,9 @@
 import os
 import signal
 import sys
-from flask import Flask, render_template, request, jsonify, Response
+import json
+import time
+from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from io import BytesIO
 from starlette.middleware.wsgi import WSGIMiddleware
 
@@ -20,6 +22,14 @@ def signal_handler(signum, frame):
 
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
+
+
+def _cache_pending_response(status='preparing'):
+    return Response(status=202, headers={
+        'X-Cache-Status': status,
+        'Retry-After': '1',
+        'Cache-Control': 'no-store',
+    })
 
 
 @app.route('/')
@@ -106,21 +116,80 @@ def raw():
 @app.route('/download')
 def download_media():
     try:
-        res = (request.args.get('quality') or '')
+        res = request.args.get('quality') or ''
         start_time = request.args.get('start', 0, type=float)
         end_time = request.args.get('end', 0, type=float)
-        
+        is_trimmed = start_time > 0 or end_time > 0
+
         media_type = 'audio' if res == 'audio' else f'video-{res}'.removesuffix('-')
-        
-        if start_time > 0 or end_time > 0:
+
+        if is_trimmed:
             media_type += f'_{start_time:.1f}-{end_time:.1f}'
 
         url = get_url(request)
+        if not url: return jsonify({"error": "URL parameter is required"}), 400
+
+        cache_quality = normalize_cache_quality(res) if res != 'audio' else None
+
+        if cache_quality is not None:
+            cache_state = ensure_video_cache(url, cache_quality) or DownloadProgress.initial_state()
+            if cache_state.get('status') != 'ready':
+                return _cache_pending_response(cache_state.get('status') or 'preparing')
+
+            # ensure_video_cache only reports ready after validating the MP4.
+            # Avoid running FFprobe again for the immediately following response.
+            cached_video = get_ready_cached_video(url, cache_quality, validate=False)
+            if not cached_video:
+                return _cache_pending_response()
+
+            if not is_trimmed:
+                try:
+                    video_title = get_meta(url, float('inf')).get('title')
+                except Exception as error:
+                    pprint_exc(error)
+                    video_title = None
+                download_name = f'{video_title}-{res}.mp4' if video_title else None
+                return send_file_partial(cached_video, download_name=download_name)
+
         video_title = get_meta(url).get('title')
         return host_file(url, media_type, download_name=video_title)
 
     except Exception as e:
         return pprint_exc(e)
+
+
+@app.route('/cache-progress-stream')
+def video_cache_progress_stream():
+    url = get_url(request)
+    quality = normalize_cache_quality(request.args.get('quality'))
+    if not url: return jsonify({"error": "URL parameter is required"}), 400
+    if not quality: return jsonify({"error": "A numeric or best video quality is required"}), 400
+
+    def generate_events():
+        start_video_cache_if_new(url, quality)
+        previous_event = None
+        next_keepalive = time.monotonic() + 15
+        yield 'retry: 3000\n\n'
+
+        while True:
+            state = read_video_cache_progress(url, quality)
+            event = json.dumps(state, separators=(',', ':'))
+            if event != previous_event:
+                yield f'data: {event}\n\n'
+                previous_event = event
+                next_keepalive = time.monotonic() + 15
+            elif time.monotonic() >= next_keepalive:
+                yield ': keep-alive\n\n'
+                next_keepalive = time.monotonic() + 15
+
+            if state.get('status') == 'ready':
+                return
+            time.sleep(DownloadProgress.update_interval)
+
+    response = Response(stream_with_context(generate_events()), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache, no-transform'
+    response.headers['X-Accel-Buffering'] = 'no'
+    return response
 
 
 @app.route('/low')
@@ -137,11 +206,39 @@ def resp_direct():
         res = request.args.get('quality') or ''
         media_type = f'direct-{res}'.removesuffix('-')
         url = get_url(request)
-        media = check_media(url, media_type)
+        playback_source = request.args.get('playback') or 'auto'
+
+        cached_video = None if playback_source == 'stream' else get_ready_cached_video(
+            url, res, validate=playback_source != 'local'
+        )
+        if cached_video:
+            response = send_file_partial(cached_video)
+            response.headers['X-Playback-Source'] = 'local'
+            return response
+
+        # The browser uses this HEAD request only to choose between local and
+        # streamed playback. Do not open an upstream media connection here.
+        if request.method == 'HEAD':
+            response = Response(status=200)
+            response.headers['X-Playback-Source'] = 'stream'
+            response.headers['Cache-Control'] = 'no-store'
+            return response
+
+        media = check_media(url, media_type) or MediaDownloader(url, media_type).run()
         if media and media.endswith('.url'):
             with open(media, 'r') as f:
-                return stream_media_file(f.readline().rstrip('\n'), f.readline().rstrip('\n'), f.readline().rstrip('\n'))
-        return host_file(url, media_type)
+                src = f.readline().rstrip('\n')
+                headers = f.readline().rstrip('\n')
+                cookies = f.read().rstrip('\n')
+            response = stream_media_file(url, src, headers, cookies)
+        elif media:
+            response = send_file_partial(media)
+        else:
+            response = jsonify({"error": f"Cannot gather {media_type}"}), 404
+
+        if isinstance(response, Response):
+            response.headers['X-Playback-Source'] = 'stream'
+        return response
     except Exception as e:
         return pprint_exc(e)
 
