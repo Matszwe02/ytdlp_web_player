@@ -155,51 +155,6 @@ def download_media():
         return pprint_exc(e)
 
 
-@app.route('/download-progress')
-def download_progress():
-    url = get_url(request)
-    progress_id = request.args.get('progress_id')
-    if not url: return jsonify({"error": "URL parameter is required"}), 400
-    if not DownloadProgress.valid_id(progress_id): return jsonify({"error": "Invalid progress ID"}), 400
-
-    state = DownloadProgress.read(url, progress_id) or {
-        'status': 'preparing',
-        'percent': 0,
-        'downloaded_bytes': 0,
-        'total_bytes': 0,
-        'speed': 0,
-    }
-    response = jsonify(state)
-    response.headers['Cache-Control'] = 'no-store'
-    return response
-
-
-@app.route('/cache', methods=['POST'])
-def start_video_cache():
-    url = get_url(request)
-    quality = normalize_cache_quality(request.args.get('quality'))
-    if not url: return jsonify({"error": "URL parameter is required"}), 400
-    if not quality: return jsonify({"error": "A numeric or best video quality is required"}), 400
-
-    state = ensure_video_cache(url, quality)
-    response = jsonify(state)
-    response.headers['Cache-Control'] = 'no-store'
-    return response
-
-
-@app.route('/cache-progress')
-def video_cache_progress():
-    url = get_url(request)
-    quality = normalize_cache_quality(request.args.get('quality'))
-    if not url: return jsonify({"error": "URL parameter is required"}), 400
-    if not quality: return jsonify({"error": "A numeric or best video quality is required"}), 400
-
-    state = read_video_cache_progress(url, quality)
-    response = jsonify(state)
-    response.headers['Cache-Control'] = 'no-store'
-    return response
-
-
 @app.route('/cache-progress-stream')
 def video_cache_progress_stream():
     url = get_url(request)

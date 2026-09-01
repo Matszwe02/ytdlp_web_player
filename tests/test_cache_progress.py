@@ -266,28 +266,16 @@ class CacheProgressEndpointTests(unittest.TestCase):
         app_module.app.config['TESTING'] = True
         self.client = app_module.app.test_client()
 
-    def test_cache_progress_endpoint_returns_persistent_state(self):
-        state = {
-            'status': 'downloading',
-            'percent': 50,
-            'downloaded_bytes': 50,
-            'total_bytes': 100,
-            'speed': 10,
-        }
-        with patch.object(app_module, 'read_video_cache_progress', return_value=state):
-            response = self.client.get(
-                '/cache-progress?url=https%3A%2F%2Fexample.com%2Fvideo&quality=720'
-            )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.get_json(), state)
-        self.assertEqual(response.headers.get('Cache-Control'), 'no-store')
-
-    def test_cache_start_rejects_unsafe_quality(self):
-        response = self.client.post(
-            '/cache?url=https%3A%2F%2Fexample.com%2Fvideo&quality=..%2F..%2Fvideo'
+    def test_removed_legacy_cache_endpoints_return_not_found(self):
+        requests = (
+            ('GET', '/download-progress'),
+            ('POST', '/cache'),
+            ('GET', '/cache-progress'),
         )
-        self.assertEqual(response.status_code, 400)
+        for method, path in requests:
+            with self.subTest(path=path):
+                response = self.client.open(path, method=method)
+                self.assertEqual(response.status_code, 404)
 
     def test_sse_starts_cache_once_and_streams_changed_states_until_ready(self):
         downloading = {
