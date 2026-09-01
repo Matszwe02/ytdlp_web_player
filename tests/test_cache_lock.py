@@ -14,6 +14,46 @@ if SOURCE_DIR not in sys.path:
 import addons
 
 
+class CacheLockStoreTests(unittest.TestCase):
+    def test_job_lock_check_and_acquisition_is_atomic(self):
+        with tempfile.TemporaryDirectory() as data_dir:
+            barrier = threading.Barrier(2)
+            acquisitions = []
+
+            def acquire():
+                store = addons.CacheLockStore('https://example.com/video', 'video-720')
+                barrier.wait()
+                acquisitions.append(store.try_acquire_job_lock())
+
+            with patch.object(addons, 'get_data_dir', return_value=data_dir):
+                threads = [threading.Thread(target=acquire) for _ in range(2)]
+                for thread in threads:
+                    thread.start()
+                for thread in threads:
+                    thread.join()
+
+                store = addons.CacheLockStore('https://example.com/video', 'video-720')
+                self.assertEqual(sorted(acquisitions), [False, True])
+                self.assertTrue(store.job_lock_exists())
+                self.assertTrue(store.release_job_lock())
+                self.assertFalse(store.job_lock_exists())
+
+    def test_active_media_lock_prevents_stale_job_lock_removal(self):
+        with tempfile.TemporaryDirectory() as data_dir:
+            with patch.object(addons, 'get_data_dir', return_value=data_dir):
+                store = addons.CacheLockStore('https://example.com/video', 'video-720')
+                self.assertTrue(store.try_acquire_job_lock())
+                os.utime(store.job_lock_path, (0, 0))
+                self.assertTrue(store.try_acquire_media_lock())
+
+                self.assertFalse(store.remove_stale_job_lock(max_age=0))
+                self.assertTrue(store.job_lock_exists())
+
+                store.release_media_lock()
+                self.assertTrue(store.remove_stale_job_lock(max_age=0))
+                self.assertFalse(store.job_lock_exists())
+
+
 class FileCachingLockTests(unittest.TestCase):
     def test_concurrent_requests_only_generate_media_once(self):
         with tempfile.TemporaryDirectory() as data_dir:

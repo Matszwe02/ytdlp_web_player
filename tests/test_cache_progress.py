@@ -29,6 +29,42 @@ class DeferredThread:
         self.started = True
 
 
+class CacheProgressStoreTests(unittest.TestCase):
+    def test_progress_state_is_written_with_atomic_replace(self):
+        state = {
+            'status': 'downloading',
+            'percent': 25,
+            'downloaded_bytes': 25,
+            'total_bytes': 100,
+            'speed': 5,
+        }
+
+        with tempfile.TemporaryDirectory() as data_dir:
+            with (
+                patch.object(addons, 'get_data_dir', return_value=data_dir),
+                patch.object(addons.os, 'replace', wraps=os.replace) as replace,
+            ):
+                store = addons.CacheProgressStore('https://example.com/video', 'cache-720')
+                store.write(state)
+
+                self.assertEqual(store.read(), state)
+                replace.assert_called_once()
+                temp_path, destination = replace.call_args.args
+                self.assertEqual(destination, store.path)
+                self.assertFalse(os.path.exists(temp_path))
+
+    def test_invalid_progress_id_is_not_read_or_written(self):
+        with tempfile.TemporaryDirectory() as data_dir:
+            with patch.object(addons, 'get_data_dir', return_value=data_dir):
+                store = addons.CacheProgressStore(
+                    'https://example.com/video', '../../unsafe'
+                )
+                store.write({'status': 'ready'})
+
+                self.assertIsNone(store.read())
+                self.assertEqual(os.listdir(data_dir), [])
+
+
 class CacheProgressTests(unittest.TestCase):
     def setUp(self):
         DeferredThread.instances = []
@@ -106,9 +142,9 @@ class CacheProgressTests(unittest.TestCase):
                     'status': 'started',
                     'postprocessor': 'FixupM3u8',
                 })
-                state = addons.DownloadProgress.read(
+                state = addons.CacheProgressStore(
                     'https://example.com/video', 'cache-720'
-                )
+                ).read()
 
         self.assertEqual(state['status'], 'downloading')
         self.assertEqual(state['percent'], 100)
@@ -132,9 +168,9 @@ class CacheProgressTests(unittest.TestCase):
                     'total_bytes': 20_000_000,
                     'speed': 2_000_000,
                 })
-                observed_states.append(addons.DownloadProgress.read(
+                observed_states.append(addons.CacheProgressStore(
                     downloader.url, addons.CACHE_AUDIO_PROGRESS_ID
-                ))
+                ).read())
                 with open(os.path.join(data_dir, 'audio.mp3'), 'wb') as audio_file:
                     audio_file.write(b'complete audio')
 
@@ -143,9 +179,9 @@ class CacheProgressTests(unittest.TestCase):
                 patch.object(addons.YTDLP, 'download', side_effect=download_audio),
             ):
                 downloader.audio()
-                final_state = addons.DownloadProgress.read(
+                final_state = addons.CacheProgressStore(
                     downloader.url, addons.CACHE_AUDIO_PROGRESS_ID
-                )
+                ).read()
 
         self.assertEqual(observed_states[0]['status'], 'downloading')
         self.assertEqual(observed_states[0]['percent'], 25)

@@ -88,15 +88,16 @@ class CachedMediaCompatibilityTests(unittest.TestCase):
 
     def test_active_cache_job_is_never_used_for_playback(self):
         with tempfile.TemporaryDirectory() as data_dir:
-            lock_path = os.path.join(data_dir, 'video-720.temp')
-            with open(lock_path, 'w') as lock_file:
-                lock_file.write('active')
-
             with (
                 patch.object(addons, 'get_data_dir', return_value=data_dir),
                 patch.object(addons, 'check_media') as check_media,
             ):
-                self.assertIsNone(addons.get_ready_cached_video('https://example.com/video', '720'))
+                lock_store = addons.CacheLockStore('https://example.com/video', 'video-720')
+                self.assertTrue(lock_store.try_acquire_media_lock())
+                try:
+                    self.assertIsNone(addons.get_ready_cached_video('https://example.com/video', '720'))
+                finally:
+                    lock_store.release_media_lock()
             check_media.assert_not_called()
 
 

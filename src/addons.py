@@ -25,6 +25,80 @@ from sb import SponsorBlock
 yt_dlp = External.yt_dlp()
 
 
+class CacheLockStore:
+    """Filesystem store for cache-job and media-generation locks."""
+
+    def __init__(self, url, media_type):
+        self.data_dir = get_data_dir(url)
+        self.media_lock_path = os.path.join(self.data_dir, f'{media_type}.temp')
+        self.job_lock_path = os.path.join(self.data_dir, f'{media_type}.cache-start.temp')
+
+    @staticmethod
+    def _exists(path):
+        return os.path.exists(path)
+
+    @staticmethod
+    def _try_acquire(path, cleanup_on_error=False):
+        try:
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        except FileExistsError:
+            return False
+
+        try:
+            with os.fdopen(descriptor, 'w') as lock_file:
+                lock_file.write(datetime.now().isoformat())
+        except Exception:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+            if cleanup_on_error:
+                CacheLockStore._release(path)
+            raise
+        return True
+
+    @staticmethod
+    def _release(path):
+        try:
+            os.remove(path)
+            return True
+        except FileNotFoundError:
+            return False
+
+    def media_lock_exists(self):
+        return self._exists(self.media_lock_path)
+
+    def job_lock_exists(self):
+        return self._exists(self.job_lock_path)
+
+    def any_lock_exists(self):
+        return self.media_lock_exists() or self.job_lock_exists()
+
+    def try_acquire_media_lock(self):
+        os.makedirs(self.data_dir, exist_ok=True)
+        return self._try_acquire(self.media_lock_path, cleanup_on_error=True)
+
+    def try_acquire_job_lock(self):
+        os.makedirs(self.data_dir, exist_ok=True)
+        return self._try_acquire(self.job_lock_path)
+
+    def release_media_lock(self):
+        return self._release(self.media_lock_path)
+
+    def release_job_lock(self):
+        return self._release(self.job_lock_path)
+
+    def remove_stale_job_lock(self, max_age):
+        if not self.job_lock_exists() or self.media_lock_exists():
+            return False
+        try:
+            if time.time() - os.path.getmtime(self.job_lock_path) <= max_age:
+                return False
+        except FileNotFoundError:
+            return False
+        return self.release_job_lock()
+
+
 class FileCachingLock:
     max_wait_attempts = 600
     retry_interval_seconds = 1
@@ -32,16 +106,14 @@ class FileCachingLock:
     def __init__(self, url, media_type):
         self.url = url
         self.media_type = media_type
-        self.data_dir = get_data_dir(url)
-        self.lock_path = os.path.join(self.data_dir, f'{self.media_type}.temp')
+        self.store = CacheLockStore(url, media_type)
+        self.data_dir = self.store.data_dir
+        self.lock_path = self.store.media_lock_path
         self.acquired = False
 
     def __enter__(self):
-        os.makedirs(self.data_dir, exist_ok=True)
         for attempt in range(self.max_wait_attempts):
-            try:
-                descriptor = os.open(self.lock_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
-            except FileExistsError:
+            if not self.store.try_acquire_media_lock():
                 if attempt == self.max_wait_attempts - 1:
                     raise TimeoutError(
                         f'Timed out waiting for download of {self.media_type} '
@@ -53,8 +125,6 @@ class FileCachingLock:
 
             self.acquired = True
             try:
-                with os.fdopen(descriptor, 'w') as lock_file:
-                    lock_file.write(datetime.now().isoformat())
                 keepalive(self.data_dir)
                 if cached_media := check_media(url=self.url, media_type=self.media_type):
                     if is_compatible_cached_media(cached_media, self.media_type):
@@ -67,10 +137,6 @@ class FileCachingLock:
                         pass
                 return None
             except Exception:
-                try:
-                    os.close(descriptor)
-                except OSError:
-                    pass
                 self._release()
                 raise
 
@@ -78,9 +144,8 @@ class FileCachingLock:
         if not self.acquired:
             return
         try:
-            os.remove(self.lock_path)
-        except FileNotFoundError:
-            print(f'FATAL ERROR trying to unlock {self.media_type} of {self.data_dir}. Media type cannot be downloaded')
+            if not self.store.release_media_lock():
+                print(f'FATAL ERROR trying to unlock {self.media_type} of {self.data_dir}. Media type cannot be downloaded')
         finally:
             self.acquired = False
 
@@ -150,8 +215,49 @@ class Processes:
 
 
 
+class CacheProgressStore:
+    """Filesystem store for cache-job progress records."""
+
+    def __init__(self, url, progress_id):
+        self.progress_id = progress_id if self.valid_id(progress_id) else None
+        self.path = self.get_path(url, self.progress_id) if self.progress_id else None
+
+    @staticmethod
+    def valid_id(progress_id):
+        return isinstance(progress_id, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,80}', progress_id) is not None
+
+    @staticmethod
+    def get_path(url, progress_id):
+        return os.path.join(get_data_dir(url), f'download-progress-{progress_id}.json')
+
+    def read(self):
+        if not self.path:
+            return None
+        try:
+            with open(self.path, 'r') as progress_file:
+                return json.load(progress_file)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None
+
+    def write(self, state):
+        if not self.path:
+            return
+
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        temp_path = f'{self.path}.{os.getpid()}.{time.time_ns()}.temp'
+        try:
+            with open(temp_path, 'w') as progress_file:
+                json.dump(state, progress_file)
+            os.replace(temp_path, self.path)
+        finally:
+            try:
+                os.remove(temp_path)
+            except FileNotFoundError:
+                pass
+
+
 class DownloadProgress:
-    """Persists download progress so it can be read by any web worker."""
+    """Tracks cache-job progress and delegates its persistence to the store."""
 
     update_interval = 0.2
     ffmpeg_postprocessors = {
@@ -163,8 +269,9 @@ class DownloadProgress:
 
     def __init__(self, url: str, progress_id: str | None):
         self.url = url
-        self.progress_id = progress_id if self.valid_id(progress_id) else None
-        self.path = self.get_path(url, self.progress_id) if self.progress_id else None
+        self.store = CacheProgressStore(url, progress_id)
+        self.progress_id = self.store.progress_id
+        self.path = self.store.path
         self.last_write = 0
         self.state = self.initial_state()
 
@@ -180,42 +287,30 @@ class DownloadProgress:
 
     @staticmethod
     def valid_id(progress_id):
-        return isinstance(progress_id, str) and re.fullmatch(r'[A-Za-z0-9_-]{1,80}', progress_id) is not None
+        return CacheProgressStore.valid_id(progress_id)
 
     @staticmethod
     def get_path(url, progress_id):
-        return os.path.join(get_data_dir(url), f'download-progress-{progress_id}.json')
+        return CacheProgressStore.get_path(url, progress_id)
 
     @classmethod
     def read(cls, url, progress_id):
-        if not cls.valid_id(progress_id): return None
-        try:
-            with open(cls.get_path(url, progress_id), 'r') as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            return None
+        return CacheProgressStore(url, progress_id).read()
 
     def _write(self, force=False):
-        if not self.path: return
+        if not self.progress_id: return
         now = time.time()
         if not force and now - self.last_write < self.update_interval: return
 
         self.last_write = now
         self.state['timestamp'] = now
-        os.makedirs(os.path.dirname(self.path), exist_ok=True)
-        temp_path = f'{self.path}.{os.getpid()}.{time.time_ns()}.temp'
-        try:
-            with open(temp_path, 'w') as f:
-                json.dump(self.state, f)
-            os.replace(temp_path, self.path)
-        finally:
-            if os.path.exists(temp_path): os.remove(temp_path)
+        self.store.write(self.state)
 
     def start(self):
         self._write(force=True)
 
     @staticmethod
-    def _number(value, default=0):
+    def number(value, default=0):
         try:
             value = float(value)
             return value if math.isfinite(value) and value >= 0 else default
@@ -224,19 +319,19 @@ class DownloadProgress:
 
     def download(self, data):
         previous_status = self.state.get('status')
-        downloaded = self._number(data.get('downloaded_bytes'))
-        total = self._number(
+        downloaded = self.number(data.get('downloaded_bytes'))
+        total = self.number(
             data.get('total_bytes')
             or data.get('total_bytes_estimate')
             or data.get('filesize')
             or data.get('filesize_approx')
         )
-        speed = self._number(data.get('speed'), self.state.get('speed', 0))
+        speed = self.number(data.get('speed'), self.state.get('speed', 0))
         status = data.get('status')
 
         if not total:
-            fragment_index = self._number(data.get('fragment_index'))
-            fragment_count = self._number(data.get('fragment_count'))
+            fragment_index = self.number(data.get('fragment_index'))
+            fragment_count = self.number(data.get('fragment_count'))
             if fragment_index and fragment_count:
                 total = downloaded * fragment_count / fragment_index
 
@@ -276,7 +371,7 @@ class DownloadProgress:
         self._write(force=True)
 
     def ready(self, file_size):
-        file_size = self._number(file_size)
+        file_size = self.number(file_size)
         self.state.update({
             'status': 'ready',
             'percent': 100,
@@ -1199,8 +1294,7 @@ def get_ready_cached_video(url: str, quality: str, validate=True):
         return None
 
     media_type = f'video-{quality}'
-    data_dir = get_data_dir(url)
-    if os.path.exists(os.path.join(data_dir, f'{media_type}.temp')):
+    if CacheLockStore(url, media_type).media_lock_exists():
         return None
 
     path = check_media(url, media_type)
@@ -1249,7 +1343,7 @@ def read_video_cache_progress(url, quality):
         return None
 
     progress = DownloadProgress(url, progress_id)
-    video_state = DownloadProgress.read(url, progress_id) or DownloadProgress.initial_state()
+    video_state = CacheProgressStore(url, progress_id).read() or DownloadProgress.initial_state()
     ready_video = get_ready_cached_video(url, quality)
     if ready_video:
         file_size = os.path.getsize(ready_video)
@@ -1267,7 +1361,7 @@ def read_video_cache_progress(url, quality):
         return video_state
 
     audio_progress = DownloadProgress(url, CACHE_AUDIO_PROGRESS_ID)
-    audio_state = DownloadProgress.read(url, CACHE_AUDIO_PROGRESS_ID) or DownloadProgress.initial_state()
+    audio_state = CacheProgressStore(url, CACHE_AUDIO_PROGRESS_ID).read() or DownloadProgress.initial_state()
     audio_file = _find_cached_media(url, 'audio')
     if audio_file:
         audio_size = os.path.getsize(audio_file)
@@ -1279,15 +1373,15 @@ def read_video_cache_progress(url, quality):
         audio_state = audio_progress.state
 
     downloaded = sum(
-        DownloadProgress._number(state.get('downloaded_bytes'))
+        DownloadProgress.number(state.get('downloaded_bytes'))
         for state in (video_state, audio_state)
     )
     total = sum(
-        DownloadProgress._number(state.get('total_bytes'))
+        DownloadProgress.number(state.get('total_bytes'))
         for state in (video_state, audio_state)
     )
     speed = sum(
-        DownloadProgress._number(state.get('speed'))
+        DownloadProgress.number(state.get('speed'))
         for state in (video_state, audio_state)
         if state.get('status') == 'downloading'
     )
@@ -1308,14 +1402,15 @@ def read_video_cache_progress(url, quality):
         'total_bytes': total,
         'speed': speed,
         'timestamp': max(
-            DownloadProgress._number(video_state.get('timestamp')),
-            DownloadProgress._number(audio_state.get('timestamp')),
+            DownloadProgress.number(video_state.get('timestamp')),
+            DownloadProgress.number(audio_state.get('timestamp')),
         ),
     }
 
 
-def _cache_video_worker(url, quality, start_marker):
+def _cache_video_worker(url, quality):
     progress = DownloadProgress(url, cache_progress_id(quality))
+    lock_store = CacheLockStore(url, f'video-{quality}')
     try:
         media_type = f'video-{quality}'
         cached_video = MediaDownloader(url, media_type, progress).run()
@@ -1327,10 +1422,7 @@ def _cache_video_worker(url, quality, start_marker):
         pprint_exc(error)
         progress.error(error)
     finally:
-        try:
-            os.remove(start_marker)
-        except FileNotFoundError:
-            pass
+        lock_store.release_job_lock()
 
 
 def ensure_video_cache(url, quality):
@@ -1344,33 +1436,19 @@ def ensure_video_cache(url, quality):
         progress.ready(os.path.getsize(ready_video))
         return progress.state
 
-    data_dir = get_data_dir(url)
-    os.makedirs(data_dir, exist_ok=True)
     media_type = f'video-{quality}'
-    media_lock = os.path.join(data_dir, f'{media_type}.temp')
-    start_marker = os.path.join(data_dir, f'{media_type}.cache-start.temp')
+    lock_store = CacheLockStore(url, media_type)
+    lock_store.remove_stale_job_lock(CACHE_START_MARKER_MAX_AGE)
 
-    if os.path.exists(start_marker) and not os.path.exists(media_lock):
-        try:
-            if time.time() - os.path.getmtime(start_marker) > CACHE_START_MARKER_MAX_AGE:
-                os.remove(start_marker)
-        except FileNotFoundError:
-            pass
-
-    if os.path.exists(media_lock) or os.path.exists(start_marker):
+    if lock_store.any_lock_exists():
         return read_video_cache_progress(url, quality)
 
-    try:
-        descriptor = os.open(start_marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
-    except FileExistsError:
+    if not lock_store.try_acquire_job_lock():
         return read_video_cache_progress(url, quality)
-
-    with os.fdopen(descriptor, 'w') as marker_file:
-        marker_file.write(datetime.now().isoformat())
 
     progress = DownloadProgress(url, cache_progress_id(quality))
     progress.start()
-    Thread(target=_cache_video_worker, args=(url, quality, start_marker), daemon=True).start()
+    Thread(target=_cache_video_worker, args=(url, quality), daemon=True).start()
     return progress.state
 
 
@@ -1381,14 +1459,11 @@ def start_video_cache_if_new(url, quality):
         return None
 
     progress_id = cache_progress_id(quality)
-    if DownloadProgress.read(url, progress_id) is not None:
+    if CacheProgressStore(url, progress_id).read() is not None:
         return read_video_cache_progress(url, quality)
 
-    data_dir = get_data_dir(url)
     media_type = f'video-{quality}'
-    media_lock = os.path.join(data_dir, f'{media_type}.temp')
-    start_marker = os.path.join(data_dir, f'{media_type}.cache-start.temp')
-    if os.path.exists(media_lock) or os.path.exists(start_marker):
+    if CacheLockStore(url, media_type).any_lock_exists():
         return read_video_cache_progress(url, quality)
 
     if get_ready_cached_video(url, quality):
