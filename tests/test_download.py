@@ -9,7 +9,6 @@ SOURCE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src'
 if SOURCE_DIR not in sys.path:
     sys.path.insert(0, SOURCE_DIR)
 
-import addons
 import app as app_module
 
 
@@ -26,7 +25,6 @@ class DownloadEndpointTests(unittest.TestCase):
                 video_file.write(b'ready cached video')
 
             with (
-                patch.object(addons, 'get_data_dir', return_value=data_dir),
                 patch.object(app_module, 'wait_for_video_cache', return_value=cached_video) as wait_for_video_cache,
                 patch.object(app_module, 'get_meta', return_value={'title': 'Test Video'}),
                 patch.object(app_module, 'MediaDownloader') as media_downloader,
@@ -34,7 +32,6 @@ class DownloadEndpointTests(unittest.TestCase):
                 response = self.client.get(
                     '/download?url=https%3A%2F%2Fexample.com%2Fvideo&quality=720'
                 )
-                progress = addons.DownloadProgress.read(url, 'cache-720')
                 response_data = response.get_data()
                 content_disposition = response.headers.get('Content-Disposition')
                 response.close()
@@ -44,10 +41,6 @@ class DownloadEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response_data, b'ready cached video')
         self.assertIn('Test Video-720.mp4', content_disposition)
-        self.assertEqual(progress['status'], 'ready')
-        self.assertEqual(progress['percent'], 100)
-        self.assertEqual(progress['downloaded_bytes'], len(b'ready cached video'))
-        self.assertEqual(progress['total_bytes'], len(b'ready cached video'))
 
     def test_trim_waits_for_canonical_cache_before_deriving_download(self):
         url = 'https://example.com/video'
@@ -65,6 +58,21 @@ class DownloadEndpointTests(unittest.TestCase):
         host_file.assert_called_once()
         self.assertEqual(host_file.call_args.args[:2], (url, 'video-720_10.0-20.0'))
         self.assertEqual(response.data, b'trimmed')
+
+    def test_audio_download_bypasses_video_cache(self):
+        url = 'https://example.com/video'
+        with (
+            patch.object(app_module, 'wait_for_video_cache') as wait_for_video_cache,
+            patch.object(app_module, 'get_meta', return_value={'title': 'Test Video'}),
+            patch.object(app_module, 'host_file', return_value=app_module.Response('audio')) as host_file,
+        ):
+            response = self.client.get(
+                '/download?url=https%3A%2F%2Fexample.com%2Fvideo&quality=audio'
+            )
+
+        wait_for_video_cache.assert_not_called()
+        host_file.assert_called_once_with(url, 'audio', download_name='Test Video')
+        self.assertEqual(response.data, b'audio')
 
 
 if __name__ == '__main__':

@@ -107,34 +107,26 @@ def raw():
 
 @app.route('/download')
 def download_media():
-    progress = None
-    uses_canonical_cache = False
     try:
         res = (request.args.get('quality') or '')
         start_time = request.args.get('start', 0, type=float)
         end_time = request.args.get('end', 0, type=float)
-        
+        is_trimmed = start_time > 0 or end_time > 0
+
         media_type = 'audio' if res == 'audio' else f'video-{res}'.removesuffix('-')
-        
-        if start_time > 0 or end_time > 0:
+
+        if is_trimmed:
             media_type += f'_{start_time:.1f}-{end_time:.1f}'
 
         url = get_url(request)
         if not url: return jsonify({"error": "URL parameter is required"}), 400
-        progress_id = request.args.get('progress_id')
-        if progress_id and not DownloadProgress.valid_id(progress_id):
-            return jsonify({"error": "Invalid progress ID"}), 400
-        is_full_video_cache = not progress_id and res != 'audio' and start_time <= 0 and end_time <= 0
-        cache_quality = normalize_cache_quality(res) if res != 'audio' else None
-        uses_canonical_cache = cache_quality is not None
-        if is_full_video_cache:
-            progress_id = cache_progress_id(res)
-        progress = DownloadProgress(url, progress_id)
 
-        if uses_canonical_cache:
+        cache_quality = normalize_cache_quality(res) if res != 'audio' else None
+        is_full_video_download = cache_quality is not None and not is_trimmed
+
+        if cache_quality is not None:
             cached_video = wait_for_video_cache(url, cache_quality)
-            if start_time <= 0 and end_time <= 0:
-                if progress: progress.ready(os.path.getsize(cached_video))
+            if is_full_video_download:
                 try:
                     video_title = get_meta(url, float('inf')).get('title')
                 except Exception as error:
@@ -143,15 +135,10 @@ def download_media():
                 download_name = f'{video_title}-{res}.mp4' if video_title else None
                 return send_file_partial(cached_video, download_name=download_name)
 
-        if not progress_id or not DownloadProgress.read(url, progress_id):
-            progress.start()
         video_title = get_meta(url).get('title')
-        return host_file(url, media_type, download_name=video_title, progress=progress)
+        return host_file(url, media_type, download_name=video_title)
 
     except Exception as e:
-        # The background cache worker owns canonical progress and reports its
-        # own failures. A waiting HTTP request must never overwrite that state.
-        if progress and not uses_canonical_cache: progress.error(e)
         return pprint_exc(e)
 
 
