@@ -131,21 +131,6 @@ def download_low_quality():
         return pprint_exc(e)
 
 
-@app.route('/direct')
-def resp_direct():
-    try:
-        res = request.args.get('quality') or ''
-        media_type = f'direct-{res}'.removesuffix('-')
-        url = get_url(request)
-        media = check_media(url, media_type)
-        if media and media.endswith('.url'):
-            with open(media, 'r') as f:
-                return stream_media_file(f.readline().rstrip('\n'), f.readline().rstrip('\n'), f.readline().rstrip('\n'))
-        return host_file(url, media_type)
-    except Exception as e:
-        return pprint_exc(e)
-
-
 @app.route('/external')
 def serve_external():
     src = request.args.get('src')

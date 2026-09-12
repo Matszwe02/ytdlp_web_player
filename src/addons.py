@@ -292,7 +292,6 @@ class MediaDownloader:
             elif self.media_type.startswith('audio'): self.audio()
             elif self.media_type.startswith('video'): self.video()
             elif self.media_type.startswith('hls'): self.hls()
-            elif self.media_type.startswith('direct'): self.direct()
             elif self.media_type.startswith('low'): self.low()
             elif self.media_type.startswith('sub'): self.sub()
             elif self.media_type.startswith('sprite'): self.sprite()
@@ -548,11 +547,6 @@ class MediaDownloader:
                 pprint_exc(e)
 
         Thread(target=download_hls_files, daemon=True).start()
-
-
-    def direct(self):
-        mark_watched(self.url)
-        get_direct(self.url, self.meta, self.res if 'audio' not in self.media_type else None)
 
 
     def low(self):
@@ -1074,74 +1068,6 @@ def get_subtitles(meta: dict):
     return all_subtitles
 
 
-def generate_hls(url, audio_source, video_source):
-
-    get_url = lambda s: f'/external?src={quote_plus(s[0])}&headers={quote_plus(s[1])}&cookies={quote_plus(s[2])}&url={quote_plus(url)}'
-
-    audio_url = get_url(audio_source) if audio_source and audio_source != video_source else None
-    video_url = get_url(video_source) if video_source else None
-    audio_grp = ',AUDIO="audio_grp"'
-
-    return '\n'.join([
-        '#EXTM3U',
-        '#EXT-X-VERSION:3',
-        f'#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="audio_grp",NAME="English",DEFAULT=YES,AUTOSELECT=YES,URI="{audio_url}"' if audio_url and video_url else "",
-        f'#EXT-X-STREAM-INF:BANDWIDTH=1500000{audio_grp if audio_url and video_url else ""}',
-        f'{video_url}' if video_url else f'{audio_url}'
-    ])
-
-
-def generate_dash(url, audio_source, video_source, duration):
-    def get_mp4_dash_ranges(source):
-        headers_dict = json.loads(source[1]) | {"Range": "bytes=0-60000"}
-        response = requests.get(source[0], headers=headers_dict, cookies=load_http_cookies(source[2]), proxies=proxies)
-        response.raise_for_status()
-        data = response.content
-        offset = 0
-
-        while offset < len(data):
-            if offset + 8 > len(data): break
-
-            box_size, box_type = struct.unpack(">I4s", data[offset : offset + 8])
-
-            if box_size == 1:
-                if offset + 16 > len(data): break
-                box_size = struct.unpack(">Q", data[offset + 8 : offset + 16])[0]
-
-            # The 'sidx' box contains the segment index map required by DASH
-            if box_type.decode("utf-8", errors="ignore") == "sidx":
-                return f"0-{offset - 1}", f"{offset}-{offset + box_size - 1}"
-
-            if box_size == 0: break
-            offset += box_size
-
-        raise ValueError('Could not locate sidx box')
-
-    mpd_src = lambda src, ranges, mediatype: '\n'.join([
-       f'        <AdaptationSet mimeType="{mediatype}/mp4" codecs="{src[3]}" subsegmentAlignment="true" subsegmentStartsWithSAP="1">',
-       f'          <Representation id="{mediatype}_track" bandwidth="1000000">',
-       f'            <BaseURL><![CDATA[/external?src={quote_plus(src[0])}&headers={quote_plus(src[1])}&cookies={quote_plus(src[2])}&url={quote_plus(url)}]]></BaseURL>',
-       f'            <SegmentBase indexRange="{ranges[1]}" indexRangeExact="true">',
-       f'              <Initialization range="{ranges[0]}" />',
-        '            </SegmentBase>',
-        '          </Representation>',
-        '        </AdaptationSet>'
-    ]) if src else ''
-
-    return '\n'.join([
-        '<?xml version="1.0" encoding="utf-8"?>',
-        '<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" '
-        '    profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" ',
-        '    type="static"',
-       f'    mediaPresentationDuration="PT{float(duration):.3f}S">',
-        '    <Period>',
-        mpd_src(video_source, get_mp4_dash_ranges(video_source), 'video'),
-        mpd_src(audio_source, get_mp4_dash_ranges(audio_source), 'audio'),
-        '    </Period>',
-        '</MPD>'
-    ])
-
-
 def choose_sources_for_res(sources: dict, res = None):
     """
     Chooses (audio_source, video_source) among sources, needed for playback with specific resolution.
@@ -1162,45 +1088,69 @@ def choose_sources_for_res(sources: dict, res = None):
     return [], []
 
 
-def get_direct(url = None, meta = None, res = None, simulate = False):
-    try:
-        url = url or meta.get('original_url')
-        sources = get_video_sources(url, meta, protocols=['http', 'https'])
-        a, v = choose_sources_for_res(sources, res)
-        if a and (not res or a == v):
-            if not simulate:
-                with open(os.path.join(get_data_dir(url), f'direct-{res or "audio"}.url'), 'w') as f:
-                    f.write(a[0] + '\n' + a[1] + '\n' + a[2])
-            return 'video/mp4' if res else 'audio/mpeg'
+def get_mimetype(protocol: str = '', ext: str = '', video_name: str = ''):
+    mime_exts = {'m3u8': 'application/x-mpegURL', 'mpd': 'application/dash+xml', 'm4a': 'audio/mp4', 'mp3': 'audio/mpeg', 'webm': 'audio/webm', 'opus': 'audio/ogg', 'ogg': 'audio/ogg', 'wav': 'audio/wav', 'aac': 'audio/aac', 'mp4': 'video/mp4', 'webm': 'video/webm', 'mkv': 'video/x-matroska', 'mov': 'video/quicktime', 'flv': 'video/x-flv'}
 
-        sources = get_video_sources(url, meta, protocols=['m3u8_native'])
-        a, v = choose_sources_for_res(sources, res)
-        if a or v:
-            if not simulate:
-                print(f'Generating HLS direct for {res}')
-                try:
-                    content = generate_hls(url, a, v)
-                    with open(os.path.join(get_data_dir(url), f'direct-{res or "audio"}.m3u8'), 'w') as f:
-                        f.write(content)
-                except Exception as e:
-                    pprint_exc(e)
-            return 'application/x-mpegURL'
+    if mime := mime_exts.get(ext.lower()):
+        return mime
 
-        sources = get_video_sources(url, meta, protocols=['http', 'https'], exts=['mp4', 'm4a'])
-        a, v = choose_sources_for_res(sources, res)
-        if a or v:
-            if not simulate:
-                print(f'Generating MPD direct for {res}')
-                try:
-                    content = generate_dash(url, a, v, get_media_duration(url, meta, a[0] if a else v[0]))
-                    with open(os.path.join(get_data_dir(url), f'direct-{res or "audio"}.mpd'), 'w') as f:
-                        f.write(content)
-                except Exception as e:
-                    pprint_exc(e)
-            return 'application/dash+xml'
-    except Exception as e:
-        pprint_exc(e)
-    return None
+    if protocol:
+        if protocol in ['http', 'https']: return 'video/mp4' if video_name else 'audio/mpeg'
+        if protocol in ['m3u8_native']: return 'application/x-mpegURL'
+
+
+def get_all_formats(url = None, meta = None):
+    if not url: url = meta.get('original_url')
+    if not meta: meta or get_meta(url)
+    formats = get_all_video_formats(url, meta)
+    ress = list(set(f.strip('a?') for f in formats.keys()))
+    for res in ress:
+        if not formats.get(res): continue
+        if check_media(url, f'hls-{res}'):
+            formats[res].append((f'/hls?url={quote_plus(url)}&quality={res}', 'h264', 'application/x-mpegURL', True))
+        if m := check_media(url, f'video-{res}'):
+            formats[res].append((f'/download?url={quote_plus(url)}&quality={res}', None, get_mimetype(ext = m.split('.')[-1]), True))
+    if check_media(url, 'hls-audio'):
+        if 'a' not in formats.keys(): formats['a'] = []
+        formats['a'].append((f'/hls?url={quote_plus(url)}&quality=audio', 'aac', 'application/x-mpegURL', True))
+    if m := check_media(url, 'audio'):
+        if 'a' not in formats.keys(): formats['a'] = []
+        formats['a'].append((f'/download?url={quote_plus(url)}&quality=audio', None, get_mimetype(ext = m.split('.')[-1]), True))
+    return formats
+
+
+def get_all_video_formats(url = None, meta = None) -> dict[str, list[tuple[str, str, str, bool]]]:
+    """
+    {format_code: [(url, codec, mimetype, is_cached), ...], ...}
+    """
+    if not url: url = meta.get('original_url')
+    if not meta: meta or get_meta(url)
+    sources = {}
+    formats = meta.get('formats') or []
+    language = meta.get('language')
+    formats.sort(key=lambda f: f.get('source_preference') or 0, reverse=True)
+
+    for f in formats:
+        video_name = ''
+        audio_name = ''
+        if language and f.get('language') and (f.get('language') != language): continue
+        if int(f.get('height') or 0) > max_quality: continue
+        if (f.get('vcodec') or 'none').lower() != 'none' or ((f.get('video_ext') or 'none').lower() != 'none'):
+            video_name = f"{(f.get('height') or meta.get('height') or '1')}"
+        if f.get('acodec', 'none') != 'none':
+            audio_name = 'a'
+            if 'audio' in (f.get('format_id') or '') or (f.get('acodec') or 'a?') == 'a?':
+                audio_name += '?'
+        name = video_name + audio_name
+        if not name: continue
+
+        headers = json.dumps(f.get('http_headers') or {})
+        cookies = f.get('cookies') or ''
+        codec = f.get('vcodec') if name[0] != 'a' else f.get('acodec')
+        media_url = f'/external?src={quote_plus(f["url"])}&headers={quote_plus(headers)}&cookies={quote_plus(cookies)}&url={quote_plus(url)}'
+        if name not in sources.keys(): sources[name] = []
+        sources[name].append((media_url, codec, get_mimetype(f.get('protocol') or '', f.get('ext') or '', video_name), False))
+    return sources
 
 
 def get_good_quality(formats: list):
@@ -1313,14 +1263,7 @@ def get_video_info(meta: dict):
     info = {}
     info['title'] = meta.get('title') or ''
     info['uploader'] = meta.get('uploader') or ''
-    try:
-        info['formats'] = get_video_formats(meta=meta)
-    except BaseException as e:
-        info['formats'] = jsonify({'error': (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))}), 403
-    info['sources'] = {}
-    for res in info['formats'] + [0]:
-        src = get_direct(meta=meta, res=res, simulate=True)
-        if src: info['sources'][str(res or 'audio')] = src
+    info['formats'] = get_all_formats(meta=meta)
     info['duration'] = f'{meta.get("duration") or 0}'
     info['subtitles'] = get_subtitles(meta)
     info['width'] = meta.get('width')
