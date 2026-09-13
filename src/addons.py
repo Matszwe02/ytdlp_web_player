@@ -310,7 +310,7 @@ class MediaDownloader:
         self.start_time = None
         self.end_time = None
         selected_res = re.search(r'(\d+)', self.media_type) and re.search(r'(\d+)', self.media_type).group(1)
-        self.res = int(selected_res or get_good_quality(get_video_formats(meta=self.meta)))
+        self.res = int(selected_res or get_good_quality(get_all_video_sources(meta=self.meta)))
 
         if self.timestamps:
             try:
@@ -344,7 +344,7 @@ class MediaDownloader:
                 try:
                     src = check_media(self.url, 'video')
                     if not src:
-                        srcs = choose_sources_for_res(get_video_sources(self.url, self.meta), get_good_quality(get_video_formats(self.url, self.meta)))
+                        srcs = choose_sources_for_res(get_all_video_sources(self.url, self.meta))
                     duration = int(self.meta.get('duration') or 10)
                     ffmpeg_command = [
                         '-ss', f'{int(duration/10)}',
@@ -464,23 +464,19 @@ class MediaDownloader:
         temp_m3u8_path = os.path.join(self.data_dir, f'{self.media_type}.m3u8.temp')
         m3u8_path = os.path.join(self.data_dir, f'{self.media_type}.m3u8')
 
-        sources = get_video_sources(self.url)
+        sources = get_all_video_sources(self.url, self.meta)
         video_source = None
         audio_source = None
         video_file_path = check_media(self.url, 'audio') if res_str == 'audio' else check_res_at_least(self.url, self.res)
 
         if not video_file_path:
             audio_media = check_media(self.url, 'audio')
-            audio_source = [audio_media] if audio_media else None
-            if res_str in sources.keys():
-                if res_str == 'audio':
-                    audio_source = audio_source or sources[res_str]
-                else:
-                    video_source = sources[res_str]
-                    audio_source = audio_source or sources.get('audio_drc') or sources.get('audio') or sources.get('audio_presumed')
+            audio_source = [audio_media] if audio_media else (sources.get('a') or sources.get('a?'))
+            if res_str in sources.keys() and res_str != 'audio':
+                video_source = sources.get(res_str)
 
             if not video_source and not audio_source:
-                print('Could not find any suitable streamable video format: Downloading the whole video')
+                print('Could not find any suitable streamable video source: Downloading the whole video')
                 video_file_path = MediaDownloader(self.url, 'audio' if 'audio' in self.media_type else f'video-{self.res}').run()
 
         ffmpeg_command = [
@@ -499,9 +495,9 @@ class MediaDownloader:
         ]
 
         if video_source:
-            ffmpeg_command = ['-i', video_source[0]] + ffmpeg_command
+            ffmpeg_command = ['-i', f'http://localhost:{port}{video_source[0]}'] + ffmpeg_command
         if audio_source:
-            ffmpeg_command = ['-i', audio_source[0]] + ffmpeg_command
+            ffmpeg_command = ['-i', f'http://localhost:{port}{audio_source[0]}'] + ffmpeg_command
         if video_file_path:
             ffmpeg_command = ['-i', video_file_path] + ffmpeg_command
 
@@ -930,7 +926,7 @@ def get_meta(url: str, max_meta_age = None):
                 max_meta_age = max_meta_age or (60 if meta.get('is_live') else 600)
                 if time.time() - meta.get('timestamp') > max_meta_age:
                     print('Checking metadata validity...')
-                    srcs = choose_sources_for_res(get_video_sources(url, meta), get_good_quality(get_video_formats(url, meta)))
+                    srcs = choose_sources_for_res(get_all_video_sources(url, meta))
                     src = srcs[0] or srcs[1]
                     resp = stream_media_file(url, src[0], src[1], src[2])
                     if isinstance(resp, Response):
@@ -971,7 +967,7 @@ def get_meta(url: str, max_meta_age = None):
         if not info.get('duration') or not info.get('width') or not info.get('height'):
             try:
                 print('Fetching additional info for meta')
-                srcs = choose_sources_for_res(get_video_sources(url, info), get_good_quality(get_video_formats(url, info)))
+                srcs = choose_sources_for_res(get_all_video_sources(url, info))
                 src = srcs[0] or srcs[1]
                 duration = get_media_duration(url, None, src[0])
                 w, h = get_media_res(url, None, src[0])
@@ -1005,55 +1001,39 @@ def get_sb(url: str):
     return None
 
 
-def get_video_formats(url = None, meta = None, protocols = None, exts = []):
+def choose_sources_for_res(sources: dict[str, list[tuple[str, str, str, bool]]], res = None) -> list[tuple[str, str, str, bool]]:
+    """
+    Chooses (audio_source, video_source) among sources, needed for playback with specific resolution.
+
+    res == None -> choses good res
+    """
+
+    res = str(res) if res else get_good_quality(sources)
+    video_source = None
+    audio_source = None
+    for s in sources.keys():
+        if not audio_source and 'a' in s: audio_source = s
+        if res and not video_source and res in s:
+            video_source = s
+        if 'a' in s and res in s:
+            audio_source = s
+            video_source = s
+            break
+    if (video_source or not res) and audio_source:
+        return sources.get(audio_source) or None, sources.get(video_source) or None
+    return [], []
+
+
+def get_video_ress(url = None, meta = None):
     """
     Generates a list of all resolutions for video
     """
-    return sorted(list(set(int(i.split('a')[0]) for i in get_video_sources(url, meta, protocols, exts).keys() if i.split('a')[0])))
-
-
-def get_video_sources(url = None, meta = None, protocols = [], exts = []):
-    """
-    Aggregates all possible sources for video
-
-    Returns:
-        dict[res, List[url, headers, cookies, codec]]
-    """
-    sources = {}
-    best_audio = 0
-    meta = meta or get_meta(url)
-    formats = meta.get('formats') or []
-    language = meta.get('language')
-    formats.sort(key=lambda f: f.get('source_preference') or 0, reverse=True)
-    for f in formats:
-        video_name = ''
-        audio_name = ''
-        if language and f.get('language') and (f.get('language') != language): continue
-        if int(f.get('height') or 0) > max_quality: continue
-        if (f.get('vcodec') or 'none').lower() != 'none' or ((f.get('video_ext') or 'none').lower() != 'none'):
-            video_name = f"{(f.get('height') or meta.get('height') or '1')}"
-        if f.get('acodec', 'none') != 'none':
-            audio_name = 'audio_drc' if 'drc' in f"{f.get('format_id')} {f.get('format_note')}".lower() else 'audio'
-        if 'audio' in (f.get('format_id') or '') or (f.get('acodec') or 'audio_presumed') == 'audio_presumed':
-            audio_name = 'audio_presumed'
-        name = video_name + audio_name
-        quality = float(f.get('quality') or 0)
-        if not name: continue
-        if protocols and f.get('protocol') not in protocols: continue
-        if exts and f.get('ext') not in exts: continue
-
-        if name.startswith('audio') and quality < best_audio:
-            best_audio = quality
-        if name not in sources:
-            headers = json.dumps(f.get('http_headers') or {})
-            cookies = f.get('cookies') or ''
-            codec = f.get('vcodec') if name[0] != 'a' else f.get('acodec')
-            sources[name] = [f['url'], headers, cookies, codec]
-    return sources
+    sources = get_all_video_sources(url, meta)
+    return sorted(list(set(int(i.split('a')[0]) for i in sources.keys() if i.split('a')[0])))
 
 
 def check_res_at_least(url:str, res: int):
-    for f in get_video_formats(url):
+    for f in get_video_ress(url):
         if type(f) == int and f >= res:
             if file := check_media(url, f'video-{f}'):
                 return file
@@ -1068,26 +1048,6 @@ def get_subtitles(meta: dict):
     return all_subtitles
 
 
-def choose_sources_for_res(sources: dict, res = None):
-    """
-    Chooses (audio_source, video_source) among sources, needed for playback with specific resolution.
-    """
-    res = str(res) if res else ''
-    video_source = None
-    audio_source = None
-    for s in sources.keys():
-        if not audio_source and 'audio' in s: audio_source = s
-        if res and not video_source and res in s:
-            video_source = s
-        if 'audio' in s and res in s:
-            audio_source = s
-            video_source = s
-            break
-    if (video_source or not res) and audio_source:
-        return sources.get(audio_source) or None, sources.get(video_source) or None
-    return [], []
-
-
 def get_mimetype(protocol: str = '', ext: str = '', video_name: str = ''):
     mime_exts = {'m3u8': 'application/x-mpegURL', 'mpd': 'application/dash+xml', 'm4a': 'audio/mp4', 'mp3': 'audio/mpeg', 'webm': 'audio/webm', 'opus': 'audio/ogg', 'ogg': 'audio/ogg', 'wav': 'audio/wav', 'aac': 'audio/aac', 'mp4': 'video/mp4', 'webm': 'video/webm', 'mkv': 'video/x-matroska', 'mov': 'video/quicktime', 'flv': 'video/x-flv'}
 
@@ -1099,69 +1059,70 @@ def get_mimetype(protocol: str = '', ext: str = '', video_name: str = ''):
         if protocol in ['m3u8_native']: return 'application/x-mpegURL'
 
 
-def get_all_formats(url = None, meta = None):
+def get_all_video_sources(url = None, meta = None):
     if not url: url = meta.get('original_url')
-    if not meta: meta or get_meta(url)
-    formats = get_all_video_formats(url, meta)
-    ress = list(set(f.strip('a?') for f in formats.keys()))
+    if not meta: meta = get_meta(url)
+    sources = get_external_video_sources(url, meta)
+    ress = list(set(f.strip('a?') for f in sources.keys()))
     for res in ress:
-        if not formats.get(res): continue
+        if not sources.get(res): continue
         if check_media(url, f'hls-{res}'):
-            formats[res].append((f'/hls?url={quote_plus(url)}&quality={res}', 'h264', 'application/x-mpegURL', True))
+            sources[res].append((f'/hls?url={quote_plus(url)}&quality={res}', 'h264', 'application/x-mpegURL', True))
         if m := check_media(url, f'video-{res}'):
-            formats[res].append((f'/download?url={quote_plus(url)}&quality={res}', None, get_mimetype(ext = m.split('.')[-1]), True))
+            sources[res].append((f'/download?url={quote_plus(url)}&quality={res}', None, get_mimetype(ext = m.split('.')[-1]), True))
     if check_media(url, 'hls-audio'):
-        if 'a' not in formats.keys(): formats['a'] = []
-        formats['a'].append((f'/hls?url={quote_plus(url)}&quality=audio', 'aac', 'application/x-mpegURL', True))
+        if 'a' not in sources.keys(): sources['a'] = []
+        sources['a'].append((f'/hls?url={quote_plus(url)}&quality=audio', 'aac', 'application/x-mpegURL', True))
     if m := check_media(url, 'audio'):
-        if 'a' not in formats.keys(): formats['a'] = []
-        formats['a'].append((f'/download?url={quote_plus(url)}&quality=audio', None, get_mimetype(ext = m.split('.')[-1]), True))
-    return formats
+        if 'a' not in sources.keys(): sources['a'] = []
+        sources['a'].append((f'/download?url={quote_plus(url)}&quality=audio', None, get_mimetype(ext = m.split('.')[-1]), True))
+    return sources
 
 
-def get_all_video_formats(url = None, meta = None) -> dict[str, list[tuple[str, str, str, bool]]]:
+def get_external_video_sources(url = None, meta = None) -> dict[str, list[tuple[str, str, str, bool]]]:
     """
-    {format_code: [(url, codec, mimetype, is_cached), ...], ...}
+    {source_code: [(url, codec, mimetype, is_cached), ...], ...}
     """
     if not url: url = meta.get('original_url')
     if not meta: meta or get_meta(url)
     sources = {}
-    formats = meta.get('formats') or []
+    meta_formats = meta.get('formats') or []
     language = meta.get('language')
-    formats.sort(key=lambda f: f.get('source_preference') or 0, reverse=True)
+    meta_formats.sort(key=lambda f: f.get('source_preference') or 0, reverse=True)
 
-    for f in formats:
+    for src in meta_formats:
         video_name = ''
         audio_name = ''
-        if language and f.get('language') and (f.get('language') != language): continue
-        if int(f.get('height') or 0) > max_quality: continue
-        if (f.get('vcodec') or 'none').lower() != 'none' or ((f.get('video_ext') or 'none').lower() != 'none'):
-            video_name = f"{(f.get('height') or meta.get('height') or '1')}"
-        if f.get('acodec', 'none') != 'none':
+        if language and src.get('language') and (src.get('language') != language): continue
+        if int(src.get('height') or 0) > max_quality: continue
+        if (src.get('vcodec') or 'none').lower() != 'none' or ((src.get('video_ext') or 'none').lower() != 'none'):
+            video_name = f"{(src.get('height') or meta.get('height') or '1')}"
+        if src.get('acodec', 'none') != 'none':
             audio_name = 'a'
-            if 'audio' in (f.get('format_id') or '') or (f.get('acodec') or 'a?') == 'a?':
+            if 'audio' in (src.get('source_id') or '') or (src.get('acodec') or 'a?') == 'a?':
                 audio_name += '?'
         name = video_name + audio_name
         if not name: continue
 
-        headers = json.dumps(f.get('http_headers') or {})
-        cookies = f.get('cookies') or ''
-        codec = f.get('vcodec') if name[0] != 'a' else f.get('acodec')
-        media_url = f'/external?src={quote_plus(f["url"])}&headers={quote_plus(headers)}&cookies={quote_plus(cookies)}&url={quote_plus(url)}'
+        headers = json.dumps(src.get('http_headers') or {})
+        cookies = src.get('cookies') or ''
+        codec = src.get('vcodec') if name[0] != 'a' else src.get('acodec')
+        media_url = f'/external?src={quote_plus(src["url"])}&headers={quote_plus(headers)}&cookies={quote_plus(cookies)}&url={quote_plus(url)}'
         if name not in sources.keys(): sources[name] = []
-        sources[name].append((media_url, codec, get_mimetype(f.get('protocol') or '', f.get('ext') or '', video_name), False))
+        sources[name].append((media_url, codec, get_mimetype(src.get('protocol') or '', src.get('ext') or '', video_name), False))
     return sources
 
 
-def get_good_quality(formats: list):
-    if not isinstance(formats, list) or not formats: return default_quality
-    sorted_formats = sorted(formats)
-    for quality in sorted_formats:
+def get_good_quality(sources: dict[str, list[tuple[str, str, str, bool]]]):
+    ress = ((int(fmt) if 'a' not in fmt else 0) for fmt in sources.keys())
+    if not isinstance(ress, list) or not ress: return default_quality
+    sorted_ress = sorted(ress)
+    for quality in sorted_ress:
         if quality >= default_quality:
             print(f'Choosing quality {quality} for current video')
             return quality
-    print(f'Choosing quality {sorted_formats[-1]} for current video')
-    return sorted_formats[-1]
+    print(f'Choosing quality {sorted_ress[-1]} for current video')
+    return sorted_ress[-1]
 
 
 def get_sprite(url = None, meta = None, simulate = False):
@@ -1263,13 +1224,13 @@ def get_video_info(meta: dict):
     info = {}
     info['title'] = meta.get('title') or ''
     info['uploader'] = meta.get('uploader') or ''
-    info['formats'] = get_all_formats(meta=meta)
+    info['sources'] = get_all_video_sources(meta=meta)
     info['duration'] = f'{meta.get("duration") or 0}'
     info['subtitles'] = get_subtitles(meta)
     info['width'] = meta.get('width')
     info['height'] = meta.get('height')
     info['url'] = meta.get('original_url')
-    info['default_quality'] = 'audio' if 'Music' in (meta.get('categories') or []) and audio_visualizer else get_good_quality(info['formats'])
+    info['default_quality'] = 'audio' if 'Music' in (meta.get('categories') or []) and audio_visualizer else get_good_quality(info['sources'])
     info['autoplay'] = autoplay
     info['min_live_buffer'] = min_live_buffer
     info['always_transcode'] = always_transcode
