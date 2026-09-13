@@ -110,7 +110,7 @@ function tryStopPropagation(event)
         event.stopPropagation();
     }
     catch (error) {}
-    player.el_.focus();
+    player.el_.focus({ preventScroll: true });
 }
 
 
