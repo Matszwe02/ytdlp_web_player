@@ -1114,15 +1114,15 @@ def get_external_video_sources(url = None, meta = None) -> dict[str, list[tuple[
 
 
 def get_good_quality(sources: dict[str, list[tuple[str, str, str, bool]]]):
-    ress = ((int(fmt) if 'a' not in fmt else 0) for fmt in sources.keys())
-    if not isinstance(ress, list) or not ress: return default_quality
+    ress = ((int(src) if 'a' not in src else 0) for src in sources.keys())
+    if not isinstance(ress, list) or not ress: return f'{default_quality}'
     sorted_ress = sorted(ress)
     for quality in sorted_ress:
         if quality >= default_quality:
             print(f'Choosing quality {quality} for current video')
-            return quality
+            return f'{quality}'
     print(f'Choosing quality {sorted_ress[-1]} for current video')
-    return sorted_ress[-1]
+    return f'{sorted_ress[-1]}'
 
 
 def get_sprite(url = None, meta = None, simulate = False):
