@@ -12,7 +12,28 @@ let usesHls = false;
 let ongoingRequest = null;
 let audioContext = null;
 let audioSource = null;
+let logHistory = [];
 
+function log(text)
+{
+    console.log(text);
+    logHistory.push(`LOG  | ${text}`);
+    if (logHistory.length > 100) logHistory.splice(0, logHistory.length - 100);
+}
+
+function warn(text)
+{
+    console.warn(text);
+    logHistory.push(`WARN | ${text}`);
+    if (logHistory.length > 100) logHistory.splice(0, logHistory.length - 100);
+}
+
+function err(text)
+{
+    console.error(text);
+    logHistory.push(`ERR  | ${text}`);
+    if (logHistory.length > 100) logHistory.splice(0, logHistory.length - 100);
+}
 
 
 class PlayerState
@@ -30,7 +51,7 @@ class PlayerState
     {
         if (this.ongoing && player.currentTime() == 0)
         {
-            console.warn('Preventing saving unknown player state');
+            warn('Preventing saving unknown player state');
             return;
         }
         this.ongoing = false;
@@ -72,7 +93,7 @@ function setUpAudioContext()
 {
     if (audioContext == null)
     {
-        console.log(`Setting up AudioContext`);
+        log(`Setting up AudioContext`);
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         audioSource = audioContext.createMediaElementSource(player.el_.querySelector('video'));
         audioSource.connect(audioContext.destination);
@@ -96,7 +117,7 @@ function tryStopPropagation(event)
 function addFetch()
 {
     activeFetches += 1;
-    console.log(activeFetches);
+    log(activeFetches);
     try
     {
         const settingsIcon = player?.controlBar?.SettingsButton?.el().querySelector('.fa-gear');
@@ -107,7 +128,7 @@ function addFetch()
     }
     catch (error)
     {
-        console.log(error);
+        log(error);
     }
 }
 
@@ -115,7 +136,7 @@ function addFetch()
 function removeFetch()
 {
     activeFetches -= 1;
-    console.log(activeFetches);
+    log(activeFetches);
     try
     {
         const settingsIcon = player?.controlBar?.SettingsButton?.el().querySelector('.fa-gear');
@@ -129,7 +150,7 @@ function removeFetch()
     }
     catch (error)
     {
-        console.log(error);
+        log(error);
     }
 }
 
@@ -152,14 +173,14 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible 
     {
         if (error.name === 'AbortError')
         {
-            console.log(`Fetch for "${url}" aborted.`);
+            log(`Fetch for "${url}" aborted.`);
             throw error;
         }
         if (error.message.startsWith('Server error:'))
         {
             throw error;
         }
-        console.error(`Fetch failed, retrying in ${delay / 1000} seconds...`, error);
+        err(`Fetch failed, retrying in ${delay / 1000} seconds...`, error);
         if (retries > 0)
         {
             await new Promise(resolve => setTimeout(resolve, delay));
@@ -167,7 +188,7 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible 
         }
         else
         {
-            console.error(`Max retries reached for "${url}". Fetch failed.`);
+            err(`Max retries reached for "${url}". Fetch failed.`);
             throw error;
         }
     }
@@ -241,7 +262,7 @@ screen.orientation.addEventListener("change", (event) => {
 
 function displayPlayerError(message)
 {
-    console.error(message);
+    err(message);
     if (!player) return;
     const errorDisplay = player.el_.querySelector('.vjs-error-display');
     errorDisplay.innerHTML = message;
@@ -343,7 +364,7 @@ function loadChapters()
 function getVideoSource()
 {
     var url = getUrlInfo();
-    console.log(`Video quality: ${url.quality}`);
+    log(`Video quality: ${url.quality}`);
 
     let downloadUrl = `/direct?url=${url.encodedUrl}&quality=${url.quality}`;
     let videoType = info.sources[url.quality];
@@ -354,7 +375,7 @@ function getVideoSource()
         videoType = 'application/x-mpegURL';
     }
 
-    console.log(`Video source: src=${downloadUrl} type=${videoType}`);
+    log(`Video source: src=${downloadUrl} type=${videoType}`);
     return [downloadUrl, videoType];
 }
 
@@ -370,7 +391,7 @@ function applyVideoQuality()
     if (ps.suspend) return;
     if (player.src() == videoSource[0])
     {
-        console.log('Preventing switching to the same source');
+        log('Preventing switching to the same source');
         return;
     }
     player.src({ src: videoSource[0], type: videoSource[1] });
@@ -430,7 +451,7 @@ function setVideoQuality(height = null, button = null)
     var url = getUrlInfo();
     if (height === null) height = url.quality;
     if (height !== null) height = `${height}`;
-    console.log(`Setting video quality to ${height}`);
+    log(`Setting video quality to ${height}`);
     const buttons = menu.querySelectorAll('.vjs-resolution-option');
     url.urlParams.set('quality', height);
     if (button == null)
@@ -443,7 +464,7 @@ function setVideoQuality(height = null, button = null)
 
     if (usesHls)
     {
-        console.log('Fetching HLS...');
+        log('Fetching HLS...');
         retryFetch(getVideoSource()[0])
             .then(response => response.text())
             .then(playlist => {
@@ -463,7 +484,7 @@ function setVideoQuality(height = null, button = null)
                             }
                             else
                             {
-                                console.log('HLS not ready. Retrying fetching...');
+                                log('HLS not ready. Retrying fetching...');
                             }
                     });
                 }, 2000);
@@ -471,7 +492,7 @@ function setVideoQuality(height = null, button = null)
     }
     else
     {
-        console.log('Fetching Direct...');
+        log('Fetching Direct...');
         retryFetch(getVideoSource()[0], 2, undefined, undefined, undefined, true)
             .then(response => {
                 applyVideoQuality();
@@ -494,7 +515,7 @@ function setVideoQuality(height = null, button = null)
             })
             .catch(error => {
                 clearInterval(ongoingRequest);
-                console.error('Error fetching new quality:', error);
+                err('Error fetching new quality:', error);
                 if (info.disable_transcoding) return;
                 usesHls = true;
                 setVideoQuality(height);
@@ -1438,7 +1459,7 @@ class PlaylistComponent extends Component
                 className: 'vjs-playlist-item'
             });
 
-            console.log(`Item URL: ${item.url}, self URL: ${this.currentVideoUrl}`);
+            log(`Item URL: ${item.url}, self URL: ${this.currentVideoUrl}`);
 
             if (item.url === this.currentVideoUrl)
             {
@@ -1595,6 +1616,8 @@ function addSponsorblock(data)
 
 function loadVideo()
 {
+    var debugView = document.getElementById('debug-view');
+    if (debugView) debugView.onclick = displayDebugInfo;
     var url = getUrlInfo();
     if (url.urlParams.toString().length < 10) return;
     
@@ -1711,17 +1734,17 @@ function loadVideo()
             if (minBufferAheadTime < minLiveBuffer)
             {
                 player.playbackRate(0.95);
-                console.log('-');
+                log('-');
             }
             else if (minBufferAheadTime > minLiveBuffer * 3)
             {
                 player.playbackRate(1.1);
-                console.log('++');
+                log('++');
             }
             else if (minBufferAheadTime > minLiveBuffer * 2)
             {
                 player.playbackRate(1.05);
-                console.log('+');
+                log('+');
             }
             else
             {
@@ -1865,10 +1888,10 @@ function loadVideo()
                 {
                     if (info.disable_transcoding)
                     {
-                        console.warn(`EROROR ${error.code}`);
+                        warn(`EROROR ${error.code}`);
                         return;
                     }
-                    console.warn(`EROROR ${error.code} - Changing video source in order to resolve it`);
+                    warn(`EROROR ${error.code} - Changing video source in order to resolve it`);
                     usesHls = !usesHls;
                     setVideoQuality();
                 }
@@ -1923,7 +1946,7 @@ function loadVideo()
                             player.src({ src: `/direct?url=${url.encodedUrl}&quality=audio`, type: info.sources['audio'] });
                         else
                         {
-                            console.log('No supported audio formats - cannot turn on bg playback');
+                            log('No supported audio formats - cannot turn on bg playback');
                             return;
                         }
                         ps.apply();
@@ -1995,7 +2018,28 @@ function loadMediaSession()
     });
     navigator.mediaSession.setActionHandler("previoustrack", null);
     navigator.mediaSession.setActionHandler("nexttrack", null);
-    console.log("Loaded Media Player API");
+    log("Loaded Media Player API");
+}
+
+
+function displayDebugInfo()
+{
+    let oldviewbox = document.getElementById('debug-viewbox');
+    if (oldviewbox)
+    {
+        document.body.removeChild(oldviewbox);
+        return;
+    }
+    let viewbox = document.createElement("div");
+    viewbox.style = "width: 80%; height: 500px; overflow: scroll; position: absolute; top: 100vh; white-space: pre; background-color: #111; padding: 20pt;";
+    viewbox.id = 'debug-viewbox';
+    viewbox.innerHTML = `Debug logs for <b>${window.location.href}</b>\n`;
+    viewbox.innerHTML += `\n<details><summary>URL info</summary>${JSON.stringify(getUrlInfo(), null, 2)}</details>`;
+    viewbox.innerHTML += `\n<details><summary>Info dict</summary>${JSON.stringify(info, null, 2)}</details>`;
+    viewbox.innerHTML += `\n<details><summary>Current source</summary>${JSON.stringify(player.currentSources(), null, 2)}</details>`;
+    viewbox.innerHTML += `\n<details><summary>Console log</summary>${JSON.stringify(logHistory, null, 2)}</details>`;
+
+    document.body.appendChild(viewbox);
 }
 
 
