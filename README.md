@@ -156,7 +156,7 @@ Some videos need cookies to work. With cookies you will be logged in to the vide
 
 - Create `src/cookies.txt` file and enable in `compose.yml` (if using docker)
 - Paste relevant cookies into that file (I suggest using an extension for that, which exports cookies in netscape format)
-    - yt-dlp created a nice [guide](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-from-my-browser-to-yt-dlp) about providing the cookies
+    - yt-dlp created a nice [guide](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp) about providing the cookies
 - If using extension, you can enable automatic sending of browser cookies for individual videos in extension settings
 
 **Keep in mind that cookies work the same way as your account credentails - anyone having them may [mess up your account](https://youtu.be/yGXaAWbzl5A).**
