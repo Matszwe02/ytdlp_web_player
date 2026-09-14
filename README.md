@@ -115,11 +115,11 @@ OR
   - then you can access the HTTPS app with https://localhost:5001
   - your browser will warn you about not secure connection, you need to click on "allow"
 
-### FFmpeg video encoder
+### Hardware Acceleration
 
-`FFMPEG_VIDEO_ENCODER` accepts `auto` (default: use NVENC when available, otherwise `libx264`), `libx264` (force CPU encoding), or `h264_nvenc` (prefer NVENC and fall back to `libx264`).
+FFmpeg automatically detects the best supported hardware encoder. NVIDIA NVENC is used when available, and transcoding automatically falls back to CPU (`libx264`) when hardware acceleration is unavailable or fails.
 
-NVIDIA Docker users need GPU passthrough via the NVIDIA Container Toolkit (for example, `gpus: all`) before setting `FFMPEG_VIDEO_ENCODER=h264_nvenc`.
+For NVIDIA GPU acceleration in Docker, install the NVIDIA Container Toolkit and uncomment `gpus: all` in `compose.yml`. Users without a GPU do not need to change anything.
 
 ### Run locally (Python)
 
@@ -156,7 +156,7 @@ Some videos need cookies to work. With cookies you will be logged in to the vide
 
 - Create `src/cookies.txt` file and enable in `compose.yml` (if using docker)
 - Paste relevant cookies into that file (I suggest using an extension for that, which exports cookies in netscape format)
-    - yt-dlp created a nice [guide](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp) about providing the cookies
+    - yt-dlp created a nice [guide](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-from-my-browser-to-yt-dlp) about providing the cookies
 - If using extension, you can enable automatic sending of browser cookies for individual videos in extension settings
 
 **Keep in mind that cookies work the same way as your account credentails - anyone having them may [mess up your account](https://youtu.be/yGXaAWbzl5A).**
