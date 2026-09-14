@@ -8,8 +8,7 @@ from hashlib import sha1
 
 
 DEFAULT_VIDEO_ENCODER = 'libx264'
-AUTO_VIDEO_ENCODER = 'auto'
-SUPPORTED_VIDEO_ENCODERS = frozenset({AUTO_VIDEO_ENCODER, DEFAULT_VIDEO_ENCODER, 'h264_nvenc'})
+NVENC_VIDEO_ENCODER = 'h264_nvenc'
 
 
 @lru_cache(maxsize=None)
@@ -22,7 +21,7 @@ def nvenc_is_usable(ffmpeg_path: str) -> bool:
         '-f', 'lavfi',
         '-i', 'color=size=256x256:rate=1',
         '-frames:v', '1',
-        '-c:v', 'h264_nvenc',
+        '-c:v', NVENC_VIDEO_ENCODER,
         '-f', 'null',
         '-',
     ]
@@ -34,31 +33,11 @@ def nvenc_is_usable(ffmpeg_path: str) -> bool:
 
 
 @lru_cache(maxsize=None)
-def resolve_video_encoder(value: str | None, ffmpeg_path: str | None) -> str:
-    """Select a usable H.264 encoder, falling back safely to libx264."""
-    encoder = (value or AUTO_VIDEO_ENCODER).strip().lower()
-    if encoder not in SUPPORTED_VIDEO_ENCODERS:
-        print(
-            f"Warning: unsupported FFMPEG_VIDEO_ENCODER={value!r}. "
-            f"Supported values: {', '.join(sorted(SUPPORTED_VIDEO_ENCODERS))}. "
-            f"Falling back to {DEFAULT_VIDEO_ENCODER}."
-        )
-        return DEFAULT_VIDEO_ENCODER
-
-    if encoder == DEFAULT_VIDEO_ENCODER:
-        return DEFAULT_VIDEO_ENCODER
-    if not ffmpeg_path or not nvenc_is_usable(ffmpeg_path):
-        print(f'Warning: NVENC is unavailable for FFMPEG_VIDEO_ENCODER={encoder!r}. Falling back to {DEFAULT_VIDEO_ENCODER}.')
-        return DEFAULT_VIDEO_ENCODER
-    return 'h264_nvenc'
-
-
-def build_video_encoder_args(video_encoder: str, ffmpeg_path: str | None) -> list[str]:
-    """Build output options for the configured H.264 video encoder."""
-    encoder = resolve_video_encoder(video_encoder, ffmpeg_path)
-    if encoder == DEFAULT_VIDEO_ENCODER:
-        return ['-c:v', DEFAULT_VIDEO_ENCODER, '-crf', '22']
-    return ['-c:v', 'h264_nvenc', '-preset', 'p5', '-rc', 'vbr', '-cq', '22', '-b:v', '0']
+def resolve_hardware_encoder(ffmpeg_path: str | None) -> str | None:
+    """Return the best available hardware H.264 encoder, if any."""
+    if ffmpeg_path and nvenc_is_usable(ffmpeg_path):
+        return NVENC_VIDEO_ENCODER
+    return None
 
 
 class FFMPEG:
@@ -80,18 +59,66 @@ class FFMPEG:
 
     def kill(self):
         if self._p is None: return
-        self.processes.rm(self.pid, kill=True)
+        if self.processes:
+            self.processes.rm(self.pid, kill=True)
+        else:
+            self._p.kill()
         print(f'[FFMPEG {self.ff_id}] Killed')
 
-    def run(self, ffmpeg_command):
-        """Also runs synchronously, but can be placed in ``Thread``."""
-        if not self.ffmpeg: return None
-        ffmpeg_command = [self.ffmpeg] + ffmpeg_command
-        ffmpeg_env = {f"{self.proxy.split('://')[0]}_proxy": self.proxy} if self.proxy else None
-        print(f'[FFMPEG {self.ff_id}] Executing {ffmpeg_command}')
-        self._p = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=ffmpeg_env)
+    def _cleanup_affected_files(self):
+        for file in self.affected_files:
+            if os.path.exists(file):
+                os.remove(file)
+
+    def _hardware_command(self, ffmpeg_command):
+        """Replace libx264 output options with the best available hardware encoder."""
+        command = list(ffmpeg_command)
+        try:
+            encoder_index = command.index('-c:v')
+        except ValueError:
+            return None
+
+        if encoder_index + 1 >= len(command) or command[encoder_index + 1] != DEFAULT_VIDEO_ENCODER:
+            return None
+
+        hardware_encoder = resolve_hardware_encoder(self.ffmpeg)
+        if hardware_encoder != NVENC_VIDEO_ENCODER:
+            return None
+
+        quality = '22'
+        if '-crf' in command:
+            crf_index = command.index('-crf')
+            if crf_index + 1 < len(command):
+                quality = command[crf_index + 1]
+                del command[crf_index:crf_index + 2]
+
+        if '-preset' in command:
+            preset_index = command.index('-preset')
+            if preset_index + 1 < len(command):
+                del command[preset_index:preset_index + 2]
+
+        encoder_index = command.index('-c:v')
+        command[encoder_index + 1] = NVENC_VIDEO_ENCODER
+        command[encoder_index + 2:encoder_index + 2] = [
+            '-preset', 'p5',
+            '-rc', 'vbr',
+            '-cq', quality,
+            '-b:v', '0',
+        ]
+        return command
+
+    def _run_once(self, ffmpeg_command):
+        command = [self.ffmpeg] + list(ffmpeg_command)
+        ffmpeg_env = os.environ.copy()
+        if self.proxy:
+            ffmpeg_env[f"{self.proxy.split('://')[0]}_proxy"] = self.proxy
+
+        print(f'[FFMPEG {self.ff_id}] Executing {command}')
+        self._p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=ffmpeg_env)
         self.pid = self._p.pid
-        self.processes.setitem(self.pid, [self.url, f'FFMPEG {self.ff_id}', time.time()])
+        if self.processes:
+            self.processes.setitem(self.pid, [self.url, f'FFMPEG {self.ff_id}', time.time()])
+
         for line in self._p.stdout:
             line_out = line.decode().strip()
             print(f'[FFMPEG {self.ff_id}] {line_out}')
@@ -100,12 +127,37 @@ class FFMPEG:
                 self.kill()
                 self.success = False
                 raise TimeoutError()
+
         self._p.wait()
-        self.processes.rm(self.pid)
+        if self.processes:
+            self.processes.rm(self.pid)
+
         if self._p.returncode != 0:
             self.success = False
-            for file in self.affected_files:
-                if os.path.exists(file): os.remove(file)
+            self._cleanup_affected_files()
             raise RuntimeError(f'FFMPEG exited unexpectedly with return code {self._p.returncode}')
+
         print(f'[FFMPEG {self.ff_id}] Finished')
         self.success = True
+
+    def run(self, ffmpeg_command):
+        """Run synchronously, preferring hardware encoding with an automatic CPU fallback."""
+        if not self.ffmpeg: return None
+
+        software_command = list(ffmpeg_command)
+        hardware_command = self._hardware_command(software_command)
+
+        if hardware_command:
+            print(f'[FFMPEG {self.ff_id}] Using hardware encoder {NVENC_VIDEO_ENCODER}')
+            try:
+                self._run_once(hardware_command)
+                return None
+            except RuntimeError:
+                if self._p and self._p.returncode is not None and self._p.returncode < 0:
+                    raise
+                print(f'[FFMPEG {self.ff_id}] Hardware encoding failed, retrying with {DEFAULT_VIDEO_ENCODER}')
+                self.success = False
+                self.start_time = time.time()
+
+        self._run_once(software_command)
+        return None
