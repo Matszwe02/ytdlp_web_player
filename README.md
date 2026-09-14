@@ -115,6 +115,12 @@ OR
   - then you can access the HTTPS app with https://localhost:5001
   - your browser will warn you about not secure connection, you need to click on "allow"
 
+### Hardware Acceleration
+
+FFmpeg automatically detects the best supported hardware encoder. NVIDIA NVENC is used when available, and transcoding automatically falls back to CPU (`libx264`) when hardware acceleration is unavailable or fails.
+
+For NVIDIA GPU acceleration in Docker, install the NVIDIA Container Toolkit and uncomment `gpus: all` in `compose.yml`. Users without a GPU do not need to change anything.
+
 ### Run locally (Python)
 
 - Create and activate a virtual environment in `src/` and install `requirements.txt`
