@@ -249,6 +249,8 @@ class FFMPEG:
         Also runs synchronously, but can be placed in `Thread`
         """
         if not self.ffmpeg: return None
+        for file in self.affected_files:
+            with open(f'{file}.pending', 'w') as f: f.write(datetime.now().isoformat())
         ffmpeg_command = [self.ffmpeg] + ffmpeg_command
         ffmpeg_env = {f"{proxy.split('://')[0]}_proxy": proxy} if proxy else None
         print(f'[FFMPEG {self.ff_id}] Executing {ffmpeg_command}')
@@ -265,6 +267,8 @@ class FFMPEG:
                 raise TimeoutError()
         self._p.wait()
         Processes.rm(self.pid)
+        for file in self.affected_files:
+            if os.path.exists(f'{file}.pending'): os.remove(f'{file}.pending')
         if self._p.returncode != 0:
             self.success = False
             for file in self.affected_files:
@@ -471,7 +475,7 @@ class MediaDownloader:
 
         if not video_file_path:
             audio_media = check_media(self.url, 'audio')
-            audio_source = [audio_media] if audio_media else (sources.get('a') or sources.get('a?'))
+            audio_source = [audio_media] if audio_media else sources.get('a')
             if res_str in sources.keys() and res_str != 'audio':
                 video_source = sources.get(res_str)
 
@@ -813,7 +817,7 @@ def preload(url = None, meta = None, playlist = None):
         avail_procs -= 1
     if not check_media(url, 'thumb'):
         Thread(target=MediaDownloader(url, 'thumb').run).start()
-    if not disable_transcoding and not check_media(url, 'hls-audio') and avail_procs > 1:
+    if not disable_transcoding and not check_media(url, 'hls-audio') and not 'a' in get_all_video_sources(url, meta).keys() and avail_procs > 1:
         Thread(target=MediaDownloader(url, 'hls-audio').run).start()
         avail_procs -= 1
     if playlist and not check_media(url, 'playlist'):
@@ -904,6 +908,7 @@ def check_media(url: str, media_type: str):
             if i.endswith('.part'): continue
             if i.endswith('.ytdl'): continue
             if i.endswith('.temp'): continue
+            if i.endswith('.pending'): continue
             if i.count('_') != media_type.count('_'): continue
             if i.startswith(media_type):
                 path = os.path.join(data_dir, i)
@@ -1063,16 +1068,18 @@ def get_all_video_sources(url = None, meta = None):
     if not url: url = meta.get('original_url')
     if not meta: meta = get_meta(url)
     sources = get_external_video_sources(url, meta)
-    ress = list(set(f.strip('a?') for f in sources.keys()))
+    ress = list(set(f.strip('a') for f in sources.keys()))
     for res in ress:
         if not sources.get(res): continue
-        if check_media(url, f'hls-{res}'):
-            sources[res].append((f'/hls?url={quote_plus(url)}&quality={res}', 'h264', 'application/x-mpegURL', True))
+        if m := check_media(url, f'hls-{res}'):
+            cached = not os.path.exists(f'{m}.pending')
+            sources[res].append((f'/hls?url={quote_plus(url)}&quality={res}', 'h264', 'application/x-mpegURL', cached))
         if m := check_media(url, f'video-{res}'):
             sources[res].append((f'/download?url={quote_plus(url)}&quality={res}', None, get_mimetype(ext = m.split('.')[-1]), True))
-    if check_media(url, 'hls-audio'):
+    if m := check_media(url, 'hls-audio'):
+        cached = not os.path.exists(f'{m}.pending')
         if 'a' not in sources.keys(): sources['a'] = []
-        sources['a'].append((f'/hls?url={quote_plus(url)}&quality=audio', 'aac', 'application/x-mpegURL', True))
+        sources['a'].append((f'/hls?url={quote_plus(url)}&quality=audio', 'aac', 'application/x-mpegURL', cached))
     if m := check_media(url, 'audio'):
         if 'a' not in sources.keys(): sources['a'] = []
         sources['a'].append((f'/download?url={quote_plus(url)}&quality=audio', None, get_mimetype(ext = m.split('.')[-1]), True))
@@ -1099,8 +1106,6 @@ def get_external_video_sources(url = None, meta = None) -> dict[str, list[tuple[
             video_name = f"{(src.get('height') or meta.get('height') or '1')}"
         if src.get('acodec', 'none') != 'none':
             audio_name = 'a'
-            if 'audio' in (src.get('source_id') or '') or (src.get('acodec') or 'a?') == 'a?':
-                audio_name += '?'
         name = video_name + audio_name
         if not name: continue
 
