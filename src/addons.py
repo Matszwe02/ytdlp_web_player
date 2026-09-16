@@ -1100,12 +1100,15 @@ def get_external_video_sources(url = None, meta = None) -> dict[str, list[tuple[
     for src in meta_formats:
         video_name = ''
         audio_name = ''
+        source_preference = src.get('quality') or src.get('source_preference') or 0
         if language and src.get('language') and (src.get('language') != language): continue
         if int(src.get('height') or 0) > max_quality: continue
         if (src.get('vcodec') or 'none').lower() != 'none' or ((src.get('video_ext') or 'none').lower() != 'none'):
             video_name = f"{(src.get('height') or meta.get('height') or '1')}"
         if src.get('acodec', 'none') != 'none':
             audio_name = 'a'
+            if 'audio' in (src.get('source_id') or '') or (src.get('acodec') or '?') == '?':
+                source_preference = -9
         name = video_name + audio_name
         if not name: continue
 
@@ -1114,8 +1117,13 @@ def get_external_video_sources(url = None, meta = None) -> dict[str, list[tuple[
         codec = src.get('vcodec') if name[0] != 'a' else src.get('acodec')
         media_url = f'/external?src={quote_plus(src["url"])}&headers={quote_plus(headers)}&cookies={quote_plus(cookies)}&url={quote_plus(url)}'
         if name not in sources.keys(): sources[name] = []
-        sources[name].append((media_url, codec, get_mimetype(src.get('protocol') or '', src.get('ext') or '', video_name), False))
-    return sources
+        sources[name].append((source_preference, media_url, codec, get_mimetype(src.get('protocol') or '', src.get('ext') or '', video_name), False))
+    sorted_sources = {}
+    for res in sources.keys():
+        sorted_sources[res] = []
+        for src in sorted(sources[res], key=lambda x: x[0], reverse=True):
+            sorted_sources[res].append((src[1], src[2], src[3], src[4]))
+    return sorted_sources
 
 
 def get_good_quality(sources: dict[str, list[tuple[str, str, str, bool]]]):
