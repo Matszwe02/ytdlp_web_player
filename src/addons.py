@@ -817,8 +817,8 @@ def preload(url = None, meta = None, playlist = None):
         avail_procs -= 1
     if not check_media(url, 'thumb'):
         Thread(target=MediaDownloader(url, 'thumb').run).start()
-    if not disable_transcoding and not check_media(url, 'hls-audio') and not 'a' in get_all_video_sources(url, meta).keys() and avail_procs > 1:
-        Thread(target=MediaDownloader(url, 'hls-audio').run).start()
+    if not disable_transcoding and not check_media(url, 'hls-audio') and avail_procs > 1:
+        Thread(target=lambda: (MediaDownloader(url, 'hls-audio').run() if 'a' not in get_all_video_sources(url, meta).keys() else None)).start()
         avail_procs -= 1
     if playlist and not check_media(url, 'playlist'):
         with open(os.path.join(get_data_dir(url), 'playlist.json'), 'w') as f:
