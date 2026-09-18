@@ -475,7 +475,7 @@ class MediaDownloader:
 
         if not video_file_path:
             audio_media = check_media(self.url, 'audio')
-            audio_source = [audio_media] if audio_media else sources.get('a')
+            audio_source = [audio_media] if audio_media else sources.get('audio')
             if res_str in sources.keys() and res_str != 'audio':
                 video_source = sources.get(res_str)
 
@@ -818,7 +818,7 @@ def preload(url = None, meta = None, playlist = None):
     if not check_media(url, 'thumb'):
         Thread(target=MediaDownloader(url, 'thumb').run).start()
     if not disable_transcoding and not check_media(url, 'hls-audio') and avail_procs > 1:
-        Thread(target=lambda: (MediaDownloader(url, 'hls-audio').run() if 'a' not in get_all_video_sources(url, meta).keys() else None)).start()
+        Thread(target=lambda: (MediaDownloader(url, 'hls-audio').run() if 'audio' not in get_all_video_sources(url, meta).keys() else None)).start()
         avail_procs -= 1
     if playlist and not check_media(url, 'playlist'):
         with open(os.path.join(get_data_dir(url), 'playlist.json'), 'w') as f:
@@ -1017,10 +1017,10 @@ def choose_sources_for_res(sources: dict[str, list[tuple[str, str, str, bool]]],
     video_source = None
     audio_source = None
     for s in sources.keys():
-        if not audio_source and 'a' in s: audio_source = s
+        if not audio_source and 'audio' in s: audio_source = s
         if res and not video_source and res in s:
             video_source = s
-        if 'a' in s and res in s:
+        if 'audio' in s and res in s:
             audio_source = s
             video_source = s
             break
@@ -1068,7 +1068,7 @@ def get_all_video_sources(url = None, meta = None):
     if not url: url = meta.get('original_url')
     if not meta: meta = get_meta(url)
     sources = get_external_video_sources(url, meta)
-    ress = list(set(f.strip('a') for f in sources.keys()))
+    ress = list(set(f.strip('audio') for f in sources.keys()))
     for res in ress:
         if not sources.get(res): continue
         if m := check_media(url, f'hls-{res}'):
@@ -1078,11 +1078,11 @@ def get_all_video_sources(url = None, meta = None):
             sources[res].append((f'/download?url={quote_plus(url)}&quality={res}', None, get_mimetype(ext = m.split('.')[-1]), True))
     if m := check_media(url, 'hls-audio'):
         cached = not os.path.exists(f'{m}.pending')
-        if 'a' not in sources.keys(): sources['a'] = []
-        sources['a'].append((f'/hls?url={quote_plus(url)}&quality=audio', 'aac', 'application/x-mpegURL', cached))
+        if 'audio' not in sources.keys(): sources['audio'] = []
+        sources['audio'].append((f'/hls?url={quote_plus(url)}&quality=audio', 'aac', 'application/x-mpegURL', cached))
     if m := check_media(url, 'audio'):
-        if 'a' not in sources.keys(): sources['a'] = []
-        sources['a'].append((f'/download?url={quote_plus(url)}&quality=audio', None, get_mimetype(ext = m.split('.')[-1]), True))
+        if 'audio' not in sources.keys(): sources['audio'] = []
+        sources['audio'].append((f'/download?url={quote_plus(url)}&quality=audio', None, get_mimetype(ext = m.split('.')[-1]), True))
     return sources
 
 
@@ -1106,7 +1106,7 @@ def get_external_video_sources(url = None, meta = None) -> dict[str, list[tuple[
         if (src.get('vcodec') or 'none').lower() != 'none' or ((src.get('video_ext') or 'none').lower() != 'none'):
             video_name = f"{(src.get('height') or meta.get('height') or '1')}"
         if src.get('acodec', 'none') != 'none':
-            audio_name = 'a'
+            audio_name = 'audio'
             if 'audio' in (src.get('source_id') or '') or (src.get('acodec') or '?') == '?':
                 source_preference = -9
         name = video_name + audio_name
@@ -1114,7 +1114,7 @@ def get_external_video_sources(url = None, meta = None) -> dict[str, list[tuple[
 
         headers = json.dumps(src.get('http_headers') or {})
         cookies = src.get('cookies') or ''
-        codec = src.get('vcodec') if name[0] != 'a' else src.get('acodec')
+        codec = src.get('vcodec') if name[0] != 'audio' else src.get('acodec')
         media_url = f'/external?src={quote_plus(src["url"])}&headers={quote_plus(headers)}&cookies={quote_plus(cookies)}&url={quote_plus(url)}'
         if name not in sources.keys(): sources[name] = []
         sources[name].append((source_preference, media_url, codec, get_mimetype(src.get('protocol') or '', src.get('ext') or '', video_name), False))
@@ -1127,7 +1127,7 @@ def get_external_video_sources(url = None, meta = None) -> dict[str, list[tuple[
 
 
 def get_good_quality(sources: dict[str, list[tuple[str, str, str, bool]]]):
-    ress = ((int(src) if 'a' not in src else 0) for src in sources.keys())
+    ress = ((int(src) if 'audio' not in src else 0) for src in sources.keys())
     if not isinstance(ress, list) or not ress: return f'{default_quality}'
     sorted_ress = sorted(ress)
     for quality in sorted_ress:
