@@ -1,4 +1,4 @@
-function doubleTapFF(options)
+function doubleTapFF(rateTarget)
 {
 	var videoElement = this;
 	var videoElementId = this.id();
@@ -10,6 +10,7 @@ function doubleTapFF(options)
 	var tappedTwice = false;
     var tapTimer = null;
     var holdTimer = null;
+    var rateElement = rateTarget || videoElement;
     var playbackRate = null;
     var initialMoveDistance = null;
 
@@ -22,7 +23,7 @@ function doubleTapFF(options)
             setTimeout(() => {
                 videoElement.play();
             }, 50)
-            videoElement.playbackRate(playbackRate);
+            rateElement.playbackRate(playbackRate);
             window.navigator?.vibrate?.(10);
         }
         playbackRate = null;;
@@ -33,8 +34,8 @@ function doubleTapFF(options)
         if (videoElement.paused()) return;
         holdTimer = setTimeout(() => {
             if (playbackRate) return;
-            playbackRate = videoElement.playbackRate();
-            videoElement.playbackRate(playbackRate * 2);
+            playbackRate = rateElement.playbackRate();
+            rateElement.playbackRate(playbackRate * 2);
             window.navigator?.vibrate?.(10);
         }, 500);
     }

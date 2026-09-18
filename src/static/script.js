@@ -1,4 +1,5 @@
 let player;
+let audioPlayer;
 let skipSegment;
 let skipTime = 0;
 let info = null;
@@ -8,10 +9,13 @@ let repeatStartTime = 0;
 let repeatEndTime = 0;
 let minBufferAheadTime = 0;
 let isBuffering = false;
-let usesHls = false;
 let ongoingRequest = null;
 let audioContext = null;
 let audioSource = null;
+let audioActive = false; // True when the separate audio player
+let currentVideoSourceIndex = 0;
+let currentAudioSourceIndex = 0;
+let playerVisible = true;
 let logHistory = [];
 
 function log(text)
@@ -36,6 +40,99 @@ function err(text)
 }
 
 
+function setupPlayerSync()
+{
+    player.on('play', () => {
+        if (audioPlayer && audioActive && audioPlayer.paused())
+            audioPlayer.play();
+    });
+    audioPlayer.on('play', () => {
+        if (audioActive && player.paused())
+            player.play();
+    });
+
+    player.on('pause', () => {
+        if (audioPlayer && audioActive && playerVisible && !audioPlayer.paused())
+            audioPlayer.pause();
+    });
+    audioPlayer.on('pause', () => {
+        if (audioActive && !player.paused() && !peerSeeking)
+            player.pause();
+    });
+
+    function syncPlayers()
+    {
+        if (!audioActive) return;
+
+        const audioTime = audioPlayer.currentTime();
+        const offset = player.currentTime() - audioTime;
+
+        if (Math.abs(offset) > 5)
+        {
+            player.currentTime(audioTime);
+            videoSeekingTimer = setTimeout(() => { videoSeekingTimer = 0; }, 1000);
+            log(`Video synced to audio. Offset: ${offset.toFixed(3)}s`);
+        }
+        else if (Math.abs(offset) > 0.02)
+        {
+            let diff = Math.min(Math.abs(offset), .8);
+            let rate = audioPlayer.playbackRate() * (offset > 0 ? 1 - diff : 1 + diff);
+            if (player.bufferedEnd() - player.currentTime() < 1) rate /= 2;
+            player.playbackRate(rate);
+            log(`Keeping up with audio with playback rate ${player.playbackRate()}`);
+        }
+        else if (player.playbackRate() != audioPlayer.playbackRate())
+        {
+            player.playbackRate(audioPlayer.playbackRate());
+        }
+    }
+
+    audioPlayer.on('timeupdate', () => {
+        if (!audioActive) return;
+        syncPlayers();
+    });
+
+    let videoSeekingTimer = 0;
+    let audioSeekingTimer = 0;
+
+    function seekVideo()
+    {
+        clearTimeout(videoSeekingTimer);
+        videoSeekingTimer = setTimeout(() => { videoSeekingTimer = 0; }, 1000);
+        if (audioSeekingTimer) return;
+        if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.02) return;
+        player.currentTime(audioPlayer.currentTime());
+    }
+    function seekAudio()
+    {
+        clearTimeout(audioSeekingTimer);
+        audioSeekingTimer = setTimeout(() => { audioSeekingTimer = 0; }, 1000);
+        if (videoSeekingTimer) return;
+        if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.02) return;
+        audioPlayer.currentTime(player.currentTime());
+
+    }
+
+    player.on('seeked', seekAudio);
+    player.on('seeking', seekAudio);
+    audioPlayer.on('seeked', seekVideo);
+    audioPlayer.on('seeking', seekVideo);
+
+    player.on('volumechange', () => {
+        if (!audioPlayer || !audioActive) return;
+        log('Volume change for audio');
+        if (player.audioTracks().tracks_.length != 0)
+        {
+            if (!player.muted()) player.muted(true);
+            audioPlayer.muted(false);
+            return;
+        }
+        audioPlayer.muted(player.muted() || player.volume() === 0);
+        audioPlayer.volume(player.volume());
+    });
+}
+
+
 class PlayerState
 {
     constructor()
@@ -49,13 +146,13 @@ class PlayerState
     }
     save()
     {
-        if (this.ongoing && player.currentTime() == 0)
+        if (this.ongoing && currentTime() == 0)
         {
             warn('Preventing saving unknown player state');
             return;
         }
         this.ongoing = false;
-        this.switchTime = player.currentTime();
+        this.switchTime = currentTime();
         this.isPlaying = !player.paused();
         this.speed = player.playbackRate();
         this.tracks = [];
@@ -75,7 +172,7 @@ class PlayerState
     }
     apply()
     {
-        if (this.switchTime > 0) player.currentTime(this.switchTime);
+        if (this.switchTime > 0) currentTime(this.switchTime);
         player.playbackRate(this.speed);
         if (this.isPlaying) player.play();
         for (let i = 0; i < this.tracks.length; i++)
@@ -217,6 +314,61 @@ function getUrlInfo()
 }
 
 
+function getVideoSource()
+{
+    var url = getUrlInfo();
+    const sources = info.sources[url.quality] || info.sources[url.quality + 'audio'];
+    let best = sources[currentVideoSourceIndex];
+    return best || `/hls?url=${url.encodedUrl}&quality=${url.quality}`;
+}
+
+
+function getAudioSource()
+{
+    return ((info.sources['audio']) || [null])[currentAudioSourceIndex];
+}
+
+
+function play()
+{
+    if (audioActive) audioPlayer.play();
+    player.play();
+}
+
+
+function pause()
+{
+    if (audioActive) audioPlayer.pause();
+    player.pause();
+}
+
+
+function currentTime(newtime = null)
+{
+    if (newtime === null)
+    {
+        return audioActive ? audioPlayer.currentTime() : player.currentTime();
+    }
+    player.currentTime(newtime);
+    audioPlayer.currentTime(newtime);
+}
+
+
+function playbackRate(speed = null)
+{
+    if (speed == null)
+    {
+        try
+        {
+            return audioActive ? audioPlayer.playbackRate() : player.playbackRate();
+        }
+        catch { return 1; }
+    }
+    player.playbackRate(speed);
+    audioPlayer.playbackRate(speed);
+}
+
+
 function formatTime(timeInSeconds)
 {
     if (timeInSeconds === null || isNaN(timeInSeconds)) return '-';
@@ -263,6 +415,7 @@ screen.orientation.addEventListener("change", (event) => {
 function displayPlayerError(message)
 {
     err(message);
+    if (audioPlayer) try { audioPlayer.pause(); } catch (error) {}
     if (!player) return;
     const errorDisplay = player.el_.querySelector('.vjs-error-display');
     errorDisplay.innerHTML = message;
@@ -340,7 +493,7 @@ function loadChapters()
     function updateChapterTooltipOnPlayback()
     {
         if (isHoveringProgressBar) return;
-        updateChapterVisibility(player.currentTime());
+        updateChapterVisibility(currentTime());
     }
 
     player.controlBar.progressControl.on(['mousemove', 'touchmove'], onProgressBarMove);
@@ -361,29 +514,36 @@ function loadChapters()
 }
 
 
-function getVideoSource()
+function setAudioSource()
 {
-    var url = getUrlInfo();
-    log(`Video quality: ${url.quality}`);
-
-    let downloadUrl = `/direct?url=${url.encodedUrl}&quality=${url.quality}`;
-    let videoType = info.sources[url.quality];
-
-    if (usesHls)
+    let audioSource = getAudioSource();
+    if (!audioPlayer || !audioSource) return;
+    if (audioPlayer.src() !== audioSource[0])
     {
-        downloadUrl = `/hls?url=${url.encodedUrl}&quality=${url.quality}`;
-        videoType = 'application/x-mpegURL';
+        audioPlayer.src({ src: audioSource[0], type: audioSource[2] });
+        audioPlayer.load();
     }
-
-    log(`Video source: src=${downloadUrl} type=${videoType}`);
-    return [downloadUrl, videoType];
+    audioPlayer.muted(player.muted());
+    audioPlayer.volume(player.volume());
+    audioPlayer.volume(player.volume());
 }
 
 
-function applyVideoQuality()
+function stopAudioPlayer()
+{
+    if (!audioPlayer) return;
+    try
+    {
+        if (!audioPlayer.paused()) audioPlayer.pause();
+    }
+    catch (error) {}
+}
+
+
+function setVideoSource()
 {
     var url = getUrlInfo();
-    const videoSource = getVideoSource();
+    let videoSource = getVideoSource();
 
     const videoEl = player.el_.querySelector('video');
     const posterEl = player.el_.querySelector('.vjs-poster');
@@ -394,7 +554,7 @@ function applyVideoQuality()
         log('Preventing switching to the same source');
         return;
     }
-    player.src({ src: videoSource[0], type: videoSource[1] });
+    player.src({ src: videoSource[0], type: videoSource[2] });
     ps.apply();
 
     if (url.quality === 'audio')
@@ -422,35 +582,12 @@ function applyVideoQuality()
     }
 }
 
-async function pingHlsSegment(height = null)
-{
-    var hls_segment_duration = height == 'audio' ? info.hls_audio_duration : info.hls_duration;
-    const url = getUrlInfo();
-    var segNum = Math.min(Math.ceil(player.currentTime() / hls_segment_duration + 0.5), Math.ceil((player.duration() || 1) / hls_segment_duration - 1));
-    var selectedSegment = `/hls_segment?url=${url.encodedUrl}&quality=${height}&seg=${segNum}`;
-    try
-    {
-        let response = await retryFetch(selectedSegment, undefined, 1, 1000, true, true);
-        if (!response.ok) return false;
-        let timeout = hls_segment_duration + 1 - player.currentTime() % hls_segment_duration;
-        if (timeout > hls_segment_duration / 2) timeout = 0;
-        if (player.paused()) timeout = 0;
-        await new Promise(resolve => setTimeout(resolve, timeout * 1000));
-        return true;
-    }
-    catch (error)
-    {
-        return false;
-    }
-}
-
 
 function setVideoQuality(height = null, button = null)
 {
     let menu = player.controlBar.SettingsButton.resolutionSwitcher.menu;
     var url = getUrlInfo();
-    if (height === null) height = url.quality;
-    if (height !== null) height = `${height}`;
+    if (height === null) height = `${url.quality}`;
     log(`Setting video quality to ${height}`);
     const buttons = menu.querySelectorAll('.vjs-resolution-option');
     url.urlParams.set('quality', height);
@@ -461,65 +598,55 @@ function setVideoQuality(height = null, button = null)
         });
     }
     history.replaceState(null, '', `${window.location.pathname}?${url.urlParams.toString()}`);
+    buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
+    button?.classList?.add('vjs-menu-option-selected');
 
-    if (usesHls)
+    currentVideoEntryIndex = 0;
+    applyVideoQuality();
+}
+
+
+function applyVideoQuality()
+{
+    var url = getUrlInfo();
+    ps.save();
+    if (ps.suspend) return;
+
+    audioActive = url.quality !== 'audio' && getAudioSource() != null;
+
+    if (audioActive) setAudioSource();
+    else stopAudioPlayer();
+
+    log(`Applying source ${currentVideoEntryIndex}, separate audio player: ${audioActive}`);
+
+    setVideoSource();
+}
+
+
+function advanceVideoSource()
+{
+    var url = getUrlInfo();
+    const currentQuality = url.quality || info.default_quality;
+    const sources = info.sources[url.quality] || [];
+    currentVideoSourceIndex ++;
+    if (currentVideoSourceIndex < sources.length)
     {
-        log('Fetching HLS...');
-        retryFetch(getVideoSource()[0])
-            .then(response => response.text())
-            .then(playlist => {
-                let requestCount = 0;
-                clearInterval(ongoingRequest);
-                ongoingRequest = setInterval(() => {
-                    requestCount ++;
-                    if (requestCount > 30) clearInterval(ongoingRequest);
-                    pingHlsSegment(height)
-                        .then(success => {
-                            if (success)
-                            {
-                                clearInterval(ongoingRequest);
-                                applyVideoQuality();
-                                buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
-                                button?.classList?.add('vjs-menu-option-selected');
-                            }
-                            else
-                            {
-                                log('HLS not ready. Retrying fetching...');
-                            }
-                    });
-                }, 2000);
-        });
+        log(`Falling back to video source ${currentVideoSourceIndex} / ${sources.length} of quality ${currentQuality}`);
+        applyVideoQuality(sources[currentVideoSourceIndex]);
     }
-    else
-    {
-        log('Fetching Direct...');
-        retryFetch(getVideoSource()[0], 2, undefined, undefined, undefined, true)
-            .then(response => {
-                applyVideoQuality();
-                buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
-                button?.classList?.add('vjs-menu-option-selected');
+}
 
-                if (info && info.always_transcode)
-                {
-                    clearInterval(ongoingRequest);
-                    ongoingRequest = setInterval(() => {
-                        if (!isBuffering)
-                        {
-                            clearInterval(ongoingRequest);
-                            if (info.disable_transcoding) return;
-                            usesHls = true;
-                            setVideoQuality(height);
-                        }
-                    }, 100);
-                }
-            })
-            .catch(error => {
-                clearInterval(ongoingRequest);
-                err('Error fetching new quality:', error);
-                if (info.disable_transcoding) return;
-                usesHls = true;
-                setVideoQuality(height);
-            });
+
+function advanceAudioSource()
+{
+    var url = getUrlInfo();
+    const currentQuality = url.quality || info.default_quality;
+    const sources = info.sources[url.quality] || [];
+    currentAudioSourceIndex ++;
+    if (currentAudioSourceIndex < sources.length)
+    {
+        log(`Falling back to audio source ${currentAudioSourceIndex} / ${sources.length} of quality ${currentQuality}`);
+        applyAudioQuality(sources[currentAudioSourceIndex]);
     }
 }
 
@@ -853,16 +980,16 @@ class DownloadButton extends videojs.getComponent('Button')
         this.startBtn.classList.add('vjs-resolution-option');
         this.startBtn.title = 'Click To Adjust Start Time';
         this.startBtn.style.display = 'none'; // Initially hidden
-        this.startBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.startTime = player.currentTime(); this.updateTimeLabels(); });
-        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.startTime = player.currentTime(); this.updateTimeLabels(); });
+        this.startBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.startTime = currentTime(); this.updateTimeLabels(); });
+        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.startTime = currentTime(); this.updateTimeLabels(); });
         menu.appendChild(this.startBtn);
 
         this.endBtn = document.createElement('button');
         this.endBtn.classList.add('vjs-resolution-option');
         this.endBtn.title = 'Click To Adjust End Time';
         this.endBtn.style.display = 'none'; // Initially hidden
-        this.endBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.endTime = player.currentTime(); this.updateTimeLabels(); });
-        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.endTime = player.currentTime(); this.updateTimeLabels(); });
+        this.endBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.endTime = currentTime(); this.updateTimeLabels(); });
+        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.endTime = currentTime(); this.updateTimeLabels(); });
         menu.appendChild(this.endBtn);
 
         this.updateTimeLabels();
@@ -972,7 +1099,7 @@ class RepeatButton extends videojs.getComponent('Button')
         this.startBtn = document.createElement('button');
         this.startBtn.classList.add('vjs-resolution-option');
         this.startBtn.title = 'Click To Adjust Start Time';
-        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatStartTime = player.currentTime(); this.updateTimeLabels(); repeatStartTime = this.repeatStartTime; });
+        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatStartTime = currentTime(); this.updateTimeLabels(); repeatStartTime = this.repeatStartTime; });
 
         this.startBtn.ontouchstart = (event) => {
             setTimeout(() => {
@@ -986,7 +1113,7 @@ class RepeatButton extends videojs.getComponent('Button')
         this.endBtn = document.createElement('button');
         this.endBtn.classList.add('vjs-resolution-option');
         this.endBtn.title = 'Click To Adjust End Time';
-        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatEndTime = player.currentTime(); this.updateTimeLabels(); repeatEndTime = this.repeatEndTime; });
+        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatEndTime = currentTime(); this.updateTimeLabels(); repeatEndTime = this.repeatEndTime; });
 
         this.endBtn.ontouchstart = (event) => {
             setTimeout(() => {
@@ -1052,20 +1179,21 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
 
     updateResolutions()
     {
-        let resolutions = info.formats;
+        let resolutions = Object.keys(info.sources)
         if (!resolutions || resolutions.length < 1) return;
         this.el().style.display = '';
         this.menu.innerHTML = ''
+        const audioIndex = resolutions.indexOf("audio");
+        if (audioIndex !== -1) {
+            resolutions.splice(audioIndex, 1);
+        }
         
-        resolutions.sort((a, b) => (b.height || b) - (a.height || a)); // Sort descending
-        if (!resolutions.includes('audio')) resolutions.push('audio');
+        resolutions.sort((a, b) => b.length - a.length || b.localeCompare(a)); // Sort descending
+        resolutions.push('audio');
         
-        resolutions.forEach(resItem => {
-            const height = resItem === 'audio' ? 'audio' : (resItem.height || resItem);
-            if (typeof height !== 'number' && height !== 'audio') return;
-            
+        resolutions.forEach(height => {
             const button = document.createElement('button');
-            button.textContent = height === 'audio' ? 'Audio' : `${height}p`;
+            button.textContent = height === 'audio' ? 'Audio' : `${height.replace(/\D/g, "")}p`;
             button.classList.add('vjs-resolution-option');
             var url = getUrlInfo();
             if (url.quality == height)
@@ -1091,7 +1219,6 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
 
             button.onclick = (event) => {
                 tryStopPropagation(event);
-                usesHls = false;
                 setVideoQuality(height, button);
                 this.handleCloseMenu(true);
             };
@@ -1319,7 +1446,7 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
             const button = document.createElement('button');
             button.textContent = `${speed}x`;
             button.classList.add('vjs-playback-speed-option');
-            if (this.player && this.player.playbackRate() === speed)
+            if (playbackRate() === speed)
             {
                 button.classList.add('vjs-menu-option-selected');
             }
@@ -1343,7 +1470,7 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
 
             button.onclick = (event) => {
                 tryStopPropagation(event);
-                this.player.playbackRate(speed);
+                playbackRate(speed);
                 if (speed == 1.0)
                     this.el().classList.remove('vjs-active');
                 else
@@ -1507,7 +1634,7 @@ videojs.registerComponent('PlaylistComponent', PlaylistComponent);
 
 function skipclick()
 {
-    if (player && player.currentTime() < skipTime) player.currentTime(skipTime);
+    if (currentTime() < skipTime) currentTime(skipTime);
 };
 
 
@@ -1535,18 +1662,18 @@ function adjustVideoSize()
 function checkSponsorTime()
 {
     var segmentShown = null;
-    const currentTime = player.currentTime();
+    const time = currentTime();
     
     segments.forEach(segment => {
-        if (currentTime > segment.start && currentTime < segment.end)
+        if (time > segment.start && time < segment.end)
         {
             segmentShown = segment;
         }
-        if (currentTime > segment.start - 1 && currentTime < segment.start)
+        if (time > segment.start - 1 && time < segment.start)
         {
             setTimeout(() => {
                 if (!player.paused) checkSponsorTime();
-            }, (segment.start - currentTime + .01) * 1000 / player.playbackRate());
+            }, (segment.start - time + .01) * 1000 / playbackRate());
         }
     });
     
@@ -1572,7 +1699,7 @@ function checkSponsorTime()
 
         if (info?.autoskip_sb_segments?.indexOf(segmentShown.category) >= 0)
         {
-            if (currentTime < segmentShown.start + 1) skipclick();
+            if (time < segmentShown.start + 1) skipclick();
         }
 
         if ( "mediaSession" in navigator)
@@ -1633,6 +1760,7 @@ function loadVideo()
         "Picture-in-Picture" : "Picture-in-Picture [p]",
     });
     
+    audioPlayer = videojs('audioPlayer', { controls: false, preload: 'auto' });
     player = videojs('videoPlayer', {
         controls: false,
         preload: 'auto',
@@ -1688,12 +1816,12 @@ function loadVideo()
                     preciseBackwardKey:
                     {
                         key: function (event) {return event.code == "Comma";},
-                        handler: function (player, options, event) {player.currentTime(player.currentTime() - 0.1);},
+                        handler: function (player, options, event) {currentTime(currentTime() - 0.1);},
                     },
                     preciseForwardKey:
                     {
                         key: function (event) {return event.code == "Period";},
-                        handler: function (player, options, event) {player.currentTime(player.currentTime() + 0.1);},
+                        handler: function (player, options, event) {currentTime(currentTime() + 0.1);},
                     },
                 },
                 captureDocumentHotkeys: true,
@@ -1702,7 +1830,7 @@ function loadVideo()
             },
         },
     });
-    player.doubleTapFF();
+    player.doubleTapFF(audioPlayer);
     player.controlBar.ZoomToFillToggle.handleClick(null, state = false);
     if (window.location.href.includes('/iframe?')) player.controlBar.addChild('PlayerButton');
     
@@ -1716,16 +1844,16 @@ function loadVideo()
     skipSegment.onclick = function() {skipclick();};
 
     player.on('timeupdate', () => {
-        if (repeatMode && player.currentTime() >= repeatEndTime)
+        if (repeatMode && currentTime() >= repeatEndTime)
         {
-            player.currentTime(repeatStartTime);
+            currentTime(repeatStartTime);
             setTimeout(() => {
                 player.play();
             }, 100);
         }
         if (info && parseFloat(info.duration) == 0)
         {
-            let timeDiff= player.bufferedEnd() - player.currentTime();
+            let timeDiff = player.bufferedEnd() - currentTime();
             let minLiveBuffer = parseFloat(info.min_live_buffer);
             if (timeDiff > 30 || minLiveBuffer <= 0) return;
             if (timeDiff < minBufferAheadTime) minBufferAheadTime = Math.max(timeDiff, 0);
@@ -1733,22 +1861,22 @@ function loadVideo()
             
             if (minBufferAheadTime < minLiveBuffer)
             {
-                player.playbackRate(0.95);
+                playbackRate(0.95);
                 log('-');
             }
             else if (minBufferAheadTime > minLiveBuffer * 3)
             {
-                player.playbackRate(1.1);
+                playbackRate(1.1);
                 log('++');
             }
             else if (minBufferAheadTime > minLiveBuffer * 2)
             {
-                player.playbackRate(1.05);
+                playbackRate(1.05);
                 log('+');
             }
             else
             {
-                player.playbackRate(1);
+                playbackRate(1);
             }
         }
     });
@@ -1756,25 +1884,14 @@ function loadVideo()
     player.on('playing', () => {
         isBuffering = false;
         minBufferAheadTime = 1;
-        if (info && parseFloat(info.duration) == 0 && player.currentTime() < 1)
+        if (info && parseFloat(info.duration) == 0 && currentTime() < 1)
         {
-            player.currentTime(99999999);
+            currentTime(99999999);
         }
     });
 
     player.on('waiting', () => {
         isBuffering = true;
-        setTimeout(() => {
-            const url = getUrlInfo();
-            if (!usesHls) return;
-            if (!isBuffering) return;
-            pingHlsSegment(url.quality)
-                .then(success => {
-                    if (success) return;
-                    usesHls = false;
-                    setVideoQuality(url.quality);
-                });
-        }, 1000);
     });
 
     const errorDisplay = player.el_.querySelector('.vjs-error-display');
@@ -1837,7 +1954,7 @@ function loadVideo()
 
         if (url.startTime && parseFloat(url.startTime) > 0)
         {
-            player.currentTime(parseFloat(url.startTime));
+            currentTime(parseFloat(url.startTime));
         }
     }
     retryFetch(`/info?url=${url.encodedUrl}`)
@@ -1882,18 +1999,21 @@ function loadVideo()
             }
 
             player.load();
+            setupPlayerSync();
             player.on('error', () => {
                 const error = player.error();
                 if (error)
                 {
-                    if (info.disable_transcoding)
-                    {
-                        warn(`EROROR ${error.code}`);
-                        return;
-                    }
-                    warn(`EROROR ${error.code} - Changing video source in order to resolve it`);
-                    usesHls = !usesHls;
-                    setVideoQuality();
+                    warn(`VIDEO PLAYER ERROR ${error.code} - Trying the next available source`);
+                    advanceVideoSource();
+                }
+            });
+            audioPlayer.on('error', () => {
+                const error = player.error();
+                if (error)
+                {
+                    warn(`AUDIO PLAYER ERROR ${error.code} - Trying the next available source`);
+                    advanceAudioSource();
                 }
             });
             try
@@ -1916,49 +2036,21 @@ function loadVideo()
 
             setInterval(()=>{ retryFetch(getVideoSource()[0], {}, 0, undefined, false, true).then(response => response.ok); }, 120000); // Keepalive
 
-            if (info.auto_bg_playback && navigator?.userAgentData?.mobile)
-            {
-                document.addEventListener('visibilitychange', () => {
-                    var url = getUrlInfo();
-                    if (url.quality == 'audio')
-                    {
-                        if (info.audio_visualizer)
-                        {
-                            if (document.visibilityState === 'hidden') pauseVisualizer(player);
-                            else resumeVisualizer(player);
-                        }
-                        return;
-                    }
-                    if (player.isInPictureInPicture()) return;
-                    if (parseFloat(info.duration) == 0) return;
+            document.addEventListener('visibilitychange', () => {
+                playerVisible = document.visibilityState !== 'hidden';
+                if (!info.auto_bg_playback)
+                {
                     if (document.visibilityState === 'hidden')
                     {
-                        if (player.currentTime() + 10 > parseFloat(info.duration)) return;
-
-                        url.urlParams.set('t', player.currentTime().toFixed(1));
-                        history.replaceState(null, '', `${window.location.pathname}?${url.urlParams.toString()}`);
-
-                        ps.save();
-                        clearInterval(ongoingRequest);
-                        if (!info.disable_transcoding)
-                            player.src({ src: `/hls?url=${url.encodedUrl}&quality=audio`, type: 'application/x-mpegURL' });
-                        else if (info.sources['audio'])
-                            player.src({ src: `/direct?url=${url.encodedUrl}&quality=audio`, type: info.sources['audio'] });
-                        else
-                        {
-                            log('No supported audio formats - cannot turn on bg playback');
-                            return;
-                        }
-                        ps.apply();
-                        ps.suspend = true;
+                        if (info.audio_visualizer) pauseVisualizer(player);
+                        audioPlayer.pause();
                     }
                     else
                     {
-                        ps.suspend = false;
-                        setVideoQuality();
+                        if (info.audio_visualizer) resumeVisualizer(player);
                     }
-                });
-            }
+                }
+            });
 
         })
         .catch(error => {
@@ -1975,6 +2067,7 @@ function loadVideo()
                     addSponsorblock(data);
                 });
                 player.on('timeupdate', checkSponsorTime);
+                audioPlayer.on('timeupdate', checkSponsorTime);
             }
         });
     document.addEventListener('click', (e) => {
@@ -2002,19 +2095,19 @@ function loadMediaSession()
     });
 
     navigator.mediaSession.setActionHandler("play", () => {
-        player.play();
+        play();
     });
     navigator.mediaSession.setActionHandler("pause", () => {
-        player.pause();
+        pause();
     });
     navigator.mediaSession.setActionHandler("seekbackward", (details) => {
-        player.currentTime(player.currentTime() - (details.seekOffset || 10));
+        currentTime(currentTime() - (details.seekOffset || 10));
     });
     navigator.mediaSession.setActionHandler("seekforward", (details) => {
-        player.currentTime(player.currentTime() + (details.seekOffset || 10));
+        currentTime(currentTime() + (details.seekOffset || 10));
     });
     navigator.mediaSession.setActionHandler("seekto", (details) => {
-        player.currentTime(details.seekTime);
+        currentTime(details.seekTime);
     });
     navigator.mediaSession.setActionHandler("previoustrack", null);
     navigator.mediaSession.setActionHandler("nexttrack", null);
@@ -2036,7 +2129,7 @@ function displayDebugInfo()
     viewbox.innerHTML = `Debug logs for <b>${window.location.href}</b>\n`;
     viewbox.innerHTML += `\n<details><summary>URL info</summary>${JSON.stringify(getUrlInfo(), null, 2)}</details>`;
     viewbox.innerHTML += `\n<details><summary>Info dict</summary>${JSON.stringify(info, null, 2)}</details>`;
-    viewbox.innerHTML += `\n<details><summary>Current source</summary>${JSON.stringify(player.currentSources(), null, 2)}</details>`;
+    viewbox.innerHTML += `\n<details><summary>Current source</summary>Video:\n${JSON.stringify(player.currentSources(), null, 2)}\nAudio:\n${JSON.stringify(audioPlayer.currentSources(), null, 2)}</details>`;
     viewbox.innerHTML += `\n<details><summary>Console log</summary>${JSON.stringify(logHistory, null, 2)}</details>`;
 
     document.body.appendChild(viewbox);
