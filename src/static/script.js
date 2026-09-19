@@ -326,7 +326,9 @@ function getVideoSource()
 
 function getAudioSource()
 {
-    return ((info.sources['audio']) || [null])[currentAudioSourceIndex];
+    let a = (info.sources['audio'] || [])[currentAudioSourceIndex];
+    if (a) return a;
+    return [`/hls?url=${url.encodedUrl}&quality=audio`, 'aac', 'application/x-mpegURL', false];
 }
 
 
