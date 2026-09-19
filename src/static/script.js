@@ -317,9 +317,10 @@ function getUrlInfo()
 function getVideoSource()
 {
     var url = getUrlInfo();
-    const sources = info.sources[url.quality] || info.sources[url.quality + 'audio'];
+    const sources = info.sources[url.quality] || info.sources[url.quality + 'audio'] || [];
     let best = sources[currentVideoSourceIndex];
-    return best || `/hls?url=${url.encodedUrl}&quality=${url.quality}`;
+    if (best) return best;
+    return [`/hls?url=${url.encodedUrl}&quality=${url.quality}`, 'h264', 'application/x-mpegURL', false];
 }
 
 
