@@ -42,6 +42,10 @@ function err(text)
 
 function setupPlayerSync()
 {
+
+    let videoSeekingTimer = 0;
+    let audioSeekingTimer = 0;
+
     player.on('play', () => {
         if (audioPlayer && audioActive && audioPlayer.paused())
             audioPlayer.play();
@@ -52,10 +56,12 @@ function setupPlayerSync()
     });
 
     player.on('pause', () => {
+        if (audioSeekingTimer) return;
         if (audioPlayer && audioActive && playerVisible && !audioPlayer.paused())
             audioPlayer.pause();
     });
     audioPlayer.on('pause', () => {
+        if (videoSeekingTimer) return;
         if (audioActive && !player.paused())
             player.pause();
     });
@@ -92,22 +98,19 @@ function setupPlayerSync()
         syncPlayers();
     });
 
-    let videoSeekingTimer = 0;
-    let audioSeekingTimer = 0;
-
     function seekVideo()
     {
+        if (audioSeekingTimer) return;
         clearTimeout(videoSeekingTimer);
         videoSeekingTimer = setTimeout(() => { videoSeekingTimer = 0; }, 1000);
-        if (audioSeekingTimer) return;
         if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.02) return;
         player.currentTime(audioPlayer.currentTime());
     }
     function seekAudio()
     {
+        if (videoSeekingTimer) return;
         clearTimeout(audioSeekingTimer);
         audioSeekingTimer = setTimeout(() => { audioSeekingTimer = 0; }, 1000);
-        if (videoSeekingTimer) return;
         if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.02) return;
         audioPlayer.currentTime(player.currentTime());
 
