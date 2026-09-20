@@ -749,7 +749,7 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
         return resp
     except requests.exceptions.RequestException as e:
         print(f"Error streaming media file: {e}")
-        if url: get_meta(url, 0)
+        if url: get_meta(url, 5)
         return jsonify({"error": f"Failed to stream media: {e}"}), 500
 
 
@@ -933,7 +933,7 @@ def get_meta(url: str, max_meta_age = None):
             try:
                 with open(cache, 'r') as f:
                     meta = json.load(f)
-                max_meta_age = max_meta_age or (60 if meta.get('is_live') else 600)
+                max_meta_age = max(5, max_meta_age if max_meta_age is not None else (60 if meta.get('is_live') else 600))
                 if time.time() - meta.get('timestamp') > max_meta_age:
                     print('Checking metadata validity...')
                     srcs = choose_sources_for_res(get_video_sources(url, meta), get_good_quality(get_video_formats(url, meta)))
