@@ -666,8 +666,22 @@ def check_alerts():
     return alerts
 
 
+def assert_safe_url(url: str):
+    """Raise ValueError if url resolves to a private/internal/loopback address (SSRF guard)"""
+    import ipaddress
+    import socket
+    hostname = urlparse(url).hostname
+    if not hostname:
+        raise ValueError('Invalid URL: missing hostname')
+    for family, _, _, _, sockaddr in socket.getaddrinfo(hostname, None):
+        ip = ipaddress.ip_address(sockaddr[0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            raise ValueError(f'Refusing to fetch URL resolving to disallowed address: {hostname}')
+
+
 def download_media_file(url: str, path_without_ext: str, ext: str|None = None):
     """Download raw file with requests.get with selected filename"""
+    assert_safe_url(url)
     response = requests.get(url, stream=True, proxies=proxies)
     response.raise_for_status()
     if not ext:
@@ -691,6 +705,7 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
     """Stream raw file with requests.get"""
     mark_watched(url)
     try:
+        assert_safe_url(src)
         headers_dict = json.loads(headers) if headers else {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
@@ -744,7 +759,7 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
         return resp
     except requests.exceptions.RequestException as e:
         print(f"Error streaming media file: {e}")
-        if url: get_meta(url, 0)
+        if url: get_meta(url, 5)
         return jsonify({"error": f"Failed to stream media: {e}"}), 500
 
 
@@ -882,7 +897,7 @@ def pprint_exc(e, code = 500):
 
 
 def gen_pathname(url: str):
-    return sha1(url.encode()).hexdigest()
+    return sha1(url.encode(), usedforsecurity=False).hexdigest()
 
 
 def get_data_dir(url):
@@ -929,7 +944,7 @@ def get_meta(url: str, max_meta_age = None):
             try:
                 with open(cache, 'r') as f:
                     meta = json.load(f)
-                max_meta_age = max_meta_age or (60 if meta.get('is_live') else 600)
+                max_meta_age = max(5, max_meta_age if max_meta_age is not None else (60 if meta.get('is_live') else 600))
                 if time.time() - meta.get('timestamp') > max_meta_age:
                     print('Checking metadata validity...')
                     srcs = choose_sources_for_res(get_all_video_sources(url, meta))
