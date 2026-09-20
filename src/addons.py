@@ -1127,7 +1127,7 @@ def get_external_video_sources(url = None, meta = None) -> dict[str, list[tuple[
 
 
 def get_good_quality(sources: dict[str, list[tuple[str, str, str, bool]]]):
-    ress = list((int(src) if 'audio' not in src else 0) for src in sources.keys())
+    ress = list((int(src.strip('audio') or '0')) for src in sources.keys())
     if not isinstance(ress, list) or not ress: return f'{default_quality}'
     sorted_ress = sorted(ress)
     for quality in sorted_ress:
