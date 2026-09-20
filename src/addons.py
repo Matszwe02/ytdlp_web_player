@@ -1056,12 +1056,15 @@ def get_subtitles(meta: dict):
 def get_mimetype(protocol: str = '', ext: str = '', video_name: str = ''):
     mime_exts = {'m3u8': 'application/x-mpegURL', 'mpd': 'application/dash+xml', 'm4a': 'audio/mp4', 'mp3': 'audio/mpeg', 'webm': 'audio/webm', 'opus': 'audio/ogg', 'ogg': 'audio/ogg', 'wav': 'audio/wav', 'aac': 'audio/aac', 'mp4': 'video/mp4', 'webm': 'video/webm', 'mkv': 'video/x-matroska', 'mov': 'video/quicktime', 'flv': 'video/x-flv'}
 
+    if protocol:
+        if 'm3u8' in protocol: return 'application/x-mpegURL'
+        if 'dash' in protocol or protocol == 'mpd': return 'application/dash+xml'
+
     if mime := mime_exts.get(ext.lower()):
         return mime
 
     if protocol:
         if protocol in ['http', 'https']: return 'video/mp4' if video_name else 'audio/mpeg'
-        if protocol in ['m3u8_native']: return 'application/x-mpegURL'
 
 
 def get_all_video_sources(url = None, meta = None):
