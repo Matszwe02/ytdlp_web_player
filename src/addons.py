@@ -161,7 +161,7 @@ class YTDLP:
 
     @staticmethod
     def download(url, opts):
-        if (proxy): opts["proxy"] = proxy
+        if (proxy := get_proxy(url)): opts["proxy"] = proxy
         logger = YTDLP.Logger(url, opts, 'download')
         def ydl_download(url, opts, with_info = False):
             q = Queue()
@@ -199,7 +199,7 @@ class YTDLP:
 
     @staticmethod
     def get_info(url, opts):
-        if (proxy): opts["proxy"] = proxy
+        if (proxy := get_proxy(url)): opts["proxy"] = proxy
         logger = YTDLP.Logger(url, opts, 'extract_info')
         if js_runtime: os.environ['PATH'] += os.path.dirname(js_runtime)
         try:
@@ -212,10 +212,15 @@ class YTDLP:
                 opts["cookiefile"] = cookies
                 opts["mark_watched"] = False
                 logger.start(url, opts, 'extract_info')
-                with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
-                    return ydl.sanitize_info(ydl.extract_info(url, download=False))
+                try:
+                    with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
+                        return ydl.sanitize_info(ydl.extract_info(url, download=False))
+                except Exception as e:
+                    advance_proxy(url)
+                    raise e
             else:
                 logger.error('An error occured when downloading. Providing cookies may help with this issue.')
+                advance_proxy(url)
                 raise e
         finally:
             logger.finish()
@@ -250,7 +255,7 @@ class FFMPEG:
         """
         if not self.ffmpeg: return None
         ffmpeg_command = [self.ffmpeg] + ffmpeg_command
-        ffmpeg_env = {f"{proxy.split('://')[0]}_proxy": proxy} if proxy else None
+        ffmpeg_env = get_proxy(self.url, as_ffmpeg_dict=True)
         print(f'[FFMPEG {self.ff_id}] Executing {ffmpeg_command}')
         self._p = subprocess.Popen(ffmpeg_command, stdout = subprocess.PIPE, stderr = subprocess.STDOUT, env=ffmpeg_env)
         self.pid = self._p.pid
@@ -688,7 +693,7 @@ def assert_safe_url(url: str):
 def download_media_file(url: str, path_without_ext: str, ext: str|None = None):
     """Download raw file with requests.get with selected filename"""
     assert_safe_url(url)
-    response = requests.get(url, stream=True, proxies=proxies)
+    response = requests.get(url, stream=True, proxies=get_proxy(url, True))
     response.raise_for_status()
     if not ext:
         urlpath = url
@@ -714,7 +719,7 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
         headers_dict = json.loads(headers) if headers else {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
-        response = requests.get(src, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies), proxies=proxies)
+        response = requests.get(src, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies), proxies=get_proxy(url, True))
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
@@ -763,6 +768,7 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
         resp.headers['Accept-Ranges'] = 'bytes'
         return resp
     except requests.exceptions.RequestException as e:
+        advance_proxy(url)
         print(f"Error streaming media file: {e}")
         if url: get_meta(url, 10)
         return jsonify({"error": f"Failed to stream media: {e}"}), 500
@@ -914,6 +920,39 @@ def get_global_cookies_file(force = False):
     if cookies_only_on_failure and not force: return None
     if os.path.exists('cookies.txt'): return 'cookies.txt'
     return None
+
+
+def get_proxy(url, as_requests_dict = False, as_ffmpeg_dict = False):
+    if not url: return proxies[0]
+    proxy_path = os.path.join(get_data_dir(url), 'proxy.url')
+    if not os.path.exists(proxy_path):
+        proxy = proxies[0]
+    else:
+        with open(proxy_path, 'r') as f:
+            proxy = f.read()
+    if proxy == 'local': proxy = None
+    if as_ffmpeg_dict: return {f"{proxy.split('://')[0]}_proxy": proxy} if proxy else None
+    if as_requests_dict: return {proxy.split('://')[0]: proxy} if proxy else None
+    return proxy
+
+
+def advance_proxy(url):
+    if not url or len(proxies) < 2: return proxies[0]
+    proxy_path = os.path.join(get_data_dir(url), 'proxy.url')
+    proxy = None
+    if os.path.exists(proxy_path):
+        with open(proxy_path, 'r') as f:
+            proxy = f.read()
+
+    if proxy and proxy in proxies:
+        proxy_idx = proxies.index(proxy)
+    else:
+        proxy_idx = 0
+    proxy_idx += 1
+    if proxy_idx >= len(proxies): proxy_idx = 0
+    print(f'Proxy {proxy} failed. Advancing to the next possible proxy: {proxies[proxy_idx]}')
+    with open(proxy_path, 'w') as f:
+        f.write(proxies[proxy_idx])
 
 
 def keepalive(data_dir):
@@ -1109,7 +1148,7 @@ def generate_hls(url, audio_source, video_source):
 def generate_dash(url, audio_source, video_source, duration):
     def get_mp4_dash_ranges(source):
         headers_dict = json.loads(source[1]) | {"Range": "bytes=0-60000"}
-        response = requests.get(source[0], headers=headers_dict, cookies=load_http_cookies(source[2]), proxies=proxies)
+        response = requests.get(source[0], headers=headers_dict, cookies=load_http_cookies(source[2]), proxies=get_proxy(url, True))
         response.raise_for_status()
         data = response.content
         offset = 0
@@ -1254,7 +1293,7 @@ def get_sprite(url = None, meta = None, simulate = False):
             height = 0
 
             for i, img_url in enumerate(image_urls):
-                response = requests.get(img_url, proxies=proxies)
+                response = requests.get(img_url, proxies=get_proxy(url, True))
                 response.raise_for_status()
                 img = Image.open(io.BytesIO(response.content))
 
