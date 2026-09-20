@@ -764,7 +764,7 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
         return resp
     except requests.exceptions.RequestException as e:
         print(f"Error streaming media file: {e}")
-        if url: get_meta(url, 5)
+        if url: get_meta(url, 10)
         return jsonify({"error": f"Failed to stream media: {e}"}), 500
 
 
