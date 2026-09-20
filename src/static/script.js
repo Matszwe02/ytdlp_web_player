@@ -56,7 +56,7 @@ function setupPlayerSync()
             audioPlayer.pause();
     });
     audioPlayer.on('pause', () => {
-        if (audioActive && !player.paused() && !peerSeeking)
+        if (audioActive && !player.paused())
             player.pause();
     });
 
@@ -326,6 +326,7 @@ function getVideoSource()
 
 function getAudioSource()
 {
+    var url = getUrlInfo();
     let a = (info.sources['audio'] || [])[currentAudioSourceIndex];
     if (a) return a;
     return [`/hls?url=${url.encodedUrl}&quality=audio`, 'aac', 'application/x-mpegURL', false];
