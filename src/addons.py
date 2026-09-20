@@ -689,6 +689,7 @@ def load_http_cookies(cookies_str):
 
 def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str|None = None):
     """Stream raw file with requests.get"""
+    mark_watched(url)
     try:
         headers_dict = json.loads(headers) if headers else {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -932,8 +933,12 @@ def get_meta(url: str, max_meta_age = None):
                 if time.time() - meta.get('timestamp') > max_meta_age:
                     print('Checking metadata validity...')
                     srcs = choose_sources_for_res(get_all_video_sources(url, meta))
-                    src = srcs[0] or srcs[1]
-                    resp = stream_media_file(url, src[0], src[1], src[2])
+                    src = (srcs[0] or srcs[1])[0]
+                    sq = parse_qs(urlparse(src[0]).query)
+                    source = (sq.get('src') or [None])[0]
+                    headers = (sq.get('headers') or [None])[0]
+                    cookies = (sq.get('cookies') or [None])[0]
+                    resp = stream_media_file(url, source, headers, cookies)
                     if isinstance(resp, Response):
                         if resp.status_code > 399: raise ConnectionError(resp.response)
 
@@ -944,7 +949,7 @@ def get_meta(url: str, max_meta_age = None):
                             for line in raw_lines:
                                 line_str = line.strip()
                                 if not line_str or line_str.startswith('#'): continue
-                                resp = stream_media_file(None, urljoin(url, line_str), src[1], src[2])
+                                resp = stream_media_file(url, urljoin(url, line_str), headers, cookies)
                                 if not isinstance(resp, Response) or resp.status_code > 399: raise ConnectionError('Can not send a HLS request')
                                 break
 
@@ -1006,7 +1011,7 @@ def get_sb(url: str):
     return None
 
 
-def choose_sources_for_res(sources: dict[str, list[tuple[str, str, str, bool]]], res = None) -> list[tuple[str, str, str, bool]]:
+def choose_sources_for_res(sources: dict[str, list[tuple[str, str, str, bool]]], res = None) -> tuple[list[tuple[str, str, str, bool]]]:
     """
     Chooses (audio_source, video_source) among sources, needed for playback with specific resolution.
 
@@ -1068,6 +1073,9 @@ def get_mimetype(protocol: str = '', ext: str = '', video_name: str = ''):
 
 
 def get_all_video_sources(url = None, meta = None):
+    """
+    {source_code: [(url, codec, mimetype, is_cached), ...], ...}
+    """
     if not url: url = meta.get('original_url')
     if not meta: meta = get_meta(url)
     sources = get_external_video_sources(url, meta)
