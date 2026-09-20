@@ -207,7 +207,7 @@ function tryStopPropagation(event)
         event.stopPropagation();
     }
     catch (error) {}
-    player.el_.focus();
+    player.el_.focus({ preventScroll: true });
 }
 
 
@@ -432,7 +432,6 @@ function displayPlayerError(message)
 
 function loadChapters()
 {
-    var duration = player.duration();
     var progressEl = player.controlBar.progressControl.children_[0].el_;
     var timeToolip = progressEl.querySelector('.vjs-time-tooltip');
     var chapterHoverTooltip = document.createElement('div');
@@ -458,7 +457,7 @@ function loadChapters()
     function updateChapterVisibility(currentTime)
     {
         const progressControlWidth = progressEl.clientWidth;
-        const scale = duration / progressControlWidth;
+        const scale = info.duration / progressControlWidth;
         const margin = 4; // px
         let chapterFound = false;
         for (let i = 0; i < info.chapters.length; i++)
@@ -485,7 +484,7 @@ function loadChapters()
         const rect = progressEl.getBoundingClientRect();
         const mouseX = (event.touches && event.touches[0] ? event.touches[0].clientX : event.clientX) - rect.left;
 
-        updateChapterVisibility((mouseX / progressControlWidth) * duration);
+        updateChapterVisibility((mouseX / progressControlWidth) * info.duration);
     }
 
     function onProgressBarLeave()
@@ -509,7 +508,7 @@ function loadChapters()
     {
         var el = document.createElement('div');
         el.className = 'vjs-marker';
-        el.style.left = `${(info.chapters[i].time / duration * 100)}%`;
+        el.style.left = `${(info.chapters[i].time / info.duration * 100)}%`;
         let label = info.chapters[i].label;
         el.addEventListener('mouseover', ()=>{turnOnChapterLabel(label);});
         el.addEventListener('mouseout', turnOffChapterLabel);
