@@ -29,8 +29,8 @@ RUN PKG_CONFIG_PATH=/opt/ffmpeg/lib/pkgconfig ./configure \
         --disable-doc \
         --disable-ffplay \
         --disable-ffprobe \
-        --disable-shared \
-        --enable-static \
+        --disable-static \
+        --enable-shared \
         --enable-gpl \
         --enable-libdav1d \
         --enable-libmp3lame \
@@ -61,13 +61,12 @@ RUN apk add --no-cache deno gcompat lame-libs libdav1d openssl x264-libs x265-li
 WORKDIR /app
 COPY src/requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
-COPY --from=ffmpeg-builder /opt/ffmpeg/bin/ffmpeg /app/ffmpeg
+COPY --from=ffmpeg-builder /opt/ffmpeg /opt/ffmpeg
+RUN ln -s /opt/ffmpeg/bin/ffmpeg /app/ffmpeg
 COPY --from=version-builder /build/version.txt /app/
 COPY src/. /app
 COPY extension/extension.js /app/static/extension.js
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint
-RUN chmod +x /usr/local/bin/docker-entrypoint
 EXPOSE 5000
-ENV FLASK_APP=main.py
-ENTRYPOINT ["docker-entrypoint"]
+ENV FLASK_APP=main.py \
+    LD_LIBRARY_PATH=/opt/ffmpeg/lib:/usr/lib/x86_64-linux-gnu
 CMD ["python3", "main.py"]
