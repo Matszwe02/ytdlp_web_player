@@ -57,7 +57,7 @@ RUN python src/version.py
 
 FROM python:3.13-alpine
 
-RUN apk add --no-cache deno lame-libs libdav1d openssl x264-libs x265-libs
+RUN apk add --no-cache deno gcompat lame-libs libdav1d openssl x264-libs x265-libs
 WORKDIR /app
 COPY src/requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
@@ -65,6 +65,9 @@ COPY --from=ffmpeg-builder /opt/ffmpeg/bin/ffmpeg /app/ffmpeg
 COPY --from=version-builder /build/version.txt /app/
 COPY src/. /app
 COPY extension/extension.js /app/static/extension.js
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint
+RUN chmod +x /usr/local/bin/docker-entrypoint
 EXPOSE 5000
 ENV FLASK_APP=main.py
+ENTRYPOINT ["docker-entrypoint"]
 CMD ["python3", "main.py"]
