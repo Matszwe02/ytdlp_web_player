@@ -1,21 +1,24 @@
 ARG FFMPEG_VERSION=7.1.1
 ARG NV_CODEC_HEADERS_VERSION=n12.2.72.0
 
-FROM python:3.13-alpine AS ffmpeg-builder
+FROM python:3.13-slim AS ffmpeg-builder
 ARG FFMPEG_VERSION
 ARG NV_CODEC_HEADERS_VERSION
 
-RUN apk add --no-cache \
-        build-base \
-        dav1d-dev \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
         git \
-        lame-dev \
+        libdav1d-dev \
+        libmp3lame-dev \
+        libssl-dev \
+        libx264-dev \
+        libx265-dev \
         nasm \
-        openssl-dev \
-        pkgconf \
-        x264-dev \
-        x265-dev \
-        zlib-dev
+        pkg-config \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 RUN git clone --depth 1 --branch "${NV_CODEC_HEADERS_VERSION}" https://github.com/FFmpeg/nv-codec-headers.git \
@@ -48,26 +51,40 @@ RUN PKG_CONFIG_PATH=/opt/ffmpeg/lib/pkgconfig ./configure \
     done
 
 
-FROM python:3.13-alpine AS version-builder
-RUN apk add --no-cache git \
+FROM python:3.13-slim AS version-builder
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/* \
     && pip install --no-cache-dir GitPython
 WORKDIR /build
 COPY . /build/
 RUN python src/version.py
 
 
-FROM python:3.13-alpine
+FROM denoland/deno:bin AS deno-builder
 
-RUN apk add --no-cache deno gcompat lame-libs libdav1d openssl x264-libs x265-libs
+
+FROM python:3.13-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        libdav1d7 \
+        libmp3lame0 \
+        libssl3t64 \
+        libx264-164 \
+        libx265-215 \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY src/requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 COPY --from=ffmpeg-builder /opt/ffmpeg /opt/ffmpeg
+COPY --from=deno-builder /deno /usr/local/bin/deno
 RUN ln -s /opt/ffmpeg/bin/ffmpeg /app/ffmpeg
 COPY --from=version-builder /build/version.txt /app/
 COPY src/. /app
 COPY extension/extension.js /app/static/extension.js
 EXPOSE 5000
 ENV FLASK_APP=main.py \
-    LD_LIBRARY_PATH=/opt/ffmpeg/lib:/usr/lib/x86_64-linux-gnu
+    LD_LIBRARY_PATH=/opt/ffmpeg/lib
 CMD ["python3", "main.py"]
