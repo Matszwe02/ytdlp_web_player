@@ -41,9 +41,9 @@ RUN PKG_CONFIG_PATH=/opt/ffmpeg/lib/pkgconfig ./configure \
         --enable-openssl \
     && make -j"$(getconf _NPROCESSORS_ONLN)" \
     && make install \
-    && /opt/ffmpeg/bin/ffmpeg -hide_banner -decoders | grep -q libdav1d \
+    && LD_LIBRARY_PATH=/opt/ffmpeg/lib /opt/ffmpeg/bin/ffmpeg -hide_banner -decoders | grep -q libdav1d \
     && for encoder in h264_nvenc libx264 libx265 libmp3lame; do \
-        /opt/ffmpeg/bin/ffmpeg -hide_banner -encoders | grep -q "$encoder"; \
+        LD_LIBRARY_PATH=/opt/ffmpeg/lib /opt/ffmpeg/bin/ffmpeg -hide_banner -encoders | grep -q "$encoder"; \
     done
 
 
