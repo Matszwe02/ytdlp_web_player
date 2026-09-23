@@ -7,11 +7,14 @@ ARG NV_CODEC_HEADERS_VERSION
 
 RUN apk add --no-cache \
         build-base \
+        dav1d-dev \
         git \
+        lame-dev \
         nasm \
         openssl-dev \
         pkgconf \
         x264-dev \
+        x265-dev \
         zlib-dev
 
 WORKDIR /build
@@ -29,13 +32,19 @@ RUN PKG_CONFIG_PATH=/opt/ffmpeg/lib/pkgconfig ./configure \
         --disable-shared \
         --enable-static \
         --enable-gpl \
+        --enable-libdav1d \
+        --enable-libmp3lame \
         --enable-libx264 \
+        --enable-libx265 \
         --enable-nonfree \
         --enable-nvenc \
         --enable-openssl \
     && make -j"$(getconf _NPROCESSORS_ONLN)" \
     && make install \
-    && /opt/ffmpeg/bin/ffmpeg -hide_banner -encoders | grep -q h264_nvenc
+    && /opt/ffmpeg/bin/ffmpeg -hide_banner -decoders | grep -q libdav1d \
+    && for encoder in h264_nvenc libx264 libx265 libmp3lame; do \
+        /opt/ffmpeg/bin/ffmpeg -hide_banner -encoders | grep -q "$encoder"; \
+    done
 
 
 FROM python:3.13-alpine AS version-builder
@@ -48,7 +57,7 @@ RUN python src/version.py
 
 FROM python:3.13-alpine
 
-RUN apk add --no-cache deno openssl x264-libs
+RUN apk add --no-cache deno lame-libs libdav1d openssl x264-libs x265-libs
 WORKDIR /app
 COPY src/requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
