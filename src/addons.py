@@ -160,7 +160,7 @@ class YTDLP:
 
     @staticmethod
     def download(url, opts):
-        if (proxy): opts["proxy"] = proxy
+        if (proxy := get_proxy(url)): opts["proxy"] = proxy
         logger = YTDLP.Logger(url, opts, 'download')
         def ydl_download(url, opts, with_info = False):
             q = Queue()
@@ -198,7 +198,7 @@ class YTDLP:
 
     @staticmethod
     def get_info(url, opts):
-        if (proxy): opts["proxy"] = proxy
+        if (proxy := get_proxy(url)): opts["proxy"] = proxy
         logger = YTDLP.Logger(url, opts, 'extract_info')
         if js_runtime: os.environ['PATH'] += os.path.dirname(js_runtime)
         try:
@@ -211,10 +211,15 @@ class YTDLP:
                 opts["cookiefile"] = cookies
                 opts["mark_watched"] = False
                 logger.start(url, opts, 'extract_info')
-                with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
-                    return ydl.sanitize_info(ydl.extract_info(url, download=False))
+                try:
+                    with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
+                        return ydl.sanitize_info(ydl.extract_info(url, download=False))
+                except Exception as e:
+                    advance_proxy(url)
+                    raise e
             else:
                 logger.error('An error occured when downloading. Providing cookies may help with this issue.')
+                advance_proxy(url)
                 raise e
         finally:
             logger.finish()
@@ -299,7 +304,7 @@ class MediaDownloader:
                         '-frames:v', '1',
                         os.path.join(self.data_dir, 'thumb-orig.jpg')
                     ]
-                    FFMPEG(self.url, ffmpeg, Processes, proxy, ffmpeg_command)
+                    FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url), ffmpeg_command)
                 except Exception as e:
                     pprint_exc(e)
                 thumb_file = check_media(url=self.url, media_type='thumb-orig')
@@ -372,13 +377,13 @@ class MediaDownloader:
         height_param = "" if self.media_type.startswith('video-best') else f'[height<={self.res}]'
         if self.timestamps:
             if vid := check_res_at_least(self.url, self.res):
-                FFMPEG(self.url, ffmpeg, Processes, proxy, ['-i', vid, "-ss", f'{self.start_time}', "-to", f'{self.end_time}', '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
+                FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url), ['-i', vid, "-ss", f'{self.start_time}', "-to", f'{self.end_time}', '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
             else:
                 self.ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(self.data_dir, f'{self.media_type}.%(ext)s')})
                 YTDLP.download(self.url, self.ydl_opts)
         else:
             if vid := check_res_at_least(self.url, self.res):
-                FFMPEG(self.url, ffmpeg, Processes, proxy, ['-i', vid, '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
+                FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url), ['-i', vid, '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
             else:
                 success = False
                 temp_video = None
@@ -387,7 +392,7 @@ class MediaDownloader:
                     YTDLP.download(self.url, self.ydl_opts)
                     audio_file = check_media(self.url, 'audio') or MediaDownloader(self.url, 'audio').run()
                     temp_video = check_media(self.url, f'temp-{self.media_type}')
-                    success = FFMPEG(self.url, ffmpeg, Processes, proxy, ['-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]).success
+                    success = FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url), ['-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]).success
                 except Exception as e:
                     pprint_exc(e)
                 finally:
@@ -471,7 +476,7 @@ class MediaDownloader:
             nonlocal video_file_path
             try:
                 if not video_file_path:
-                    ff = FFMPEG(self.url, ffmpeg, Processes, proxy)
+                    ff = FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url))
                     ff.affected_files = [m3u8_path, temp_m3u8_path]
                     Thread(target=ff.run, args=[ffmpeg_command]).start()
                     time.sleep(2)
@@ -482,7 +487,7 @@ class MediaDownloader:
                     if os.path.exists(m3u8_path): os.rename(m3u8_path, temp_m3u8_path)
                     MediaDownloader(self.url, self.media_type).run()
                 else:
-                    ff = FFMPEG(self.url, ffmpeg, Processes, proxy)
+                    ff = FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url))
                     ff.affected_files = [m3u8_path, temp_m3u8_path]
                     ff.run(ffmpeg_command)
                     if ff.success:
@@ -514,7 +519,7 @@ class MediaDownloader:
             '-preset', 'veryfast',
             os.path.join(get_data_dir(get_url(request)), 'low.mp4')
         ]
-        FFMPEG(self.url, ffmpeg, Processes, proxy, ffmpeg_command)
+        FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url), ffmpeg_command)
 
 
     def sub(self):
@@ -583,7 +588,7 @@ class MediaDownloader:
             ]
 
             try:
-                if not FFMPEG(self.url, ffmpeg, Processes, proxy, ffmpeg_command).success: raise RuntimeError('FFMPEG failed to extract sprite')
+                if not FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url), ffmpeg_command).success: raise RuntimeError('FFMPEG failed to extract sprite')
                 frame_files = sorted(os.listdir(sprite_dir))
                 num_frames = len(frame_files)
                 num_rows = math.ceil(num_frames / frames_per_row)
@@ -619,9 +624,23 @@ def check_alerts():
     return alerts
 
 
+def assert_safe_url(url: str):
+    """Raise ValueError if url resolves to a private/internal/loopback address (SSRF guard)"""
+    import ipaddress
+    import socket
+    hostname = urlparse(url).hostname
+    if not hostname:
+        raise ValueError('Invalid URL: missing hostname')
+    for family, _, _, _, sockaddr in socket.getaddrinfo(hostname, None):
+        ip = ipaddress.ip_address(sockaddr[0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            raise ValueError(f'Refusing to fetch URL resolving to disallowed address: {hostname}')
+
+
 def download_media_file(url: str, path_without_ext: str, ext: str|None = None):
     """Download raw file with requests.get with selected filename"""
-    response = requests.get(url, stream=True, proxies=proxies)
+    assert_safe_url(url)
+    response = requests.get(url, stream=True, proxies=get_proxy(url, True))
     response.raise_for_status()
     if not ext:
         urlpath = url
@@ -643,12 +662,11 @@ def load_http_cookies(cookies_str):
 def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str|None = None):
     """Stream raw file with requests.get"""
     try:
+        assert_safe_url(src)
         headers_dict = json.loads(headers) if headers else {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
-        if client_range := request.headers.get('Range'):
-            headers_dict['Range'] = client_range
-        response = requests.get(src, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies), proxies=proxies)
+        response = requests.get(src, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies), proxies=get_proxy(url, True))
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
@@ -697,8 +715,9 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
         resp.headers['Accept-Ranges'] = 'bytes'
         return resp
     except requests.exceptions.RequestException as e:
+        advance_proxy(url)
         print(f"Error streaming media file: {e}")
-        if url: get_meta(url, 0)
+        if url: get_meta(url, 10)
         return jsonify({"error": f"Failed to stream media: {e}"}), 500
 
 
@@ -795,7 +814,7 @@ def get_media_duration(url, meta, media):
     except:
         pass
     ffmpeg_command = ['-i', media, '-hide_banner', '-f', 'null', '-stats']
-    ff = FFMPEG(url, ffmpeg, Processes, proxy)
+    ff = FFMPEG(url, ffmpeg, Processes, get_proxy(url))
     try: ff.run(ffmpeg_command)
     except Exception: pass
     info = ff.stdout
@@ -812,7 +831,7 @@ def get_media_res(url, meta, media):
         if meta.get("width") and meta.get("height"): return int(meta.get("width")), int(meta.get("height"))
     except: pass
     ffmpeg_command = ['-i', media, '-hide_banner', '-f', 'null', '-stats']
-    ff = FFMPEG(url, ffmpeg, Processes, proxy)
+    ff = FFMPEG(url, ffmpeg, Processes, get_proxy(url))
     try: ff.run(ffmpeg_command)
     except Exception: pass
     info = ff.stdout
@@ -836,7 +855,7 @@ def pprint_exc(e, code = 500):
 
 
 def gen_pathname(url: str):
-    return sha1(url.encode()).hexdigest()
+    return sha1(url.encode(), usedforsecurity=False).hexdigest()
 
 
 def get_data_dir(url):
@@ -848,6 +867,39 @@ def get_global_cookies_file(force = False):
     if cookies_only_on_failure and not force: return None
     if os.path.exists('cookies.txt'): return 'cookies.txt'
     return None
+
+
+def get_proxy(url, as_requests_dict = False, as_ffmpeg_dict = False):
+    if not url: return proxies[0]
+    proxy_path = os.path.join(get_data_dir(url), 'proxy.url')
+    if not os.path.exists(proxy_path):
+        proxy = proxies[0]
+    else:
+        with open(proxy_path, 'r') as f:
+            proxy = f.read()
+    if proxy == 'local': proxy = None
+    if as_ffmpeg_dict: return {f"{proxy.split('://')[0]}_proxy": proxy} if proxy else None
+    if as_requests_dict: return {proxy.split('://')[0]: proxy} if proxy else None
+    return proxy
+
+
+def advance_proxy(url):
+    if not url or len(proxies) < 2: return proxies[0]
+    proxy_path = os.path.join(get_data_dir(url), 'proxy.url')
+    proxy = None
+    if os.path.exists(proxy_path):
+        with open(proxy_path, 'r') as f:
+            proxy = f.read()
+
+    if proxy and proxy in proxies:
+        proxy_idx = proxies.index(proxy)
+    else:
+        proxy_idx = 0
+    proxy_idx += 1
+    if proxy_idx >= len(proxies): proxy_idx = 0
+    print(f'Proxy {proxy} failed. Advancing to the next possible proxy: {proxies[proxy_idx]}')
+    with open(proxy_path, 'w') as f:
+        f.write(proxies[proxy_idx])
 
 
 def keepalive(data_dir):
@@ -882,7 +934,7 @@ def get_meta(url: str, max_meta_age = None):
             try:
                 with open(cache, 'r') as f:
                     meta = json.load(f)
-                max_meta_age = max_meta_age or (60 if meta.get('is_live') else 600)
+                max_meta_age = max(5, max_meta_age if max_meta_age is not None else (60 if meta.get('is_live') else 600))
                 if time.time() - meta.get('timestamp') > max_meta_age:
                     print('Checking metadata validity...')
                     srcs = choose_sources_for_res(get_video_sources(url, meta), get_good_quality(get_video_formats(url, meta)))
@@ -1043,7 +1095,7 @@ def generate_hls(url, audio_source, video_source):
 def generate_dash(url, audio_source, video_source, duration):
     def get_mp4_dash_ranges(source):
         headers_dict = json.loads(source[1]) | {"Range": "bytes=0-60000"}
-        response = requests.get(source[0], headers=headers_dict, cookies=load_http_cookies(source[2]), proxies=proxies)
+        response = requests.get(source[0], headers=headers_dict, cookies=load_http_cookies(source[2]), proxies=get_proxy(url, True))
         response.raise_for_status()
         data = response.content
         offset = 0
@@ -1188,7 +1240,7 @@ def get_sprite(url = None, meta = None, simulate = False):
             height = 0
 
             for i, img_url in enumerate(image_urls):
-                response = requests.get(img_url, proxies=proxies)
+                response = requests.get(img_url, proxies=get_proxy(url, True))
                 response.raise_for_status()
                 img = Image.open(io.BytesIO(response.content))
 

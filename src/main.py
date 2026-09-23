@@ -38,11 +38,11 @@ playlist_support = os.environ.get('PLAYLIST_SUPPORT', 'True').lower() == 'true'
 auto_bg_playback = os.environ.get('AUTO_BG_PLAYBACK', 'True').lower() == 'true'
 audio_visualizer = os.environ.get('AUDIO_VISUALIZER', 'False').lower() == 'true'
 data_path = os.path.abspath(os.environ.get('DATA_PATH', './data'))
-proxy = os.environ.get('PROXY', '')
+proxies = [proxy for proxy in (os.environ.get('PROXIES') or 'local').split(',') if proxy != '']
 port = int(os.environ.get('PORT', '5000'))
 linked_pid = int(os.environ.get('LINKED_PID', '0'))
 
-deprecated_env = ['DOWNLOAD_PATH']
+deprecated_env = ['DOWNLOAD_PATH', 'PROXY']
 
 hls_duration = 5
 hls_audio_duration = 10
@@ -62,7 +62,6 @@ ydl_global_opts = {'ffmpeg-location': ffmpeg, "noplaylist": True, 'playlistend':
 if js_runtime and 'deno' not in subprocess.check_output([js_runtime, '--version']).decode(): ydl_global_opts["js_runtimes"] = {"node": {}}
 
 app_version = External.get_app_version()
-proxies = {proxy.split('://')[0]: proxy} if proxy else None
 
 
 

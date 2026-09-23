@@ -150,7 +150,12 @@ def resp_direct():
 def serve_external():
     src = request.args.get('src')
     url = get_url(request)
-    return stream_media_file(url, src, request.args.get('headers'), request.args.get('cookies'))
+    headers = request.args.get('headers')
+    if client_range := request.headers.get('Range'):
+        headers_dict = json.loads(headers)
+        headers_dict['Range'] = client_range
+        headers= json.dumps(headers_dict)
+    return stream_media_file(url, src, headers, request.args.get('cookies'))
 
 
 @app.route('/subtitle')
