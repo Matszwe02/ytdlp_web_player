@@ -38,6 +38,7 @@ RUN PKG_CONFIG_PATH=/opt/ffmpeg/lib/pkgconfig ./configure \
         --enable-libx265 \
         --enable-nonfree \
         --enable-nvenc \
+        --extra-ldflags=-Wl,-rpath,/opt/ffmpeg/lib \
         --enable-openssl \
     && make -j"$(getconf _NPROCESSORS_ONLN)" \
     && make install \
