@@ -17,6 +17,7 @@ let currentVideoSourceIndex = 0;
 let currentAudioSourceIndex = 0;
 let playerVisible = true;
 let logHistory = [];
+let videoHasAudio = false;
 
 function log(text)
 {
@@ -42,48 +43,60 @@ function err(text)
 
 function setupPlayerSync()
 {
+    let videoLock = 0;
+    let audioLock = 0;
 
-    let videoSeekingTimer = 0;
-    let audioSeekingTimer = 0;
+    function lockVideo(force = false)
+    {
+        if (Date.now() - audioLock < 200 && !force) return false;
+        videoLock = Date.now();
+        return true;
+    }
+
+    function lockAudio(force = false)
+    {
+        if (Date.now() - videoLock < 200 && !force) return false;
+        audioLock = Date.now();
+        return true;
+    }
 
     player.on('play', () => {
+        if (!lockVideo()) return;
         if (audioPlayer && audioActive && audioPlayer.paused())
             audioPlayer.play();
     });
     audioPlayer.on('play', () => {
+        if (!lockAudio()) return;
         if (audioActive && player.paused())
             player.play();
     });
 
     player.on('pause', () => {
-        if (audioSeekingTimer) return;
+        if (!lockVideo()) return;
         if (audioPlayer && audioActive && playerVisible && !audioPlayer.paused())
             audioPlayer.pause();
     });
     audioPlayer.on('pause', () => {
-        if (videoSeekingTimer) return;
+        if (!lockAudio()) return;
         if (audioActive && !player.paused())
             player.pause();
     });
 
     function syncPlayers()
     {
-        if (!audioActive) return;
-
-        const audioTime = audioPlayer.currentTime();
-        const offset = player.currentTime() - audioTime;
+        const offset = player.currentTime() - audioPlayer.currentTime();
 
         if (Math.abs(offset) > 5)
         {
-            player.currentTime(audioTime);
-            videoSeekingTimer = setTimeout(() => { videoSeekingTimer = 0; }, 1000);
+            lockAudio();
+            player.currentTime(audioPlayer.currentTime());
             log(`Video synced to audio. Offset: ${offset.toFixed(3)}s`);
         }
         else if (Math.abs(offset) > 0.02)
         {
-            let diff = Math.min(Math.abs(offset), .8);
-            let rate = audioPlayer.playbackRate() * (offset > 0 ? 1 - diff : 1 + diff);
-            if (player.bufferedEnd() - player.currentTime() < 1) rate /= 2;
+            let diff = Math.min(Math.abs(offset), 3);
+            let rate = audioPlayer.playbackRate() * (offset > 0 ? 1 - diff/4 : 1 + diff);
+            if (player.bufferedEnd() - player.currentTime() < diff) rate /= 2;
             player.playbackRate(rate);
             log(`Keeping up with audio with playback rate ${player.playbackRate()}`);
         }
@@ -100,17 +113,13 @@ function setupPlayerSync()
 
     function seekVideo()
     {
-        if (audioSeekingTimer) return;
-        clearTimeout(videoSeekingTimer);
-        videoSeekingTimer = setTimeout(() => { videoSeekingTimer = 0; }, 1000);
+        if (!lockAudio()) return;
         if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.02) return;
         player.currentTime(audioPlayer.currentTime());
     }
     function seekAudio()
     {
-        if (videoSeekingTimer) return;
-        clearTimeout(audioSeekingTimer);
-        audioSeekingTimer = setTimeout(() => { audioSeekingTimer = 0; }, 1000);
+        if (!lockVideo()) return;
         if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.02) return;
         audioPlayer.currentTime(player.currentTime());
 
@@ -122,16 +131,17 @@ function setupPlayerSync()
     audioPlayer.on('seeking', seekVideo);
 
     player.on('volumechange', () => {
+        if (!lockVideo()) return;
         if (!audioPlayer || !audioActive) return;
-        log('Volume change for audio');
-        if (player.audioTracks().tracks_.length != 0)
-        {
-            if (!player.muted()) player.muted(true);
-            audioPlayer.muted(false);
-            return;
-        }
-        audioPlayer.muted(player.muted() || player.volume() === 0);
+        audioPlayer.muted(player.muted());
         audioPlayer.volume(player.volume());
+    });
+
+    audioPlayer.on('volumechange', () => {
+        if (!lockAudio()) return;
+        if (!audioPlayer || !audioActive) return;
+        player.muted(audioPlayer.muted());
+        player.volume(audioPlayer.volume());
     });
 }
 
@@ -319,10 +329,21 @@ function getUrlInfo()
 
 function getVideoSource()
 {
+    videoHasAudio = false;
     var url = getUrlInfo();
-    const sources = info.sources[url.quality] || info.sources[url.quality + 'audio'] || [];
+    let sources = info.sources[url.quality];
+    if (!sources)
+    {
+        sources = info.sources[url.quality + 'audio'];
+        videoHasAudio = true;
+    }
+    if (!sources)
+    {
+        sources = [];
+    }
     let best = sources[currentVideoSourceIndex];
     if (best) return best;
+    videoHasAudio = true;
     return [`/hls?url=${url.encodedUrl}&quality=${url.quality}`, 'h264', 'application/x-mpegURL', false];
 }
 
@@ -336,17 +357,26 @@ function getAudioSource()
 }
 
 
+function updateAudioMode()
+{
+    if (!player || !audioPlayer || !info || !audioActive || !videoHasAudio) return;
+    audioActive = false;
+    stopAudioPlayer();
+    log('Video source has audio - disabling separate audio player');
+}
+
+
 function play()
 {
     if (audioActive) audioPlayer.play();
-    player.play();
+    else player.play();
 }
 
 
 function pause()
 {
     if (audioActive) audioPlayer.pause();
-    player.pause();
+    else player.pause();
 }
 
 
@@ -356,8 +386,8 @@ function currentTime(newtime = null)
     {
         return audioActive ? audioPlayer.currentTime() : player.currentTime();
     }
-    player.currentTime(newtime);
-    audioPlayer.currentTime(newtime);
+    if (audioActive) audioPlayer.currentTime(newtime);
+    else player.currentTime(newtime);
 }
 
 
@@ -371,8 +401,8 @@ function playbackRate(speed = null)
         }
         catch { return 1; }
     }
-    player.playbackRate(speed);
-    audioPlayer.playbackRate(speed);
+    if (audioActive) audioPlayer.playbackRate(speed);
+    else player.playbackRate(speed);
 }
 
 
@@ -530,7 +560,6 @@ function setAudioSource()
         audioPlayer.load();
     }
     audioPlayer.muted(player.muted());
-    audioPlayer.volume(player.volume());
     audioPlayer.volume(player.volume());
 }
 
@@ -1888,6 +1917,7 @@ function loadVideo()
     });
 
     player.on('playing', () => {
+        if (isBuffering) lockAudio();
         isBuffering = false;
         minBufferAheadTime = 1;
         if (info && parseFloat(info.duration) == 0 && currentTime() < 1)
@@ -2006,6 +2036,7 @@ function loadVideo()
 
             player.load();
             setupPlayerSync();
+            updateAudioMode();
             player.on('error', () => {
                 const error = player.error();
                 if (error)
@@ -2137,6 +2168,8 @@ function displayDebugInfo()
     viewbox.innerHTML += `\n<details><summary>Info dict</summary>${JSON.stringify(info, null, 2)}</details>`;
     viewbox.innerHTML += `\n<details><summary>Current source</summary>Video:\n${JSON.stringify(player.currentSources(), null, 2)}\nAudio:\n${JSON.stringify(audioPlayer.currentSources(), null, 2)}</details>`;
     viewbox.innerHTML += `\n<details><summary>Console log</summary>${JSON.stringify(logHistory, null, 2)}</details>`;
+    viewbox.innerHTML += `\n<button onclick="advanceVideoSource()">advanceVideoSource()</button>`;
+    viewbox.innerHTML += `\n<button onclick="advanceAudioSource()">advanceAudioSource()</button>`;
 
     document.body.appendChild(viewbox);
 }
