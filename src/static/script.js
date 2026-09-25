@@ -204,7 +204,9 @@ function getUrlInfo()
     const urlParams = new URLSearchParams(window.location.search);
     const originalUrl = urlParams.get('v') || urlParams.get('url');
     const encodedUrl = encodeURIComponent(originalUrl);
-    const startTime = urlParams.get('t');
+    let startTime = null;
+    try {startTime = parseFloat(urlParams.get('t')) || parseFloat((new URL(info.url)).searchParams.get('t').replaceAll('s', ''))}
+    catch {}
     var quality = urlParams.get('quality');
     if (quality == '') quality = null;
     if (quality == 'null') quality = null;
@@ -237,6 +239,18 @@ function formatTimeShort(timeInSeconds)
     const seconds = Math.floor(timeInSeconds % 60);
     out_str += String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
     return out_str.startsWith("0") ? out_str.substring(1) : out_str;
+}
+
+
+function updatePlaybackTime(newTime = null)
+{
+    const url = new URL(window.location.href);
+    if (newTime === null) newTime = currentTime();
+    if (time > 2 && time < info.duration - 2)
+    {
+        url.searchParams.set('t', Math.floor(time));
+        window.history.replaceState({}, '', url);
+    }
 }
 
 
@@ -1915,9 +1929,12 @@ function loadVideo()
 
             setInterval(()=>{ retryFetch(getVideoSource()[0], {}, 0, undefined, false, true).then(response => response.ok); }, 120000); // Keepalive
 
-            if (info.auto_bg_playback && navigator?.userAgentData?.mobile)
-            {
-                document.addEventListener('visibilitychange', () => {
+            setInterval(()=>{ updatePlaybackTime(); }, 10000);
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') updatePlaybackTime();
+                if (info.auto_bg_playback && navigator?.userAgentData?.mobile)
+                {
                     var url = getUrlInfo();
                     if (url.quality == 'audio')
                     {
@@ -1956,8 +1973,8 @@ function loadVideo()
                         ps.suspend = false;
                         setVideoQuality();
                     }
-                });
-            }
+                }
+            });
 
         })
         .catch(error => {
