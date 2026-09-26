@@ -768,7 +768,6 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
         resp.headers['Accept-Ranges'] = 'bytes'
         return resp
     except requests.exceptions.RequestException as e:
-        advance_proxy(url)
         print(f"Error streaming media file: {e}")
         if url: get_meta(url, 10)
         return jsonify({"error": f"Failed to stream media: {e}"}), 500
@@ -923,26 +922,30 @@ def get_global_cookies_file(force = False):
 
 
 def get_proxy(url, as_requests_dict = False, as_ffmpeg_dict = False):
-    if not url: return proxies[0]
-    proxy_path = os.path.join(get_data_dir(url), 'proxy.url')
+    if not url: return proxies[0] if proxies else None
+    if not proxies: return None
+    proxy_path = os.path.join(get_data_dir(url), 'proxy')
     if not os.path.exists(proxy_path):
         proxy = proxies[0]
     else:
         with open(proxy_path, 'r') as f:
-            proxy = f.read()
+            _, proxy = f.read().split('\n')
     if proxy == 'local': proxy = None
     if as_ffmpeg_dict: return {f"{proxy.split('://')[0]}_proxy": proxy} if proxy else None
     if as_requests_dict: return {proxy.split('://')[0]: proxy} if proxy else None
     return proxy
 
 
-def advance_proxy(url):
-    if not url or len(proxies) < 2: return proxies[0]
-    proxy_path = os.path.join(get_data_dir(url), 'proxy.url')
+def advance_proxy(url, force = False):
+    if not url or len(proxies) < 2: return
+    proxy_path = os.path.join(get_data_dir(url), 'proxy')
     proxy = None
-    if os.path.exists(proxy_path):
+    if os.path.exists(proxy_path) and not force:
         with open(proxy_path, 'r') as f:
-            proxy = f.read()
+            proxy_time, proxy = f.read().split('\n')
+            if time.time() - float(proxy_time) < 20:
+                print('Skipping advancing proxy before 20s has passed')
+                return
 
     if proxy and proxy in proxies:
         proxy_idx = proxies.index(proxy)
@@ -952,7 +955,10 @@ def advance_proxy(url):
     if proxy_idx >= len(proxies): proxy_idx = 0
     print(f'Proxy {proxy} failed. Advancing to the next possible proxy: {proxies[proxy_idx]}')
     with open(proxy_path, 'w') as f:
-        f.write(proxies[proxy_idx])
+        f.write(f'{time.time()}\n{proxies[proxy_idx]}')
+    print('Proxy advanced. Recreating meta...')
+    try: os.remove(os.path.join(get_data_dir(url), 'meta.json'))
+    except: pass
 
 
 def keepalive(data_dir):
@@ -980,6 +986,32 @@ def check_media(url: str, media_type: str):
     return None
 
 
+def check_meta_validity(url: str, meta: dict):
+    try:
+        print(f'## Checking meta validity for {url}')
+        srcs = choose_sources_for_res(get_video_sources(url, meta), get_good_quality(get_video_formats(url, meta)))
+        src = srcs[0] or srcs[1]
+        resp = stream_media_file(url, src[0], src[1], src[2])
+        if isinstance(resp, Response):
+            if resp.status_code > 399: raise ConnectionError(resp.response)
+
+            mime_type = resp.headers.get('Content-Type') or ''
+            if 'mpegurl' in mime_type.lower():
+
+                raw_lines = resp.data.decode('utf-8', errors='ignore').splitlines()
+                for line in raw_lines:
+                    line_str = line.strip()
+                    if not line_str or line_str.startswith('#'): continue
+                    resp = stream_media_file(None, urljoin(url, line_str), src[1], src[2])
+                    if not isinstance(resp, Response) or resp.status_code > 399: raise ConnectionError('Can not send a HLS request')
+                    break
+        else: raise ConnectionError('Can not send a request')
+        return True
+    except Exception as e:
+        pprint_exc(e)
+        return False
+
+
 def get_meta(url: str, max_meta_age = None):
     with FileCachingLock(url, 'meta') as cache:
         print(cache)
@@ -989,25 +1021,7 @@ def get_meta(url: str, max_meta_age = None):
                     meta = json.load(f)
                 max_meta_age = max(5, max_meta_age if max_meta_age is not None else (60 if meta.get('is_live') else 600))
                 if time.time() - meta.get('timestamp') > max_meta_age:
-                    print('Checking metadata validity...')
-                    srcs = choose_sources_for_res(get_video_sources(url, meta), get_good_quality(get_video_formats(url, meta)))
-                    src = srcs[0] or srcs[1]
-                    resp = stream_media_file(url, src[0], src[1], src[2])
-                    if isinstance(resp, Response):
-                        if resp.status_code > 399: raise ConnectionError(resp.response)
-
-                        mime_type = resp.headers.get('Content-Type') or ''
-                        if 'mpegurl' in mime_type.lower():
-
-                            raw_lines = resp.data.decode('utf-8', errors='ignore').splitlines()
-                            for line in raw_lines:
-                                line_str = line.strip()
-                                if not line_str or line_str.startswith('#'): continue
-                                resp = stream_media_file(None, urljoin(url, line_str), src[1], src[2])
-                                if not isinstance(resp, Response) or resp.status_code > 399: raise ConnectionError('Can not send a HLS request')
-                                break
-
-                    else: raise ConnectionError('Can not send a request')
+                    if not check_meta_validity(url, meta): raise RuntimeError('Metadata invalid')
                     meta['timestamp'] = int(time.time())
                     with open(cache, 'w') as f:
                         json.dump(meta, f)
@@ -1022,30 +1036,41 @@ def get_meta(url: str, max_meta_age = None):
                     try: os.remove(os.path.join(data_dir, file))
                     except: pass
         print(f'downloading meta for {url}')
-        ydl_opts = {'skip_download': True}
-        ydl_opts.update(ydl_global_opts)
-        if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["cookiefile"] = cookies
-        info = YTDLP.get_info(url, ydl_opts)
-        if info.get('entries'): info = info['entries'][0]
-
-        if not info.get('duration') or not info.get('width') or not info.get('height'):
+        possible_meta = None
+        for i in range(len(proxies) * 2 + 1):
             try:
-                print('Fetching additional info for meta')
-                srcs = choose_sources_for_res(get_video_sources(url, info), get_good_quality(get_video_formats(url, info)))
-                src = srcs[0] or srcs[1]
-                duration = get_media_duration(url, None, src[0])
-                w, h = get_media_res(url, None, src[0])
-                info['duration'] = duration
-                info['width'] = w
-                info['height'] = h
+                print(f'Setting proxy {proxies[i]}')
+                ydl_opts = {'skip_download': True}
+                if i < len(proxies): ydl_opts = {'skip_download': True, 'socket_timeout': 3, 'extractor_retries': 0}
+                ydl_opts.update(ydl_global_opts)
+                if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["cookiefile"] = cookies
+                info = YTDLP.get_info(url, ydl_opts)
+                if info.get('entries'): info = info['entries'][0]
+
+                if not info.get('duration') or not info.get('width') or not info.get('height'):
+                    try:
+                        print('Fetching additional info for meta')
+                        srcs = choose_sources_for_res(get_video_sources(url, info), get_good_quality(get_video_formats(url, info)))
+                        src = srcs[0] or srcs[1]
+                        duration = get_media_duration(url, None, src[0])
+                        w, h = get_media_res(url, None, src[0])
+                        info['duration'] = duration
+                        info['width'] = w
+                        info['height'] = h
+                    except Exception as e:
+                        pprint_exc(e)
+
+                info['original_url'] = url
+                info['timestamp'] = int(time.time())
+                possible_meta = info
+                check_meta_validity(url, info)
+                with open(os.path.join(get_data_dir(url), 'meta.json'), 'w') as f:
+                    json.dump(info, f)
+                    return info
             except Exception as e:
                 pprint_exc(e)
-
-        info['original_url'] = url
-        info['timestamp'] = int(time.time())
-        with open(os.path.join(get_data_dir(url), 'meta.json'), 'w') as f:
-            json.dump(info, f)
-            return info
+                advance_proxy(url, True)
+        return possible_meta
     return None
 
 
