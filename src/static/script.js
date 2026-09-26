@@ -12,12 +12,23 @@ let isBuffering = false;
 let ongoingRequest = null;
 let audioContext = null;
 let audioSource = null;
-let audioActive = false; // True when the separate audio player
 let currentVideoSourceIndex = 0;
 let currentAudioSourceIndex = 0;
 let playerVisible = true;
 let logHistory = [];
-let videoHasAudio = false;
+
+
+const PlayerModes = {
+    /** Only `player` active, playing video */
+    VIDEO: 0,
+    /** Both `player` and `audioPlayer` active */
+    VIDEO_AUDIO: 1,
+    /** Only `player` active, playing audio */
+    AUDIO: 2,
+}
+
+
+let playerMode = PlayerModes.VIDEO;
 
 function log(text)
 {
@@ -41,49 +52,52 @@ function err(text)
 }
 
 
+let videoLock = 0;
+let audioLock = 0;
+
+function lockVideo(force = false)
+{
+    if (Date.now() - audioLock < 200 && !force) return false;
+    videoLock = Date.now();
+    return true;
+}
+
+function lockAudio(force = false)
+{
+    if (Date.now() - videoLock < 200 && !force) return false;
+    audioLock = Date.now();
+    return true;
+}
+
+
 function setupPlayerSync()
 {
-    let videoLock = 0;
-    let audioLock = 0;
-
-    function lockVideo(force = false)
-    {
-        if (Date.now() - audioLock < 200 && !force) return false;
-        videoLock = Date.now();
-        return true;
-    }
-
-    function lockAudio(force = false)
-    {
-        if (Date.now() - videoLock < 200 && !force) return false;
-        audioLock = Date.now();
-        return true;
-    }
 
     player.on('play', () => {
         if (!lockVideo()) return;
-        if (audioPlayer && audioActive && audioPlayer.paused())
+        if (playerMode == PlayerModes.VIDEO_AUDIO && audioPlayer.paused())
             audioPlayer.play();
     });
     audioPlayer.on('play', () => {
         if (!lockAudio()) return;
-        if (audioActive && player.paused())
+        if (playerMode == PlayerModes.VIDEO_AUDIO && player.paused())
             player.play();
     });
 
     player.on('pause', () => {
         if (!lockVideo()) return;
-        if (audioPlayer && audioActive && playerVisible && !audioPlayer.paused())
+        if (playerMode == PlayerModes.VIDEO_AUDIO && playerVisible && !audioPlayer.paused())
             audioPlayer.pause();
     });
     audioPlayer.on('pause', () => {
         if (!lockAudio()) return;
-        if (audioActive && !player.paused())
+        if (playerMode == PlayerModes.VIDEO_AUDIO && !player.paused())
             player.pause();
     });
 
     function syncPlayers()
     {
+        if (!playerVisible) return;
         const offset = player.currentTime() - audioPlayer.currentTime();
 
         if (Math.abs(offset) > 5)
@@ -92,11 +106,11 @@ function setupPlayerSync()
             player.currentTime(audioPlayer.currentTime());
             log(`Video synced to audio. Offset: ${offset.toFixed(3)}s`);
         }
-        else if (Math.abs(offset) > 0.02)
+        else if (Math.abs(offset) > 0.01)
         {
-            let diff = Math.min(Math.abs(offset), 3);
-            let rate = audioPlayer.playbackRate() * (offset > 0 ? 1 - diff/4 : 1 + diff);
-            if (player.bufferedEnd() - player.currentTime() < diff) rate /= 2;
+            let diff = Math.min(Math.abs(offset), 1);
+            let buffer = player.bufferedEnd() - player.currentTime();
+            let rate = audioPlayer.playbackRate() * (offset > 0 ? Math.max(1 - diff, 0.1) : 1 + diff * Math.max(Math.min(buffer, 1), 7));
             player.playbackRate(rate);
             log(`Keeping up with audio with playback rate ${player.playbackRate()}`);
         }
@@ -107,20 +121,20 @@ function setupPlayerSync()
     }
 
     audioPlayer.on('timeupdate', () => {
-        if (!audioActive) return;
+        if (playerMode != PlayerModes.VIDEO_AUDIO) return;
         syncPlayers();
     });
 
     function seekVideo()
     {
         if (!lockAudio()) return;
-        if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.02) return;
+        if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.01) return;
         player.currentTime(audioPlayer.currentTime());
     }
     function seekAudio()
     {
         if (!lockVideo()) return;
-        if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.02) return;
+        if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.01) return;
         audioPlayer.currentTime(player.currentTime());
 
     }
@@ -132,14 +146,14 @@ function setupPlayerSync()
 
     player.on('volumechange', () => {
         if (!lockVideo()) return;
-        if (!audioPlayer || !audioActive) return;
+        if (playerMode != PlayerModes.VIDEO_AUDIO) return;
         audioPlayer.muted(player.muted());
         audioPlayer.volume(player.volume());
     });
 
     audioPlayer.on('volumechange', () => {
         if (!lockAudio()) return;
-        if (!audioPlayer || !audioActive) return;
+        if (playerMode != PlayerModes.VIDEO_AUDIO) return;
         player.muted(audioPlayer.muted());
         player.volume(audioPlayer.volume());
     });
@@ -329,13 +343,13 @@ function getUrlInfo()
 
 function getVideoSource()
 {
-    videoHasAudio = false;
+    playerMode = PlayerModes.VIDEO_AUDIO;
     var url = getUrlInfo();
     let sources = info.sources[url.quality];
     if (!sources)
     {
         sources = info.sources[url.quality + 'audio'];
-        videoHasAudio = true;
+        playerMode = PlayerModes.VIDEO;
     }
     if (!sources)
     {
@@ -343,7 +357,7 @@ function getVideoSource()
     }
     let best = sources[currentVideoSourceIndex];
     if (best) return best;
-    videoHasAudio = true;
+    playerMode = PlayerModes.VIDEO;
     return [`/hls?url=${url.encodedUrl}&quality=${url.quality}`, 'h264', 'application/x-mpegURL', false];
 }
 
@@ -359,8 +373,7 @@ function getAudioSource()
 
 function updateAudioMode()
 {
-    if (!player || !audioPlayer || !info || !audioActive || !videoHasAudio) return;
-    audioActive = false;
+    if (playerMode == PlayerModes.VIDEO) return;
     stopAudioPlayer();
     log('Video source has audio - disabling separate audio player');
 }
@@ -368,14 +381,14 @@ function updateAudioMode()
 
 function play()
 {
-    if (audioActive) audioPlayer.play();
+    if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.play();
     else player.play();
 }
 
 
 function pause()
 {
-    if (audioActive) audioPlayer.pause();
+    if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.pause();
     else player.pause();
 }
 
@@ -384,9 +397,9 @@ function currentTime(newtime = null)
 {
     if (newtime === null)
     {
-        return audioActive ? audioPlayer.currentTime() : player.currentTime();
+        return playerMode == PlayerModes.VIDEO_AUDIO ? audioPlayer.currentTime() : player.currentTime();
     }
-    if (audioActive) audioPlayer.currentTime(newtime);
+    if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.currentTime(newtime);
     else player.currentTime(newtime);
 }
 
@@ -397,11 +410,11 @@ function playbackRate(speed = null)
     {
         try
         {
-            return audioActive ? audioPlayer.playbackRate() : player.playbackRate();
+            return playerMode == PlayerModes.VIDEO_AUDIO ? audioPlayer.playbackRate() : player.playbackRate();
         }
         catch { return 1; }
     }
-    if (audioActive) audioPlayer.playbackRate(speed);
+    if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.playbackRate(speed);
     else player.playbackRate(speed);
 }
 
@@ -647,12 +660,14 @@ function applyVideoQuality()
     ps.save();
     if (ps.suspend) return;
 
-    audioActive = url.quality !== 'audio' && getAudioSource() != null;
+    let audioActive = url.quality !== 'audio' && getAudioSource() != null;
 
-    if (audioActive) setAudioSource();
+    playerMode = audioActive ? PlayerModes.VIDEO_AUDIO : PlayerModes.VIDEO;
+
+    if (playerMode == PlayerModes.VIDEO_AUDIO) setAudioSource();
     else stopAudioPlayer();
 
-    log(`Applying source ${currentVideoEntryIndex}, separate audio player: ${audioActive}`);
+    log(`Applying source ${currentVideoEntryIndex}, separate audio player: ${playerMode == PlayerModes.VIDEO_AUDIO}`);
 
     setVideoSource();
 }
