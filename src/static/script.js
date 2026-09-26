@@ -1214,16 +1214,19 @@ class ResolutionSwitcherButton extends videojs.getComponent('Button')
 
     updateResolutions()
     {
-        let resolutions = Object.keys(info.sources)
-        if (!resolutions || resolutions.length < 1) return;
+        let resolutions = Object.keys(info.sources);
+        if (resolutions.length < 1) return;
         this.el().style.display = '';
-        this.menu.innerHTML = ''
-        const audioIndex = resolutions.indexOf("audio");
-        if (audioIndex !== -1) {
-            resolutions.splice(audioIndex, 1);
-        }
-        
-        resolutions.sort((a, b) => b.length - a.length || b.localeCompare(a)); // Sort descending
+        this.menu.innerHTML = '';
+        const resolutionSet = new Set(resolutions);
+
+        resolutions = resolutions.filter((resolution) => {
+            if (resolution === 'audio') return false;
+            const isAudio = resolution.endsWith('audio');
+            const res = resolution.replace(/audio$/, '');
+            return !isAudio || !resolutionSet.has(res);
+        });
+        resolutions.sort((a, b) => b.length - a.length || b.localeCompare(a));
         resolutions.push('audio');
         
         resolutions.forEach(height => {
