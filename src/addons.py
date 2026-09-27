@@ -922,14 +922,15 @@ def get_global_cookies_file(force = False):
 
 
 def get_proxy(url, as_requests_dict = False, as_ffmpeg_dict = False):
-    if not url: return proxies[0] if proxies else None
     if not proxies: return None
-    proxy_path = os.path.join(get_data_dir(url), 'proxy')
-    if not os.path.exists(proxy_path):
-        proxy = proxies[0]
-    else:
-        with open(proxy_path, 'r') as f:
-            _, proxy = f.read().split('\n')
+    proxy = proxies[0]
+    if url:
+        proxy_path = os.path.join(get_data_dir(url), 'proxy')
+        if not os.path.exists(proxy_path):
+            proxy = proxies[0]
+        else:
+            with open(proxy_path, 'r') as f:
+                _, proxy = f.read().split('\n')
     if proxy == 'local': proxy = None
     if as_ffmpeg_dict: return {f"{proxy.split('://')[0]}_proxy": proxy} if proxy else None
     if as_requests_dict: return {proxy.split('://')[0]: proxy} if proxy else None
