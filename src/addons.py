@@ -819,6 +819,7 @@ def host_file(url: str, media_type='video', download_name: str | None = None):
         if download_name:
             if '-' in media_type: download_name += '-' + media_type.split('-', 1)[-1]
             download_name += os.path.splitext(file)[1]
+            download_name = download_name.replace('-0.0.', '-.').replace('_0.0-', '_-')
         return send_file_partial(file, download_name=download_name)
     return jsonify({"error": f"Cannot gather {media_type}"}), 404
 
