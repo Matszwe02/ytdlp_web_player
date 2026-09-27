@@ -246,9 +246,9 @@ function updatePlaybackTime(newTime = null)
 {
     const url = new URL(window.location.href);
     if (newTime === null) newTime = currentTime();
-    if (time > 2 && time < info.duration - 2)
+    if (newTime > 2 && newTime < info.duration - 2)
     {
-        url.searchParams.set('t', Math.floor(time));
+        url.searchParams.set('t', Math.floor(newTime));
         window.history.replaceState({}, '', url);
     }
 }
