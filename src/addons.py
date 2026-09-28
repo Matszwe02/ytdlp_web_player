@@ -1181,7 +1181,7 @@ def get_external_video_sources(url = None, meta = None) -> dict[str, list[tuple[
     {source_code: [(url, codec, mimetype, is_cached), ...], ...}
     """
     if not url: url = meta.get('original_url')
-    if not meta: meta or get_meta(url)
+    if not meta: meta = get_meta(url)
     sources = {}
     meta_formats = meta.get('formats') or []
     language = meta.get('language')
@@ -1195,7 +1195,7 @@ def get_external_video_sources(url = None, meta = None) -> dict[str, list[tuple[
         if int(src.get('height') or 0) > max_quality: continue
         if (src.get('vcodec') or 'none').lower() != 'none' or ((src.get('video_ext') or 'none').lower() != 'none'):
             video_name = f"{(src.get('height') or meta.get('height') or '1')}"
-        if src.get('acodec', 'none') != 'none':
+        if src.get('acodec', '?') != 'none' or (src.get('audio_ext') or 'none').lower() != 'none':
             audio_name = 'audio'
             if 'audio' in (src.get('source_id') or '') or (src.get('acodec') or '?') == '?':
                 source_preference = -9
