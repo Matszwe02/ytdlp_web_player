@@ -1030,8 +1030,8 @@ class DownloadButton extends videojs.getComponent('Button')
                     const link = document.createElement('a');
                     link.href = `/download?url=${url.encodedUrl}&quality=${quality}`;
 
-                    if (this.startTime != null && this.endTime != null)
-                        link.href += `&start=${this.startTime.toFixed(1)}&end=${this.endTime.toFixed(1)}`;
+                    if (this.startTime != null || this.endTime != null)
+                        link.href += `&start=${this.startTime ? this.startTime.toFixed(1) : ''}&end=${this.endTime ? this.endTime.toFixed(1) : ''}`;
 
                     link.download = 'file';
 
