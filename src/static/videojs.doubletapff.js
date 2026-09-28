@@ -1,5 +1,6 @@
-function doubleTapFF(rateTarget)
+function doubleTapFF(targetPlayer = null)
 {
+    targetPlayer = targetPlayer || this;
 	var videoElement = this;
 	var videoElementId = this.id();
 	document.getElementById(videoElementId).addEventListener("mousedown", clickHandler);
@@ -10,7 +11,6 @@ function doubleTapFF(rateTarget)
 	var tappedTwice = false;
     var tapTimer = null;
     var holdTimer = null;
-    var rateElement = rateTarget || videoElement;
     var playbackRate = null;
     var initialMoveDistance = null;
 
@@ -21,9 +21,9 @@ function doubleTapFF(rateTarget)
         {
             e.preventDefault();
             setTimeout(() => {
-                videoElement.play();
+                targetPlayer.play();
             }, 50)
-            rateElement.playbackRate(playbackRate);
+            targetPlayer.playbackRate(playbackRate);
             window.navigator?.vibrate?.(10);
         }
         playbackRate = null;;
@@ -31,11 +31,11 @@ function doubleTapFF(rateTarget)
 
     function setHoldTimer()
     {
-        if (videoElement.paused()) return;
+        if (targetPlayer.paused()) return;
         holdTimer = setTimeout(() => {
             if (playbackRate) return;
-            playbackRate = rateElement.playbackRate();
-            rateElement.playbackRate(playbackRate * 2);
+            playbackRate = targetPlayer.playbackRate();
+            targetPlayer.playbackRate(playbackRate * 2);
             window.navigator?.vibrate?.(10);
         }, 500);
     }
@@ -64,8 +64,8 @@ function doubleTapFF(rateTarget)
             tapTimer = null;
             if (!tappedTwice && enableSingleTap)
             {
-                if (videoElement.paused()) videoElement.play();
-                else videoElement.pause();
+                if (targetPlayer.paused()) targetPlayer.play();
+                else targetPlayer.pause();
             }
             tappedTwice = false;
         }, 300);
@@ -74,7 +74,7 @@ function doubleTapFF(rateTarget)
     function clickHandler(e)
     {
         if (e.target?.tagName?.toLowerCase() != 'video' || e.target?.classList.contains('vjs-poster')) return;
-        if (!(videoElement.hasClass('vjs-user-active') || videoElement.paused())) e.preventDefault();
+        if (!(videoElement.hasClass('vjs-user-active') || targetPlayer.paused())) e.preventDefault();
         if (!getTapTimer()) setHoldTimer();
     }
 
@@ -86,7 +86,7 @@ function doubleTapFF(rateTarget)
 	function tapHandler(e)
     {
         if (e.target?.tagName?.toLowerCase() != 'video' || e.target?.classList.contains('vjs-poster')) return;
-        if (!(videoElement.hasClass('vjs-user-active') || videoElement.paused())) e.preventDefault();
+        if (!(videoElement.hasClass('vjs-user-active') || targetPlayer.paused())) e.preventDefault();
 
         if (e.touches.length > 1)
         {
@@ -107,10 +107,10 @@ function doubleTapFF(rateTarget)
         
         if (x > br.width * 0.33 && x < br.width * 0.67)
         {
-            if (videoElement.hasClass('vjs-user-active') || videoElement.paused())
+            if (videoElement.hasClass('vjs-user-active') || targetPlayer.paused())
             {
-                if (videoElement.paused()) videoElement.play();
-                else videoElement.pause();
+                if (targetPlayer.paused()) targetPlayer.play();
+                else targetPlayer.pause();
             }
         }
         else
@@ -119,16 +119,16 @@ function doubleTapFF(rateTarget)
             {
                 if (x <= br.width * 0.33)
                 {
-                    videoElement.currentTime(videoElement.currentTime() - 10);
+                    targetPlayer.currentTime(targetPlayer.currentTime() - 10);
                 }
                 else if (x >= br.width * 0.67)
                 {
-                    videoElement.currentTime(videoElement.currentTime() + 10);
+                    targetPlayer.currentTime(targetPlayer.currentTime() + 10);
                 }
                 tappedTwice = true;
                 e.preventDefault();
             }
-            setTapTimer((videoElement.hasClass('vjs-user-active') || videoElement.paused()));
+            setTapTimer((videoElement.hasClass('vjs-user-active') || targetPlayer.paused()));
 
         }
 	}

@@ -160,6 +160,59 @@ function setupPlayerSync()
 }
 
 
+class TargetPlayer
+{
+
+    static play()
+    {
+        log('play() called');
+        if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.play();
+        else player.play();
+    }
+    
+    static pause()
+    {
+        log('pause() called');
+        if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.pause();
+        else player.pause();
+    }
+
+    static paused()
+    {
+        return (playerMode == PlayerModes.VIDEO_AUDIO) ? audioPlayer.paused() : player.paused();
+    }
+    
+    static currentTime(newtime = null)
+    {
+        if (newtime === null)
+        {
+            return playerMode == PlayerModes.VIDEO_AUDIO ? audioPlayer.currentTime() : player.currentTime();
+        }
+        if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.currentTime(newtime);
+        else
+            {
+            log('setting player currenttime from currenttime');
+            player.currentTime(newtime);
+        }
+    }
+    
+    
+    static playbackRate(speed = null)
+    {
+        if (speed == null)
+        {
+            try
+            {
+                return playerMode == PlayerModes.VIDEO_AUDIO ? audioPlayer.playbackRate() : player.playbackRate();
+            }
+            catch { return 1; }
+        }
+        if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.playbackRate(speed);
+        else player.playbackRate(speed);
+    }
+}
+
+
 class PlayerState
 {
     constructor()
@@ -173,13 +226,13 @@ class PlayerState
     }
     save()
     {
-        if (this.ongoing && currentTime() == 0)
+        if (this.ongoing && TargetPlayer.currentTime() == 0)
         {
             warn('Preventing saving unknown player state');
             return;
         }
         this.ongoing = false;
-        this.switchTime = currentTime();
+        this.switchTime = TargetPlayer.currentTime();
         this.isPlaying = !player.paused();
         this.speed = player.playbackRate();
         this.tracks = [];
@@ -199,7 +252,7 @@ class PlayerState
     }
     apply()
     {
-        if (this.switchTime > 0) currentTime(this.switchTime);
+        if (this.switchTime > 0) TargetPlayer.currentTime(this.switchTime);
         player.playbackRate(this.speed);
         if (this.isPlaying) player.play();
         for (let i = 0; i < this.tracks.length; i++)
@@ -381,46 +434,6 @@ function updateAudioMode()
 }
 
 
-function play()
-{
-    if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.play();
-    else player.play();
-}
-
-
-function pause()
-{
-    if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.pause();
-    else player.pause();
-}
-
-
-function currentTime(newtime = null)
-{
-    if (newtime === null)
-    {
-        return playerMode == PlayerModes.VIDEO_AUDIO ? audioPlayer.currentTime() : player.currentTime();
-    }
-    if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.currentTime(newtime);
-    else player.currentTime(newtime);
-}
-
-
-function playbackRate(speed = null)
-{
-    if (speed == null)
-    {
-        try
-        {
-            return playerMode == PlayerModes.VIDEO_AUDIO ? audioPlayer.playbackRate() : player.playbackRate();
-        }
-        catch { return 1; }
-    }
-    if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.playbackRate(speed);
-    else player.playbackRate(speed);
-}
-
-
 function formatTime(timeInSeconds)
 {
     if (timeInSeconds === null || isNaN(timeInSeconds)) return '-';
@@ -447,10 +460,10 @@ function formatTimeShort(timeInSeconds)
 function updatePlaybackTime(newTime = null)
 {
     const url = new URL(window.location.href);
-    if (newTime === null) newTime = currentTime();
-    if (time > 2 && time < info.duration - 2)
+    if (newTime === null) newTime = TargetPlayer.currentTime();
+    if (newTime > 2 && newTime < info.duration - 2)
     {
-        url.searchParams.set('t', Math.floor(time));
+        url.searchParams.set('t', Math.floor(newTime));
         window.history.replaceState({}, '', url);
     }
 }
@@ -556,7 +569,7 @@ function loadChapters()
     function updateChapterTooltipOnPlayback()
     {
         if (isHoveringProgressBar) return;
-        updateChapterVisibility(currentTime());
+        updateChapterVisibility(TargetPlayer.currentTime());
     }
 
     player.controlBar.progressControl.on(['mousemove', 'touchmove'], onProgressBarMove);
@@ -1044,16 +1057,16 @@ class DownloadButton extends videojs.getComponent('Button')
         this.startBtn.classList.add('vjs-resolution-option');
         this.startBtn.title = 'Click To Adjust Start Time';
         this.startBtn.style.display = 'none'; // Initially hidden
-        this.startBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.startTime = currentTime(); this.updateTimeLabels(); });
-        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.startTime = currentTime(); this.updateTimeLabels(); });
+        this.startBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.startTime = TargetPlayer.currentTime(); this.updateTimeLabels(); });
+        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.startTime = TargetPlayer.currentTime(); this.updateTimeLabels(); });
         menu.appendChild(this.startBtn);
 
         this.endBtn = document.createElement('button');
         this.endBtn.classList.add('vjs-resolution-option');
         this.endBtn.title = 'Click To Adjust End Time';
         this.endBtn.style.display = 'none'; // Initially hidden
-        this.endBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.endTime = currentTime(); this.updateTimeLabels(); });
-        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.endTime = currentTime(); this.updateTimeLabels(); });
+        this.endBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.endTime = TargetPlayer.currentTime(); this.updateTimeLabels(); });
+        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.endTime = TargetPlayer.currentTime(); this.updateTimeLabels(); });
         menu.appendChild(this.endBtn);
 
         this.updateTimeLabels();
@@ -1163,7 +1176,7 @@ class RepeatButton extends videojs.getComponent('Button')
         this.startBtn = document.createElement('button');
         this.startBtn.classList.add('vjs-resolution-option');
         this.startBtn.title = 'Click To Adjust Start Time';
-        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatStartTime = currentTime(); this.updateTimeLabels(); repeatStartTime = this.repeatStartTime; });
+        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatStartTime = TargetPlayer.currentTime(); this.updateTimeLabels(); repeatStartTime = this.repeatStartTime; });
 
         this.startBtn.ontouchstart = (event) => {
             setTimeout(() => {
@@ -1177,7 +1190,7 @@ class RepeatButton extends videojs.getComponent('Button')
         this.endBtn = document.createElement('button');
         this.endBtn.classList.add('vjs-resolution-option');
         this.endBtn.title = 'Click To Adjust End Time';
-        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatEndTime = currentTime(); this.updateTimeLabels(); repeatEndTime = this.repeatEndTime; });
+        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatEndTime = TargetPlayer.currentTime(); this.updateTimeLabels(); repeatEndTime = this.repeatEndTime; });
 
         this.endBtn.ontouchstart = (event) => {
             setTimeout(() => {
@@ -1513,7 +1526,7 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
             const button = document.createElement('button');
             button.textContent = `${speed}x`;
             button.classList.add('vjs-playback-speed-option');
-            if (playbackRate() === speed)
+            if (TargetPlayer.playbackRate() === speed)
             {
                 button.classList.add('vjs-menu-option-selected');
             }
@@ -1537,7 +1550,7 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
 
             button.onclick = (event) => {
                 tryStopPropagation(event);
-                playbackRate(speed);
+                TargetPlayer.playbackRate(speed);
                 if (speed == 1.0)
                     this.el().classList.remove('vjs-active');
                 else
@@ -1701,7 +1714,7 @@ videojs.registerComponent('PlaylistComponent', PlaylistComponent);
 
 function skipclick()
 {
-    if (currentTime() < skipTime) currentTime(skipTime);
+    if (TargetPlayer.currentTime() < skipTime) TargetPlayer.currentTime(skipTime);
 };
 
 
@@ -1729,7 +1742,7 @@ function adjustVideoSize()
 function checkSponsorTime()
 {
     var segmentShown = null;
-    const time = currentTime();
+    const time = TargetPlayer.currentTime();
     
     segments.forEach(segment => {
         if (time > segment.start && time < segment.end)
@@ -1740,7 +1753,7 @@ function checkSponsorTime()
         {
             setTimeout(() => {
                 if (!player.paused) checkSponsorTime();
-            }, (segment.start - time + .01) * 1000 / playbackRate());
+            }, (segment.start - time + .01) * 1000 / TargetPlayer.playbackRate());
         }
     });
     
@@ -1883,12 +1896,12 @@ function loadVideo()
                     preciseBackwardKey:
                     {
                         key: function (event) {return event.code == "Comma";},
-                        handler: function (player, options, event) {currentTime(currentTime() - 0.1);},
+                        handler: function (player, options, event) {TargetPlayer.currentTime(TargetPlayer.currentTime() - 0.1);},
                     },
                     preciseForwardKey:
                     {
                         key: function (event) {return event.code == "Period";},
-                        handler: function (player, options, event) {currentTime(currentTime() + 0.1);},
+                        handler: function (player, options, event) {TargetPlayer.currentTime(TargetPlayer.currentTime() + 0.1);},
                     },
                 },
                 captureDocumentHotkeys: true,
@@ -1897,7 +1910,7 @@ function loadVideo()
             },
         },
     });
-    player.doubleTapFF(audioPlayer);
+    player.doubleTapFF(TargetPlayer);
     player.controlBar.ZoomToFillToggle.handleClick(null, state = false);
     if (window.location.href.includes('/iframe?')) player.controlBar.addChild('PlayerButton');
     
@@ -1911,16 +1924,18 @@ function loadVideo()
     skipSegment.onclick = function() {skipclick();};
 
     player.on('timeupdate', () => {
-        if (repeatMode && currentTime() >= repeatEndTime)
+        if (repeatMode && TargetPlayer.currentTime() >= repeatEndTime)
         {
-            currentTime(repeatStartTime);
+            TargetPlayer.currentTime(repeatStartTime);
             setTimeout(() => {
                 player.play();
             }, 100);
         }
         if (info && parseFloat(info.duration) == 0)
         {
-            let timeDiff = player.bufferedEnd() - currentTime();
+            let timeDiff = player.bufferedEnd() - player.currentTime();
+            if (playerMode == PlayerModes.VIDEO_AUDIO)
+                timeDiff = Math.min(timeDiff, audioPlayer.bufferedEnd() - audioPlayer.currentTime());
             let minLiveBuffer = parseFloat(info.min_live_buffer);
             if (timeDiff > 30 || minLiveBuffer <= 0) return;
             if (timeDiff < minBufferAheadTime) minBufferAheadTime = Math.max(timeDiff, 0);
@@ -1928,22 +1943,22 @@ function loadVideo()
             
             if (minBufferAheadTime < minLiveBuffer)
             {
-                playbackRate(0.95);
+                TargetPlayer.playbackRate(0.95);
                 log('-');
             }
             else if (minBufferAheadTime > minLiveBuffer * 3)
             {
-                playbackRate(1.1);
+                TargetPlayer.playbackRate(1.1);
                 log('++');
             }
             else if (minBufferAheadTime > minLiveBuffer * 2)
             {
-                playbackRate(1.05);
+                TargetPlayer.playbackRate(1.05);
                 log('+');
             }
             else
             {
-                playbackRate(1);
+                TargetPlayer.playbackRate(1);
             }
         }
     });
@@ -1952,9 +1967,9 @@ function loadVideo()
         if (isBuffering) lockAudio();
         isBuffering = false;
         minBufferAheadTime = 1;
-        if (info && parseFloat(info.duration) == 0 && currentTime() < 1)
+        if (info && parseFloat(info.duration) == 0 && TargetPlayer.currentTime() < 1)
         {
-            currentTime(99999999);
+            TargetPlayer.currentTime(99999999);
         }
     });
 
@@ -2022,7 +2037,7 @@ function loadVideo()
 
         if (url.startTime && parseFloat(url.startTime) > 0)
         {
-            currentTime(parseFloat(url.startTime));
+            TargetPlayer.currentTime(parseFloat(url.startTime));
         }
     }
     retryFetch(`/info?url=${url.encodedUrl}`)
@@ -2178,19 +2193,19 @@ function loadMediaSession()
     });
 
     navigator.mediaSession.setActionHandler("play", () => {
-        play();
+        TargetPlayer.play();
     });
     navigator.mediaSession.setActionHandler("pause", () => {
-        pause();
+        TargetPlayer.pause();
     });
     navigator.mediaSession.setActionHandler("seekbackward", (details) => {
-        currentTime(currentTime() - (details.seekOffset || 10));
+        TargetPlayer.currentTime(TargetPlayer.currentTime() - (details.seekOffset || 10));
     });
     navigator.mediaSession.setActionHandler("seekforward", (details) => {
-        currentTime(currentTime() + (details.seekOffset || 10));
+        TargetPlayer.currentTime(TargetPlayer.currentTime() + (details.seekOffset || 10));
     });
     navigator.mediaSession.setActionHandler("seekto", (details) => {
-        currentTime(details.seekTime);
+        TargetPlayer.currentTime(details.seekTime);
     });
     navigator.mediaSession.setActionHandler("previoustrack", null);
     navigator.mediaSession.setActionHandler("nexttrack", null);
