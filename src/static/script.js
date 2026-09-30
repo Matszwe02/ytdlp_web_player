@@ -2138,15 +2138,10 @@ function loadVideo()
                     }
                     if (player.isInPictureInPicture()) return;
                     if (parseFloat(info.duration) == 0) return;
-                    if (document.visibilityState === 'hidden')
-                    {
-                        if (info.audio_visualizer) pauseVisualizer(player);
-                        audioPlayer.pause();
-                    }
-                    else
-                    {
-                        if (info.audio_visualizer) resumeVisualizer(player);
-                    }
+                }
+                if (!info.auto_bg_playback && document.visibilityState === 'hidden')
+                {
+                    audioPlayer.pause();
                 }
             });
 
