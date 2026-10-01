@@ -2,6 +2,7 @@ services:
     ytdlp_web_player:
         # build: .
         image: matszwe02/ytdlp_web_player:stable
+        # gpus: all
         # volumes:
         #     - ./src/cookies.txt:/app/cookies.txt
         restart: unless-stopped
