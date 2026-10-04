@@ -134,6 +134,7 @@ function setupPlayerSync()
     function seekAudio()
     {
         if (!lockVideo()) return;
+        if (document.visibilityState == 'hidden' && !player.isInPictureInPicture()) return;
         if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.01) return;
         audioPlayer.currentTime(player.currentTime());
 
