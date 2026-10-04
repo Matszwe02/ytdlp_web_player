@@ -714,6 +714,7 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
         headers_dict = json.loads(headers) if headers else {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
+        url = url or ""
         response = requests.get(src, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies), proxies=get_proxy(url, True))
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
@@ -744,7 +745,8 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
                 if line_str.startswith('#'):
                     lines.append(src_regex.sub(replace_src, line))
                 else:
-                    line = f'/external?src={quote_plus(urljoin(url, line_str))}&headers={quote_plus(headers or "")}&cookies={quote_plus(cookies or "")}&url={quote_plus(url)}'
+                    urlbase = src if '://' in src else url
+                    line = f'/external?src={quote_plus(urljoin(urlbase, line_str))}&headers={quote_plus(headers or "")}&cookies={quote_plus(cookies or "")}&url={quote_plus(url)}'
                     lines.append(line)
 
             resp = Response('\n'.join(lines), status=response.status_code, mimetype=mime_type)

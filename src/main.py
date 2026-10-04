@@ -50,10 +50,8 @@ hls_audio_duration = 10
 
 os.makedirs(data_path, exist_ok=True)
 print(f'Data path: {data_path}')
-ffmpeg = External.download_ffmpeg()
-if disable_transcoding:
-    ffmpeg = None
-elif not ffmpeg:
+ffmpeg = None if disable_transcoding else External.download_ffmpeg()
+if not ffmpeg and not disable_transcoding:
     raise RuntimeError("FFMPEG can not be detected nor installed in your system. Install FFMPEG or disable transcoding.")
 
 js_runtime = External.download_deno()

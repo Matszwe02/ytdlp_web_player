@@ -2209,24 +2209,40 @@ function loadMediaSession()
 }
 
 
+let debugInterval = null;
 function displayDebugInfo()
 {
     let oldviewbox = document.getElementById('debug-viewbox');
     if (oldviewbox)
     {
         document.body.removeChild(oldviewbox);
+        clearInterval(debugInterval);
         return;
     }
     let viewbox = document.createElement("div");
     viewbox.style = "width: 80%; height: 500px; overflow: scroll; position: absolute; top: 100vh; white-space: pre; background-color: #111; padding: 20pt;";
     viewbox.id = 'debug-viewbox';
-    viewbox.innerHTML = `Debug logs for <b>${window.location.href}</b>\n`;
-    viewbox.innerHTML += `\n<details><summary>URL info</summary>${JSON.stringify(getUrlInfo(), null, 2)}</details>`;
-    viewbox.innerHTML += `\n<details><summary>Info dict</summary>${JSON.stringify(info, null, 2)}</details>`;
-    viewbox.innerHTML += `\n<details><summary>Current source</summary>Video:\n${JSON.stringify(player.currentSources(), null, 2)}\nAudio:\n${JSON.stringify(audioPlayer.currentSources(), null, 2)}</details>`;
-    viewbox.innerHTML += `\n<details><summary>Console log</summary>${JSON.stringify(logHistory, null, 2)}</details>`;
-    viewbox.innerHTML += `\n<button onclick="advanceVideoSource()">advanceVideoSource()</button>`;
-    viewbox.innerHTML += `\n<button onclick="advanceAudioSource()">advanceAudioSource()</button>`;
+    
+    function updateDebugInfo()
+    {
+        const open = [...viewbox.querySelectorAll("details")].map(d => d.open);
+
+        viewbox.innerHTML = `
+            Debug logs for <b>${window.location.href}</b>
+            <details><summary>URL info</summary>${JSON.stringify(getUrlInfo(), null, 2)}</details>
+            <details><summary>Info dict</summary>${JSON.stringify(info, null, 2)}</details>
+            <details><summary>Current source</summary>Video:\n${JSON.stringify(player.currentSources(), null, 2)}\nAudio:\n${JSON.stringify(audioPlayer.currentSources(), null, 2)}</details>
+            <details><summary>Console log</summary>${JSON.stringify(logHistory, null, 2)}</details>
+            <button onclick="advanceVideoSource()">advanceVideoSource()</button>
+            <button onclick="advanceAudioSource()">advanceAudioSource()</button>
+        `;
+
+        [...viewbox.querySelectorAll("details")].forEach((d, i) => d.open = open[i] ?? false);
+    }
+
+
+    debugInterval = setInterval(() => { updateDebugInfo(); }, 1000);
+    updateDebugInfo();
 
     document.body.appendChild(viewbox);
 }
