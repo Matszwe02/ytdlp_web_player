@@ -143,6 +143,18 @@ class External:
 
 
     @staticmethod
+    def publish_with_cf(port: int, app_title: str):
+        try:
+            from pycloudflared import try_cloudflare # type: ignore
+        except Exception:
+            print('Installing "pycloudflared" to project\'s environment')
+            External._pip_install('pycloudflared')
+            from pycloudflared import try_cloudflare # type: ignore
+        cf_url = try_cloudflare(port=port)[0]
+        print('\n\n' + '#'*100 + '\n\n' + app_title +' is accessible on: ' + cf_url + '\n\n' + '#'*100 + '\n\n')
+
+
+    @staticmethod
     def _install_ytdlp_raw(ytdlp_dir):
 
         print('Installing yt-dlp from wheel...')

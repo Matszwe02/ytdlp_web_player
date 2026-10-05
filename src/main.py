@@ -40,6 +40,7 @@ audio_visualizer = os.environ.get('AUDIO_VISUALIZER', 'False').lower() == 'true'
 data_path = os.path.abspath(os.environ.get('DATA_PATH', './data'))
 proxies = [proxy for proxy in (os.environ.get('PROXIES') or 'local').split(',') if proxy != '']
 port = int(os.environ.get('PORT', '5000'))
+publish_with_cloudflare = (os.environ.get('PUBLISH_WITH_CLOUDFLARE', 'False')).lower() == 'true'
 linked_pid = int(os.environ.get('LINKED_PID', '0'))
 
 deprecated_env = ['DOWNLOAD_PATH', 'PROXY']
@@ -115,6 +116,9 @@ if __name__ == '__main__':
                 os._exit(0)
 
     if linked_pid != 0: Thread(target=pid_watcher, daemon=True).start()
+
+    if publish_with_cloudflare:
+        External.publish_with_cf(port=port, app_title=app_title)
 
     import uvicorn
     if getattr(sys, 'frozen', False):
