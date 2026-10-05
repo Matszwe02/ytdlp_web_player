@@ -159,7 +159,7 @@ I do not guarantee that cookies file is completly secure from accessing it throu
 
 Some features (like extension and PWA) require HTTPS to work.
 
-If you don't own any HTTPS proxy, the easies solution is to set `PUBLISH_WITH_CF` environment variable to true and access it through the generated cloudflare link. With this link you can also access this app from anywhere in the world, without the need of port forwarding.
+If you don't own any HTTPS proxy, the easies solution is to set `PUBLISH_WITH_CLOUDFLARE` environment variable to true and access it through the generated cloudflare link. With this link you can also access this app from anywhere in the world, without the need of port forwarding.
 
 Link is generated and visible in app logs just before app starts.
 
