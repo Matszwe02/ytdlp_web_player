@@ -804,6 +804,7 @@ class DownloadButton extends videojs.getComponent('Button')
             { quality: 'best', title: 'Highest Quality' },
             { quality: 'current', title: 'Current Quality' },
             { quality: 'audio', title: 'Audio' },
+            { quality: 'picture', title: 'Picture' },
             { quality: 'trim', title: 'Trim' }
         ];
 
@@ -814,7 +815,26 @@ class DownloadButton extends videojs.getComponent('Button')
 
             const handleEvent = (event) => {
                 tryStopPropagation(event);
-                if (option.quality == 'trim') {
+                if (option.quality == 'picture')
+                {
+                    var url = getUrlInfo();
+                    const quality = url.quality || info.default_quality;
+                    const link = document.createElement('a');
+                    link.href = `/picture?url=${url.encodedUrl}&quality=${quality}&start=${player.currentTime()}`;
+                    link.download = 'file';
+
+                    retryFetch(link.href, {}, 100, undefined, true, true).then(response => {
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    })
+
+                    this.handleCloseMenu(true);
+                    retryFetch(link.href)
+                        .then(response => response.text())
+                }
+                else if (option.quality == 'trim')
+                {
                     if (this.startBtn.style.display === 'block')
                     {
                         this.startBtn.style.display = 'none';
@@ -829,7 +849,7 @@ class DownloadButton extends videojs.getComponent('Button')
                         this.updateTimeLabels();
                     }
                 }
-                else
+                else 
                 {
                     var url = getUrlInfo();
                     const currentQuality = url.quality || info.default_quality;
@@ -2051,18 +2071,18 @@ function displayDebugInfo()
     let viewbox = document.createElement("div");
     viewbox.style = "width: 80%; height: 500px; overflow: scroll; position: absolute; top: 100vh; white-space: pre; background-color: #111; padding: 20pt;";
     viewbox.id = 'debug-viewbox';
-    
+
     function updateDebugInfo()
     {
         const open = [...viewbox.querySelectorAll("details")].map(d => d.open);
 
         viewbox.innerHTML = `
-Debug logs for <b>${window.location.href}</b>
-<details><summary>URL info</summary>${JSON.stringify(getUrlInfo(), null, 2)}</details>
-<details><summary>Info dict</summary>${JSON.stringify(info, null, 2)}</details>
-<details><summary>Current source</summary>${JSON.stringify(player.currentSources(), null, 2)}</details>
-<details><summary>Console log</summary>${JSON.stringify(logHistory, null, 2)}</details>
-`;
+            Debug logs for <b>${window.location.href}</b>
+            <details><summary>URL info</summary>${JSON.stringify(getUrlInfo(), null, 2)}</details>
+            <details><summary>Info dict</summary>${JSON.stringify(info, null, 2)}</details>
+            <details><summary>Current source</summary>${JSON.stringify(player.currentSources(), null, 2)}</details>
+            <details><summary>Console log</summary>${JSON.stringify(logHistory, null, 2)}</details>
+        `;
 
         [...viewbox.querySelectorAll("details")].forEach((d, i) => d.open = open[i] ?? false);
     }

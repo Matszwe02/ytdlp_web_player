@@ -92,6 +92,15 @@ def serve_sprite():
     return host_file(url, 'sprite')
 
 
+@app.route('/picture')
+def serve_picture():
+    start_time = request.args.get('start', 0, type=float)
+    media_type = f'picture_{start_time:.1f}-0.0'
+    url = get_url(request)
+    video_title = get_meta(url).get('title')
+    return host_file(url, media_type, download_name=video_title)
+
+
 @app.route('/sb')
 def get_sponsor_segments():
     return get_sb(get_url(request)) or []

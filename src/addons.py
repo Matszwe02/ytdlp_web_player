@@ -301,6 +301,7 @@ class MediaDownloader:
             elif self.media_type.startswith('low'): self.low()
             elif self.media_type.startswith('sub'): self.sub()
             elif self.media_type.startswith('sprite'): self.sprite()
+            elif self.media_type.startswith('picture'): self.picture()
         return check_media(url=self.url, media_type=self.media_type)
 
 
@@ -663,6 +664,34 @@ class MediaDownloader:
                 shutil.rmtree(sprite_dir)
             except Exception as e:
                 print(f"Sprite error: {e}")
+
+
+    def picture(self):
+        video_src = check_res_at_least(self.url, self.res)
+        if not video_src:
+            s = choose_sources_for_res(get_video_sources(self.url, self.meta), get_good_quality(get_video_formats(self.url, self.meta)))[0]
+            print(s)
+            video_src = s[0]
+        try:
+            ffmpeg_command = [
+                '-i', video_src,
+                '-ss', f'{self.start_time}',
+                '-frames:v', '1',
+                os.path.join(self.data_dir, f'{self.media_type}.jpg')
+            ]
+
+            if not FFMPEG(self.url, ffmpeg_command).success: raise RuntimeError('FFMPEG failed to extract picture')
+        except Exception as e:
+            if video_src.startswith('http'):
+                ffmpeg_command = [
+                    '-i', MediaDownloader(self.url, 'video').run(),
+                    '-ss', f'{self.start_time}',
+                    '-frames:v', '1',
+                    os.path.join(self.data_dir, f'{self.media_type}.jpg')
+                ]
+                if not FFMPEG(self.url, ffmpeg_command).success: raise RuntimeError('FFMPEG failed to extract picture')
+            else:
+                raise e
 
 
 
