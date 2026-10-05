@@ -848,7 +848,7 @@ def host_file(url: str, media_type='video', download_name: str | None = None):
     file = MediaDownloader(url, media_type).run()
     if file:
         if download_name:
-            if '-' in media_type: download_name += '-' + media_type.split('-', 1)[-1]
+            if '-' in media_type or '_' in media_type: download_name += '-' + media_type.replace('_', '-').split('-', 1)[-1]
             download_name += os.path.splitext(file)[1]
             download_name = download_name.replace('-0.0.', '-.').replace('_0.0-', '_-')
         return send_file_partial(file, download_name=download_name)
