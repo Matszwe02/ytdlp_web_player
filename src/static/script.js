@@ -103,10 +103,16 @@ function setupPlayerSync()
         if (Math.abs(offset) > 5)
         {
             lockAudio();
+            if (isBuffering)
+            {
+                warn(`Audio player paused: video player can't keep up`);
+                lockVideo(true);
+                audioPlayer.pause();
+            }
             player.currentTime(audioPlayer.currentTime());
             log(`Video synced to audio. Offset: ${offset.toFixed(3)}s`);
         }
-        else if (Math.abs(offset) > 0.01)
+        else if (Math.abs(offset) > 0.02)
         {
             let diff = Math.min(Math.abs(offset), 1);
             let buffer = player.bufferedEnd() - player.currentTime();
@@ -128,14 +134,14 @@ function setupPlayerSync()
     function seekVideo()
     {
         if (!lockAudio()) return;
-        if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.01) return;
+        if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.02) return;
         player.currentTime(audioPlayer.currentTime());
     }
     function seekAudio()
     {
         if (!lockVideo()) return;
         if (document.visibilityState == 'hidden' && !player.isInPictureInPicture()) return;
-        if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.01) return;
+        if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.02) return;
         audioPlayer.currentTime(player.currentTime());
 
     }
@@ -2124,6 +2130,7 @@ function loadVideo()
             setInterval(()=>{ updatePlaybackTime(); }, 10000);
 
             document.addEventListener('visibilitychange', () => {
+                lockAudio();
                 if (document.visibilityState === 'hidden') updatePlaybackTime();
                 if (info.auto_bg_playback && navigator?.userAgentData?.mobile)
                 {
