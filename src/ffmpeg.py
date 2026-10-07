@@ -109,7 +109,8 @@ class FFMPEG:
 
     def _run_once(self, ffmpeg_command):
         command = [self.ffmpeg] + list(ffmpeg_command)
-        ffmpeg_env = self.proxy
+        ffmpeg_env = os.environ.copy()
+        ffmpeg_env.update(self.proxy or {})
 
         print(f'[FFMPEG {self.ff_id}] Executing {command}')
         self._p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=ffmpeg_env)
