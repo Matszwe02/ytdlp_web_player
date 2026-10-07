@@ -1208,7 +1208,7 @@ def get_external_video_sources(url = None, meta = None) -> dict[str, list[tuple[
 
         headers = json.dumps(src.get('http_headers') or {})
         cookies = src.get('cookies') or ''
-        codec = src.get('vcodec') if name[0] != 'audio' else src.get('acodec')
+        codec = src.get('vcodec') if name != 'audio' else src.get('acodec')
         media_url = f'/external?src={quote_plus(src["url"])}&headers={quote_plus(headers)}&cookies={quote_plus(cookies)}&url={quote_plus(url)}'
         if name not in sources.keys(): sources[name] = []
         sources[name].append((source_preference, media_url, codec, get_mimetype(src.get('protocol') or '', src.get('ext') or '', video_name), False))
