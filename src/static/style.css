@@ -164,6 +164,11 @@ body
 }
 
 
+#videoPlayer.vjs-fullscreen.fullscreen-cover video
+{
+    object-fit: cover !important;
+}
+
 .vjs-fullscreen
 {
     border: none !important;
