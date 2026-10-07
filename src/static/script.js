@@ -279,7 +279,10 @@ function setUpAudioContext()
     {
         log(`Setting up AudioContext`);
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        audioSource = audioContext.createMediaElementSource(player.el_.querySelector('video'));
+        if (playerMode == PlayerModes.VIDEO_AUDIO)
+            audioSource = audioContext.createMediaElementSource(audioPlayer.el_.querySelector('audio'));
+        else
+            audioSource = audioContext.createMediaElementSource(player.el_.querySelector('video'));
         audioSource.connect(audioContext.destination);
     }
 }
