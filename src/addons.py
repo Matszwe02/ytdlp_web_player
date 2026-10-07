@@ -304,7 +304,7 @@ class MediaDownloader:
                         '-frames:v', '1',
                         os.path.join(self.data_dir, 'thumb-orig.jpg')
                     ]
-                    FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url), ffmpeg_command)
+                    FFMPEG(self.url, ffmpeg_command)
                 except Exception as e:
                     pprint_exc(e)
                 thumb_file = check_media(url=self.url, media_type='thumb-orig')
@@ -377,13 +377,13 @@ class MediaDownloader:
         height_param = "" if self.media_type.startswith('video-best') else f'[height<={self.res}]'
         if self.timestamps:
             if vid := check_res_at_least(self.url, self.res):
-                FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url), ['-i', vid, "-ss", f'{self.start_time}', "-to", f'{self.end_time}', '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
+                FFMPEG(self.url, ['-i', vid, "-ss", f'{self.start_time}', "-to", f'{self.end_time}', '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
             else:
                 self.ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(self.data_dir, f'{self.media_type}.%(ext)s')})
                 YTDLP.download(self.url, self.ydl_opts)
         else:
             if vid := check_res_at_least(self.url, self.res):
-                FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url), ['-i', vid, '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
+                FFMPEG(self.url, ['-i', vid, '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
             else:
                 success = False
                 temp_video = None
@@ -392,7 +392,7 @@ class MediaDownloader:
                     YTDLP.download(self.url, self.ydl_opts)
                     audio_file = check_media(self.url, 'audio') or MediaDownloader(self.url, 'audio').run()
                     temp_video = check_media(self.url, f'temp-{self.media_type}')
-                    success = FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url), ['-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]).success
+                    success = FFMPEG(self.url, ['-i', audio_file, '-i', temp_video, "-c:a", "copy", "-c:v", "copy", temp_video.replace('temp-', '')]).success
                 except Exception as e:
                     pprint_exc(e)
                 finally:
@@ -476,7 +476,7 @@ class MediaDownloader:
             nonlocal video_file_path
             try:
                 if not video_file_path:
-                    ff = FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url))
+                    ff = FFMPEG(self.url)
                     ff.affected_files = [m3u8_path, temp_m3u8_path]
                     Thread(target=ff.run, args=[ffmpeg_command]).start()
                     time.sleep(2)
@@ -487,7 +487,7 @@ class MediaDownloader:
                     if os.path.exists(m3u8_path): os.rename(m3u8_path, temp_m3u8_path)
                     MediaDownloader(self.url, self.media_type).run()
                 else:
-                    ff = FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url))
+                    ff = FFMPEG(self.url)
                     ff.affected_files = [m3u8_path, temp_m3u8_path]
                     ff.run(ffmpeg_command)
                     if ff.success:
@@ -519,7 +519,7 @@ class MediaDownloader:
             '-preset', 'veryfast',
             os.path.join(get_data_dir(get_url(request)), 'low.mp4')
         ]
-        FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url), ffmpeg_command)
+        FFMPEG(self.url, ffmpeg_command)
 
 
     def sub(self):
@@ -588,7 +588,7 @@ class MediaDownloader:
             ]
 
             try:
-                if not FFMPEG(self.url, ffmpeg, Processes, get_proxy(self.url), ffmpeg_command).success: raise RuntimeError('FFMPEG failed to extract sprite')
+                if not FFMPEG(self.url, ffmpeg_command).success: raise RuntimeError('FFMPEG failed to extract sprite')
                 frame_files = sorted(os.listdir(sprite_dir))
                 num_frames = len(frame_files)
                 num_rows = math.ceil(num_frames / frames_per_row)
@@ -814,7 +814,7 @@ def get_media_duration(url, meta, media):
     except:
         pass
     ffmpeg_command = ['-i', media, '-hide_banner', '-f', 'null', '-stats']
-    ff = FFMPEG(url, ffmpeg, Processes, get_proxy(url))
+    ff = FFMPEG(url)
     try: ff.run(ffmpeg_command)
     except Exception: pass
     info = ff.stdout
@@ -831,7 +831,7 @@ def get_media_res(url, meta, media):
         if meta.get("width") and meta.get("height"): return int(meta.get("width")), int(meta.get("height"))
     except: pass
     ffmpeg_command = ['-i', media, '-hide_banner', '-f', 'null', '-stats']
-    ff = FFMPEG(url, ffmpeg, Processes, get_proxy(url))
+    ff = FFMPEG(url)
     try: ff.run(ffmpeg_command)
     except Exception: pass
     info = ff.stdout

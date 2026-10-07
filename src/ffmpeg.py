@@ -41,13 +41,16 @@ def resolve_hardware_encoder(ffmpeg_path: str | None) -> str | None:
 
 
 class FFMPEG:
-    def __init__(self, url, ffmpeg_path=None, processes=None, proxy='', ffmpeg_command=None):
+    def __init__(self, url, ffmpeg_command=None):
         """Provide ffmpeg_command to run synchronously. Check with ``success``."""
+        from main import ffmpeg
+        from addons import Processes, get_proxy
+
         self._p = None
         self.pid = None
-        self.ffmpeg = ffmpeg_path
-        self.processes = processes
-        self.proxy = proxy
+        self.ffmpeg = ffmpeg
+        self.processes = Processes
+        self.proxy = get_proxy(url, as_ffmpeg_dict=True)
         self.ff_id = sha1(f'{time.time()}'.encode()).hexdigest()[:6]
         self.success = False
         self.stdout = ''
@@ -59,10 +62,7 @@ class FFMPEG:
 
     def kill(self):
         if self._p is None: return
-        if self.processes:
-            self.processes.rm(self.pid, kill=True)
-        else:
-            self._p.kill()
+        self.processes.rm(self.pid, kill=True)
         print(f'[FFMPEG {self.ff_id}] Killed')
 
     def _cleanup_affected_files(self):
@@ -109,15 +109,12 @@ class FFMPEG:
 
     def _run_once(self, ffmpeg_command):
         command = [self.ffmpeg] + list(ffmpeg_command)
-        ffmpeg_env = os.environ.copy()
-        if self.proxy:
-            ffmpeg_env[f"{self.proxy.split('://')[0]}_proxy"] = self.proxy
+        ffmpeg_env = self.proxy
 
         print(f'[FFMPEG {self.ff_id}] Executing {command}')
         self._p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=ffmpeg_env)
         self.pid = self._p.pid
-        if self.processes:
-            self.processes.setitem(self.pid, [self.url, f'FFMPEG {self.ff_id}', time.time()])
+        self.processes.setitem(self.pid, [self.url, f'FFMPEG {self.ff_id}', time.time()])
 
         for line in self._p.stdout:
             line_out = line.decode().strip()
@@ -129,8 +126,7 @@ class FFMPEG:
                 raise TimeoutError()
 
         self._p.wait()
-        if self.processes:
-            self.processes.rm(self.pid)
+        self.processes.rm(self.pid)
 
         if self._p.returncode != 0:
             self.success = False

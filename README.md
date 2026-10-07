@@ -119,7 +119,7 @@ OR
 
 FFmpeg automatically detects the best supported hardware encoder. NVIDIA NVENC is used when available, and transcoding automatically falls back to CPU (`libx264`) when hardware acceleration is unavailable or fails.
 
-For NVIDIA GPU acceleration in Docker, install the NVIDIA Container Toolkit and uncomment `gpus: all` in `compose.yml`. Users without a GPU do not need to change anything.
+For NVIDIA GPU acceleration in Docker, [install the NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) and uncomment `gpus: all` and `dockerfile: Dockerfile.hwaccel` in `compose.yml`.
 
 ### Run locally (Python)
 

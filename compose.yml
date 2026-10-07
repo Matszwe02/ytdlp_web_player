@@ -1,6 +1,8 @@
 services:
     ytdlp_web_player:
-        # build: .
+        # build:
+        #     context: .
+        #     dockerfile: Dockerfile.hwaccel  # Uncomment for hardware acceleration
         image: matszwe02/ytdlp_web_player:stable
         # gpus: all
         # volumes:
