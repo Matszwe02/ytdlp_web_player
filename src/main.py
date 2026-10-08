@@ -26,6 +26,7 @@ max_video_age = int(os.environ.get('MAX_VIDEO_AGE', '3600'))
 max_video_duration = int(os.environ.get('MAX_VIDEO_DURATION', '36000'))
 default_quality = int(os.environ.get('DEFAULT_QUALITY', '720'))
 max_quality = int(os.environ.get('MAX_QUALITY', '2160'))
+codec_preference = [c.lower() for c in (os.environ.get('CODEC_PREFERENCE') or 'av01,vp9,opus').split(',') if c != '']
 autoplay = (os.environ.get('AUTOPLAY', 'False')).lower() == 'true'
 min_live_buffer = float(os.environ.get('MIN_LIVE_BUFFER', '1'))
 always_transcode = (os.environ.get('ALWAYS_TRANSCODE', 'False')).lower() == 'true'

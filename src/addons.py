@@ -1190,6 +1190,7 @@ def get_external_video_sources(url = None, meta = None) -> dict[str, list[tuple[
     meta_formats = meta.get('formats') or []
     language = meta.get('language')
     meta_formats.sort(key=lambda f: f.get('source_preference') or 0, reverse=True)
+    codec_sort = lambda codec: next((i for i, p in enumerate(codec_preference) if codec.startswith(p)), len(codec_preference))
 
     for src in meta_formats:
         video_name = ''
@@ -1215,7 +1216,7 @@ def get_external_video_sources(url = None, meta = None) -> dict[str, list[tuple[
     sorted_sources = {}
     for res in sources.keys():
         sorted_sources[res] = []
-        for src in sorted(sources[res], key=lambda x: x[0], reverse=True):
+        for src in sorted(sources[res], key=lambda x: (-x[0], codec_sort(f'{x[2]}'.lower()))):
             sorted_sources[res].append((src[1], src[2], src[3], src[4]))
     return sorted_sources
 
