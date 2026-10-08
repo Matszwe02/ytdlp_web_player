@@ -4,7 +4,6 @@ import math
 import mimetypes
 import os
 import re
-import subprocess
 import time
 import traceback
 import io
@@ -18,6 +17,7 @@ from multiprocessing import Process, Queue
 from urllib.parse import parse_qs, quote_plus, unquote, urlencode, urljoin, urlparse, urlunparse
 from flask import Response, jsonify, request, send_file
 from external import External
+from ffmpeg import FFMPEG
 from main import *
 from sb import SponsorBlock
 
@@ -114,7 +114,6 @@ class Processes:
                     pprint_exc(e)
             time.sleep(0.2)
         return cancelled_count
-
 
 
 class YTDLP:
@@ -224,59 +223,6 @@ class YTDLP:
                 raise e
         finally:
             logger.finish()
-
-
-
-class FFMPEG:
-    def __init__(self, url, ffmpeg_command=None):
-        """
-        Provide ffmpeg_command to run synchronously. Check with `success`
-        """
-        self._p = None
-        self.pid = None
-        self.ffmpeg = ffmpeg
-        self.ff_id = sha1(f'{time.time()}'.encode()).hexdigest()[:6]
-        self.success = False
-        self.stdout = ''
-        self.start_time = time.time()
-        self.url = url
-        self.affected_files = []
-        if ffmpeg_command and self.ffmpeg:
-            self.run(ffmpeg_command)
-
-    def kill(self):
-        if self._p is None: return
-        Processes.rm(self.pid, kill=True)
-        print(f'[FFMPEG {self.ff_id}] Killed')
-
-    def run(self, ffmpeg_command):
-        """
-        Also runs synchronously, but can be placed in `Thread`
-        """
-        if not self.ffmpeg: return None
-        ffmpeg_command = [self.ffmpeg] + ffmpeg_command
-        ffmpeg_env = get_proxy(self.url, as_ffmpeg_dict=True)
-        print(f'[FFMPEG {self.ff_id}] Executing {ffmpeg_command}')
-        self._p = subprocess.Popen(ffmpeg_command, stdout = subprocess.PIPE, stderr = subprocess.STDOUT, env=ffmpeg_env)
-        self.pid = self._p.pid
-        Processes.setitem(self.pid, [self.url, f'FFMPEG {self.ff_id}', time.time()])
-        for line in self._p.stdout:
-            line_out = line.decode().strip()
-            print(f'[FFMPEG {self.ff_id}] {line_out}')
-            self.stdout += line_out + '\n'
-            if time.time() - self.start_time > 3600:
-                self.kill()
-                self.success = False
-                raise TimeoutError()
-        self._p.wait()
-        Processes.rm(self.pid)
-        if self._p.returncode != 0:
-            self.success = False
-            for file in self.affected_files:
-                if os.path.exists(file): os.remove(file)
-            raise RuntimeError(f'FFMPEG exited unexpectedly with return code {self._p.returncode}')
-        print(f'[FFMPEG {self.ff_id}] Finished')
-        self.success = True
 
 
 
@@ -542,8 +488,9 @@ class MediaDownloader:
                     if os.path.exists(m3u8_path): os.rename(m3u8_path, temp_m3u8_path)
                     MediaDownloader(self.url, self.media_type).run()
                 else:
-                    ff = FFMPEG(self.url, ffmpeg_command)
+                    ff = FFMPEG(self.url)
                     ff.affected_files = [m3u8_path, temp_m3u8_path]
+                    ff.run(ffmpeg_command)
                     if ff.success:
                         print(f"FFMPEG Finished HLS Conversion!")
                         if os.path.exists(temp_m3u8_path): os.remove(temp_m3u8_path)

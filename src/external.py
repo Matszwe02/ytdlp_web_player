@@ -59,7 +59,7 @@ class External:
         try:
             p = os.path.dirname(__file__)
             for f in os.listdir(p):
-                if f.startswith('ffmpeg'): return os.path.abspath(os.path.join(p, f))
+                if f.startswith('ffmpeg') and not f.endswith('py'): return os.path.abspath(os.path.join(p, f))
             if f := shutil.which("ffmpeg"): return os.path.abspath(f)
             try:
                 import pyffmpeg # type: ignore

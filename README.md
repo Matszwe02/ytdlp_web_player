@@ -112,6 +112,12 @@ OR
         ```
     - Copy `src/example.env` to `src/.env`, modify as needed
 
+### Hardware Acceleration
+
+FFmpeg automatically detects the best supported hardware encoder. NVIDIA NVENC is used when available, and transcoding automatically falls back to CPU (`libx264`) when hardware acceleration is unavailable or fails.
+
+For NVIDIA GPU acceleration in Docker, [install the NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html), uncomment the `build` block that uses `Dockerfile.hwaccel` and `gpus: all` in `compose.yml`, then run `docker compose up --build`.
+
 ### Run locally (Python)
 
 - Create and activate a virtual environment in `src/` and install `requirements.txt`
