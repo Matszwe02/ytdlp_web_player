@@ -2241,10 +2241,13 @@ function displayDebugInfo()
             Debug logs for <b>${window.location.href}</b>
             <details><summary>URL info</summary>${JSON.stringify(getUrlInfo(), null, 2)}</details>
             <details><summary>Info dict</summary>${JSON.stringify(info, null, 2)}</details>
-            <details><summary>Current source</summary>Video:\n${JSON.stringify(player.currentSources(), null, 2)}\nAudio:\n${JSON.stringify(audioPlayer.currentSources(), null, 2)}</details>
-            <details><summary>Console log</summary>${JSON.stringify(logHistory, null, 2)}</details>
+            <details><summary>Current source</summary>
+            <br>Video:\n${JSON.stringify(player.currentSources(), null, 2)}
             <button onclick="advanceVideoSource()">advanceVideoSource()</button>
+            <br>Audio:\n${JSON.stringify(audioPlayer.currentSources(), null, 2)}
             <button onclick="advanceAudioSource()">advanceAudioSource()</button>
+            </details>
+            <details><summary>Console log</summary>${JSON.stringify(logHistory, null, 2)}</details>
         `;
 
         [...viewbox.querySelectorAll("details")].forEach((d, i) => d.open = open[i] ?? false);
