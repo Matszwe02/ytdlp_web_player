@@ -174,14 +174,14 @@ class TargetPlayer
     {
         log('play() called');
         if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.play();
-        else player.play();
+        player.play();
     }
     
     static pause()
     {
         log('pause() called');
         if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.pause();
-        else player.pause();
+        player.pause();
     }
 
     static paused()
