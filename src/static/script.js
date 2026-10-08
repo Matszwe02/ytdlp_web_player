@@ -733,7 +733,7 @@ function advanceAudioSource()
     if (currentAudioSourceIndex < sources.length)
     {
         log(`Falling back to audio source ${currentAudioSourceIndex} / ${sources.length} of quality ${currentQuality}`);
-        applyAudioQuality(sources[currentAudioSourceIndex]);
+        setAudioSource();
     }
 }
 
