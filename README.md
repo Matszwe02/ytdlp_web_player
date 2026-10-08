@@ -111,9 +111,12 @@ OR
         #     - src/.env
         ```
     - Copy `src/example.env` to `src/.env`, modify as needed
-- To enable HTTPS, see `compose.yml`
-  - then you can access the HTTPS app with https://localhost:5001
-  - your browser will warn you about not secure connection, you need to click on "allow"
+
+### Hardware Acceleration
+
+FFmpeg automatically detects the best supported hardware encoder. NVIDIA NVENC is used when available, and transcoding automatically falls back to CPU (`libx264`) when hardware acceleration is unavailable or fails.
+
+For NVIDIA GPU acceleration in Docker, [install the NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html), uncomment the `build` block that uses `Dockerfile.hwaccel` and `gpus: all` in `compose.yml`, then run `docker compose up --build`.
 
 ### Run locally (Python)
 
@@ -156,6 +159,17 @@ Some videos need cookies to work. With cookies you will be logged in to the vide
 **Keep in mind that cookies work the same way as your account credentails - anyone having them may [mess up your account](https://youtu.be/yGXaAWbzl5A).**
     
 I do not guarantee that cookies file is completly secure from accessing it through the player. Additionally yt-dlp uses them when playing videos on behalf of the provided account. So I only recommend putting throwaway accounts here.
+
+
+## HTTPS and exposing it to the internet
+
+Some features (like extension and PWA) require HTTPS to work.
+
+If you don't own any HTTPS proxy, the easies solution is to set `PUBLISH_WITH_CLOUDFLARE` environment variable to true and access it through the generated cloudflare link. With this link you can also access this app from anywhere in the world, without the need of port forwarding.
+
+Link is generated and visible in app logs just before app starts.
+
+Note that it is a temporary link that changes each time this app starts. For a more robust way, you need to set up your own proxy with HTTPS certificate.
 
 
 ## Extension
@@ -213,7 +227,7 @@ If you want to embed this player, use `/iframe?url=...` endpoint
 
 ### I can't install PWA / embed it as an iframe / extension does not load
 
-You need a working HTTPS for this, see in [How to run](#how-to-run). Some features will work when you run through HTTP from localhost, but it may not work properly.
+You need a working HTTPS for this, see in [HTTPS and exposing it to the internet](#https-and-exposing-it-to-the-internet). Some features will work when you run through HTTP from localhost, but it may not work properly.
 
 ### I can't play some videos
 

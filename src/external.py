@@ -59,7 +59,7 @@ class External:
         try:
             p = os.path.dirname(__file__)
             for f in os.listdir(p):
-                if f.startswith('ffmpeg'): return os.path.abspath(os.path.join(p, f))
+                if f.startswith('ffmpeg') and not f.endswith('py'): return os.path.abspath(os.path.join(p, f))
             if f := shutil.which("ffmpeg"): return os.path.abspath(f)
             try:
                 import pyffmpeg # type: ignore
@@ -140,6 +140,18 @@ class External:
             return External.yt_dlp().version.__version__ or '-'
         except:
             return '-'
+
+
+    @staticmethod
+    def publish_with_cf(port: int, app_title: str):
+        try:
+            from pycloudflared import try_cloudflare # type: ignore
+        except Exception:
+            print('Installing "pycloudflared" to project\'s environment')
+            External._pip_install('pycloudflared')
+            from pycloudflared import try_cloudflare # type: ignore
+        cf_url = try_cloudflare(port=port)[0]
+        print('\n\n' + '#'*100 + '\n\n' + app_title +' is accessible on: ' + cf_url + '\n\n' + '#'*100 + '\n\n')
 
 
     @staticmethod

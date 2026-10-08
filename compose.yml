@@ -1,7 +1,10 @@
 services:
     ytdlp_web_player:
-        # build: .
+        # build:
+        #     context: .
+        #     dockerfile: Dockerfile.hwaccel  # Uncomment for hardware acceleration
         image: matszwe02/ytdlp_web_player:stable
+        # gpus: all
         # volumes:
         #     - ./src/cookies.txt:/app/cookies.txt
         restart: unless-stopped
@@ -18,20 +21,4 @@ services:
 #         image: nickfedor/watchtower
 #         volumes:
 #             - /var/run/docker.sock:/var/run/docker.sock
-################################################################################
-
-
-
-################################################################################
-#     # Uncomment this section to open HTTPS under port 5001
-#     nginx:
-#         image: valian/docker-nginx-auto-ssl
-#         restart: on-failure
-#         ports:
-#             - 5001:443
-#         volumes:
-#             - ./.ssl:/etc/resty-auto-ssl
-#         environment:
-#             ALLOWED_DOMAINS: 'localhost'
-#             SITES: 'localhost=ytdlp_web_player:5000'
 ################################################################################

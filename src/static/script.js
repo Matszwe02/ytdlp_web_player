@@ -763,19 +763,20 @@ class ZoomToFillToggle extends videojs.getComponent('Button')
     {
         const video = player.el_.querySelector('video');
         var newState = video.style.objectFit == 'contain';
+        var newState = !video.classList.contains('fullscreen-cover');
         if (state === false || state === true)
         {
             newState = state;
         }
         if (newState === true)
         {
-            video.style.setProperty('object-fit', 'cover');
+            video.classList.add('fullscreen-cover');
             this.el().innerHTML = '<span class="fa-solid fa-down-left-and-up-right-to-center"></span>';
             this.controlText('Restore Zoom');
         }
         else
         {
-            video.style.setProperty('object-fit', 'contain');
+            video.classList.remove('fullscreen-cover');
             this.el().innerHTML = '<span class="fa-solid fa-up-right-and-down-left-from-center"></span>';
             this.controlText('Zoom to Fill');
         }
@@ -1005,6 +1006,7 @@ class DownloadButton extends videojs.getComponent('Button')
             { quality: 'best', title: 'Highest Quality' },
             { quality: 'current', title: 'Current Quality' },
             { quality: 'audio', title: 'Audio' },
+            { quality: 'picture', title: 'Picture' },
             { quality: 'trim', title: 'Trim' }
         ];
 
@@ -1015,7 +1017,26 @@ class DownloadButton extends videojs.getComponent('Button')
 
             const handleEvent = (event) => {
                 tryStopPropagation(event);
-                if (option.quality == 'trim') {
+                if (option.quality == 'picture')
+                {
+                    var url = getUrlInfo();
+                    const quality = url.quality || info.default_quality;
+                    const link = document.createElement('a');
+                    link.href = `/picture?url=${url.encodedUrl}&quality=${quality}&start=${player.currentTime()}`;
+                    link.download = 'file';
+
+                    retryFetch(link.href, {}, 100, undefined, true, true).then(response => {
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    })
+
+                    this.handleCloseMenu(true);
+                    retryFetch(link.href)
+                        .then(response => response.text())
+                }
+                else if (option.quality == 'trim')
+                {
                     if (this.startBtn.style.display === 'block')
                     {
                         this.startBtn.style.display = 'none';
@@ -1030,7 +1051,7 @@ class DownloadButton extends videojs.getComponent('Button')
                         this.updateTimeLabels();
                     }
                 }
-                else
+                else 
                 {
                     var url = getUrlInfo();
                     const currentQuality = url.quality || info.default_quality;
@@ -2232,7 +2253,7 @@ function displayDebugInfo()
     let viewbox = document.createElement("div");
     viewbox.style = "width: 80%; height: 500px; overflow: scroll; position: absolute; top: 100vh; white-space: pre; background-color: #111; padding: 20pt;";
     viewbox.id = 'debug-viewbox';
-    
+
     function updateDebugInfo()
     {
         const open = [...viewbox.querySelectorAll("details")].map(d => d.open);
