@@ -1032,9 +1032,9 @@ def get_meta(url: str, max_meta_age = None):
                     try:
                         print('Fetching additional info for meta')
                         srcs = choose_sources_for_res(get_all_video_sources(url, info))
-                        src = srcs[0] or srcs[1]
-                        duration = get_media_duration(url, None, src[0])
-                        w, h = get_media_res(url, None, src[0])
+                        src = srcs[1] or srcs[0]
+                        duration = get_media_duration(url, None, src[0][0])
+                        w, h = get_media_res(url, None, src[0][0])
                         info['duration'] = duration
                         info['width'] = w
                         info['height'] = h
