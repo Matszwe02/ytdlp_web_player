@@ -408,13 +408,13 @@ function getUrlInfo()
 
 function getVideoSource()
 {
-    playerMode = PlayerModes.VIDEO_AUDIO;
     var url = getUrlInfo();
+    if (url.quality !== 'audio') playerMode = PlayerModes.VIDEO_AUDIO;
     let sources = info.sources[url.quality];
     if (!sources)
     {
         sources = info.sources[url.quality + 'audio'];
-        playerMode = PlayerModes.VIDEO;
+        if (url.quality !== 'audio') playerMode = PlayerModes.VIDEO;
     }
     if (!sources)
     {
@@ -422,7 +422,7 @@ function getVideoSource()
     }
     let best = sources[currentVideoSourceIndex];
     if (best) return best;
-    playerMode = PlayerModes.VIDEO;
+    if (url.quality !== 'audio') playerMode = PlayerModes.VIDEO;
     return [`/hls?url=${url.encodedUrl}&quality=${url.quality}`, 'h264', 'application/x-mpegURL', false];
 }
 
@@ -699,7 +699,7 @@ function applyVideoQuality()
 
     let audioActive = url.quality !== 'audio' && getAudioSource() != null;
 
-    playerMode = audioActive ? PlayerModes.VIDEO_AUDIO : PlayerModes.VIDEO;
+    playerMode = url.quality === 'audio' ? PlayerModes.AUDIO : (audioActive ? PlayerModes.VIDEO_AUDIO : PlayerModes.VIDEO);
 
     if (playerMode == PlayerModes.VIDEO_AUDIO) setAudioSource();
     else stopAudioPlayer();
@@ -1995,7 +1995,11 @@ function loadVideo()
     });
 
     player.on('playing', () => {
-        if (isBuffering) lockAudio();
+        if (isBuffering && playerMode == PlayerModes.VIDEO_AUDIO)
+        {
+            lockAudio(true);
+            if (!player.paused() && audioPlayer.paused()) audioPlayer.play();
+        }
         isBuffering = false;
         minBufferAheadTime = 1;
         if (info && parseFloat(info.duration) == 0 && TargetPlayer.currentTime() < 1)
