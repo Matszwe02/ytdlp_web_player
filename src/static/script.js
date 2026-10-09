@@ -1795,7 +1795,7 @@ function checkSponsorTime()
         if (time > segment.start - 1 && time < segment.start)
         {
             setTimeout(() => {
-                if (!player.paused) checkSponsorTime();
+                if (!TargetPlayer.paused()) checkSponsorTime();
             }, (segment.start - time + .01) * 1000 / TargetPlayer.playbackRate());
         }
     });
