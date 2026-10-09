@@ -2140,7 +2140,7 @@ function loadVideo()
                 }
             });
             audioPlayer.on('error', () => {
-                const error = player.error();
+                const error = audioPlayer.error();
                 if (error)
                 {
                     warn(`AUDIO PLAYER ERROR ${error.code} - Trying the next available source`);
