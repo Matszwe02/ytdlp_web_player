@@ -116,7 +116,7 @@ function setupPlayerSync()
         {
             let diff = Math.min(Math.abs(offset), 1);
             let buffer = player.bufferedEnd() - player.currentTime();
-            let rate = audioPlayer.playbackRate() * (offset > 0 ? Math.max(1 - diff, 0.1) : 1 + diff * Math.max(Math.min(buffer, 1), 7));
+            let rate = audioPlayer.playbackRate() * (offset > 0 ? Math.max(1 - diff, 0.1) : 1 + diff * Math.min(Math.max(buffer, 1), 7));
             player.playbackRate(rate);
             log(`Keeping up with audio with playback rate ${player.playbackRate()}`);
         }
