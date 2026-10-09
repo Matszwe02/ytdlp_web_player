@@ -716,9 +716,15 @@ function advanceVideoSource()
     const currentQuality = url.quality || info.default_quality;
     const sources = info.sources[url.quality] || [];
     currentVideoSourceIndex ++;
-    if (currentVideoSourceIndex < sources.length)
+    if (currentVideoSourceIndex < sources.length + info.disable_transcoding ? 0 : 1)
     {
         log(`Falling back to video source ${currentVideoSourceIndex} / ${sources.length} of quality ${currentQuality}`);
+        applyVideoQuality(sources[currentVideoSourceIndex]);
+    }
+    else
+    {
+        currentVideoSourceIndex = 0;
+        log(`Reloading the first video source of quality ${currentQuality}`);
         applyVideoQuality(sources[currentVideoSourceIndex]);
     }
 }
@@ -730,9 +736,15 @@ function advanceAudioSource()
     const currentQuality = url.quality || info.default_quality;
     const sources = info.sources[url.quality] || [];
     currentAudioSourceIndex ++;
-    if (currentAudioSourceIndex < sources.length)
+    if (currentAudioSourceIndex < sources.length + info.disable_transcoding ? 0 : 1)
     {
         log(`Falling back to audio source ${currentAudioSourceIndex} / ${sources.length} of quality ${currentQuality}`);
+        setAudioSource();
+    }
+    else
+    {
+        currentAudioSourceIndex = 0;
+        log(`Reloading the first audio source of quality ${currentQuality}`);
         setAudioSource();
     }
 }
