@@ -1285,6 +1285,7 @@ def get_sprite(url = None, meta = None, simulate = False):
             format = f
             if (f.get('width') or 0) >= 150 or (f.get('height') or 0) >= 150: break
 
+        if not format: raise ValueError('Video does not contain sprite data')
         if not simulate:
             image_urls = []
             if format.get('fragments'):
