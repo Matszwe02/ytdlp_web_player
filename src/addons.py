@@ -447,9 +447,9 @@ class MediaDownloader:
         ]
 
         if video_source:
-            ffmpeg_command = ['-i', f'http://localhost:{port}{video_source[0]}'] + ffmpeg_command
+            ffmpeg_command = ['-i', ensure_path_accessible(video_source[0][0])] + ffmpeg_command
         if audio_source:
-            ffmpeg_command = ['-i', f'http://localhost:{port}{audio_source[0]}'] + ffmpeg_command
+            ffmpeg_command = ['-i', ensure_path_accessible(audio_source[0][0])] + ffmpeg_command
         if video_file_path:
             ffmpeg_command = ['-i', video_file_path] + ffmpeg_command
 
@@ -573,7 +573,7 @@ class MediaDownloader:
             frames_per_row = 10
 
             ffmpeg_command = [
-                '-i', video_path,
+                '-i', ensure_path_accessible(video_path),
                 '-vf', f'fps={1/frame_interval},scale={frame_width}:{frame_height}',
                 os.path.join(sprite_dir, 'frame_%04d.jpg')
             ]
@@ -606,7 +606,7 @@ class MediaDownloader:
     def picture(self):
         video_src = check_res_at_least(self.url, self.res)
         if not video_src:
-            s = choose_sources_for_res(get_video_sources(self.url, self.meta), get_good_quality(get_video_formats(self.url, self.meta)))[0]
+            s = choose_sources_for_res(get_all_video_sources(self.url, self.meta))[0][1]
             print(s)
             video_src = s[0]
         try:
@@ -656,6 +656,11 @@ def assert_safe_url(url: str):
             raise ValueError(f'Refusing to fetch URL resolving to disallowed address: {hostname}')
 
 
+def ensure_path_accessible(path: str):
+    if path.startswith('/external'): path = f'http://localhost:{port}{path}'
+    return path
+
+
 def download_media_file(url: str, path_without_ext: str, ext: str|None = None):
     """Download raw file with requests.get with selected filename"""
     assert_safe_url(url)
@@ -680,7 +685,7 @@ def load_http_cookies(cookies_str):
 
 def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str|None = None):
     """Stream raw file with requests.get"""
-    mark_watched(url)
+    if url: mark_watched(url)
     try:
         assert_safe_url(src)
         headers_dict = json.loads(headers) if headers else {
@@ -835,7 +840,7 @@ def get_media_duration(url, meta, media):
         if d := meta.get("duration"): return d
     except:
         pass
-    ffmpeg_command = ['-i', media, '-hide_banner', '-f', 'null', '-stats']
+    ffmpeg_command = ['-i', ensure_path_accessible(media), '-hide_banner', '-f', 'null', '-stats']
     ff = FFMPEG(url)
     try: ff.run(ffmpeg_command)
     except Exception: pass
@@ -852,7 +857,7 @@ def get_media_res(url, meta, media):
     try:
         if meta.get("width") and meta.get("height"): return int(meta.get("width")), int(meta.get("height"))
     except: pass
-    ffmpeg_command = ['-i', media, '-hide_banner', '-f', 'null', '-stats']
+    ffmpeg_command = ['-i', ensure_path_accessible(media), '-hide_banner', '-f', 'null', '-stats']
     ff = FFMPEG(url)
     try: ff.run(ffmpeg_command)
     except Exception: pass
