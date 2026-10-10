@@ -562,20 +562,20 @@ class ZoomToFillToggle extends videojs.getComponent('Button')
     {
         const video = player.el_.querySelector('video');
         var newState = video.style.objectFit == 'contain';
-        var newState = !video.classList.contains('fullscreen-cover');
+        var newState = !player.el_.classList.contains('fullscreen-cover');
         if (state === false || state === true)
         {
             newState = state;
         }
         if (newState === true)
         {
-            video.classList.add('fullscreen-cover');
+            player.el_.classList.add('fullscreen-cover');
             this.el().innerHTML = '<span class="fa-solid fa-down-left-and-up-right-to-center"></span>';
             this.controlText('Restore Zoom');
         }
         else
         {
-            video.classList.remove('fullscreen-cover');
+            player.el_.classList.remove('fullscreen-cover');
             this.el().innerHTML = '<span class="fa-solid fa-up-right-and-down-left-from-center"></span>';
             this.controlText('Zoom to Fill');
         }
