@@ -508,7 +508,7 @@ class MediaDownloader:
             '-r', '30',
             '-vf', 'scale=-2:240',
             '-preset', 'veryfast',
-            os.path.join(get_data_dir(get_url(request)), 'low.mp4')
+            os.path.join(self.data_dir, 'low.mp4')
         ]
         FFMPEG(self.url, ffmpeg_command)
 
@@ -518,19 +518,11 @@ class MediaDownloader:
         print(f'downloading sub for {lang=}')
 
         try:
-            sub = {**(self.meta.get('subtitles') or {}), **(self.meta.get('automatic_captions') or {})}.get(lang) or ''
-            for i in sub:
-                if i.get('ext') == 'srt':
-                    sub_url = i.get('url')
-                    if sub_url:
-                        download_media_file(sub_url, os.path.join(self.data_dir, self.media_type), 'srt')
-                        break
-                if i.get('ext') == 'vtt':
-                    sub_url = i.get('url')
-                    if sub_url:
-                        download_media_file(sub_url, os.path.join(self.data_dir, self.media_type), 'vtt')
-                        break
-            else:
+            sub = {**(self.meta.get('subtitles') or {}), **(self.meta.get('automatic_captions') or {})}.get(lang) or []
+            selected = next((i for ext in ('srt', 'vtt') for i in sub if i.get('ext') == ext and i.get('url')), None)
+            download_media_file(selected['url'], os.path.join(self.data_dir, self.media_type), selected['ext'])
+
+            if not selected:
                 raise FileNotFoundError('Selected subtitles not found')
             file = check_media(url=self.url, media_type=self.media_type)
             if not file:
@@ -741,7 +733,7 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
             resp.headers['Content-Range'] = response.headers['Content-Range']
         resp.headers['Accept-Ranges'] = 'bytes'
         return resp
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         print(f"Error streaming media file: {e}")
         if url and os.path.exists(os.path.join(get_data_dir(url), 'meta')): get_meta(url, 10)
         return jsonify({"error": f"Failed to stream media: {e}"}), 500
@@ -1222,6 +1214,7 @@ def get_sprite(url = None, meta = None, simulate = False):
             format = f
             if (f.get('width') or 0) >= 150 or (f.get('height') or 0) >= 150: break
 
+        if not format: raise ValueError('Video does not contain sprite data')
         if not simulate:
             image_urls = []
             if format.get('fragments'):

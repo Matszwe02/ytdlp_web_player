@@ -65,8 +65,8 @@ def iframe():
 
     if check_media(url, 'meta'):
         meta = get_meta(url)
-        video_width = meta.get('width', video_width)
-        video_height = meta.get('height', video_height)
+        video_width = meta.get('width') or video_width
+        video_height = meta.get('height') or video_height
     preload(url)
 
     print('Stopped serving iframe')
@@ -146,7 +146,7 @@ def serve_external():
     url = get_url(request)
     headers = request.args.get('headers')
     if client_range := request.headers.get('Range'):
-        headers_dict = json.loads(headers)
+        headers_dict = json.loads(headers) if headers else {}
         headers_dict['Range'] = client_range
         headers= json.dumps(headers_dict)
     return stream_media_file(url, src, headers, request.args.get('cookies'))
@@ -308,6 +308,6 @@ def cancel_download():
 
 @app.after_request
 def after_request(response):
-    response.headers.add('Accept-Ranges', 'bytes')
-    response.headers.add('Content-Security-Policy', "frame-src *")
+    response.headers.setdefault('Accept-Ranges', 'bytes')
+    response.headers.setdefault('Content-Security-Policy', "frame-src *")
     return response
