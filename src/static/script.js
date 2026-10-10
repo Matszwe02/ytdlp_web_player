@@ -686,7 +686,7 @@ function setVideoQuality(height = null, button = null)
     buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
     button?.classList?.add('vjs-menu-option-selected');
 
-    currentVideoEntryIndex = 0;
+    currentVideoSourceIndex = 0;
     applyVideoQuality();
 }
 
@@ -704,7 +704,7 @@ function applyVideoQuality()
     if (playerMode == PlayerModes.VIDEO_AUDIO) setAudioSource();
     else stopAudioPlayer();
 
-    log(`Applying source ${currentVideoEntryIndex}, separate audio player: ${playerMode == PlayerModes.VIDEO_AUDIO}`);
+    log(`Applying video source ${currentVideoSourceIndex}, separate audio player: ${playerMode == PlayerModes.VIDEO_AUDIO}`);
 
     setVideoSource();
 }
@@ -716,37 +716,27 @@ function advanceVideoSource()
     const currentQuality = url.quality || info.default_quality;
     const sources = info.sources[url.quality] || [];
     currentVideoSourceIndex ++;
-    if (currentVideoSourceIndex < sources.length + info.disable_transcoding ? 0 : 1)
-    {
-        log(`Falling back to video source ${currentVideoSourceIndex} / ${sources.length} of quality ${currentQuality}`);
-        applyVideoQuality(sources[currentVideoSourceIndex]);
-    }
-    else
+    const availableSources = sources.length + (info.disable_transcoding ? 0 : 1);
+    if (currentVideoSourceIndex >= availableSources)
     {
         currentVideoSourceIndex = 0;
-        log(`Reloading the first video source of quality ${currentQuality}`);
-        applyVideoQuality(sources[currentVideoSourceIndex]);
     }
+    log(`Changing to video source ${currentVideoSourceIndex} / ${availableSources} of quality ${currentQuality}`);
+    applyVideoQuality();
 }
 
 
 function advanceAudioSource()
 {
-    var url = getUrlInfo();
-    const currentQuality = url.quality || info.default_quality;
-    const sources = info.sources[url.quality] || [];
+    const sources = info.sources['audio'] || [];
     currentAudioSourceIndex ++;
-    if (currentAudioSourceIndex < sources.length + info.disable_transcoding ? 0 : 1)
-    {
-        log(`Falling back to audio source ${currentAudioSourceIndex} / ${sources.length} of quality ${currentQuality}`);
-        setAudioSource();
-    }
-    else
+    const availableSources = sources.length + (info.disable_transcoding ? 0 : 1);
+    if (currentAudioSourceIndex >= availableSources)
     {
         currentAudioSourceIndex = 0;
-        log(`Reloading the first audio source of quality ${currentQuality}`);
-        setAudioSource();
     }
+    log(`Changing to audio source ${currentAudioSourceIndex} / ${availableSources}`);
+    setAudioSource();
 }
 
 
