@@ -824,15 +824,12 @@ class DownloadButton extends videojs.getComponent('Button')
                     link.href = `/picture?url=${url.encodedUrl}&quality=${quality}&start=${player.currentTime()}`;
                     link.download = 'file';
 
+                    this.handleCloseMenu(true);
                     retryFetch(link.href, {}, 100, undefined, true, true).then(response => {
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
-                    })
-
-                    this.handleCloseMenu(true);
-                    retryFetch(link.href)
-                        .then(response => response.text())
+                    }).catch(error => { err(`Could not download picture: ${error.message || error}`); });
                 }
                 else if (option.quality == 'trim')
                 {
@@ -850,7 +847,7 @@ class DownloadButton extends videojs.getComponent('Button')
                         this.updateTimeLabels();
                     }
                 }
-                else 
+                else
                 {
                     var url = getUrlInfo();
                     const currentQuality = url.quality || info.default_quality;
@@ -865,15 +862,12 @@ class DownloadButton extends videojs.getComponent('Button')
 
                     link.download = 'file';
 
+                    this.handleCloseMenu(true);
                     retryFetch(link.href, {}, 100, undefined, true, true).then(response => {
                         document.body.appendChild(link);
                         link.click();
                         document.body.removeChild(link);
-                    })
-
-                    this.handleCloseMenu(true);
-                    retryFetch(link.href)
-                        .then(response => response.text())
+                    }).catch(error => { err(`Could not download video: ${error.message || error}`); });
                 }
             };
 
