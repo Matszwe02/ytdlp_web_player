@@ -161,7 +161,7 @@ def serve_external():
     url = get_url(request)
     headers = request.args.get('headers')
     if client_range := request.headers.get('Range'):
-        headers_dict = json.loads(headers)
+        headers_dict = json.loads(headers) if headers else {}
         headers_dict['Range'] = client_range
         headers= json.dumps(headers_dict)
     return stream_media_file(url, src, headers, request.args.get('cookies'))
