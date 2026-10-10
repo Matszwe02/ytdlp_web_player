@@ -300,7 +300,7 @@ class MediaDownloader:
                     duration = int(self.meta.get('duration') or 10)
                     ffmpeg_command = [
                         '-ss', f'{int(duration/10)}',
-                        '-i', srcs[1][0],
+                        '-i', ensure_path_accessible(srcs[1][0][0]),
                         '-frames:v', '1',
                         os.path.join(self.data_dir, 'thumb-orig.jpg')
                     ]
