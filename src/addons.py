@@ -606,12 +606,12 @@ class MediaDownloader:
     def picture(self):
         video_src = check_res_at_least(self.url, self.res)
         if not video_src:
-            s = choose_sources_for_res(get_all_video_sources(self.url, self.meta))[0][1]
+            s = choose_sources_for_res(get_all_video_sources(self.url, self.meta))[1][0]
             print(s)
             video_src = s[0]
         try:
             ffmpeg_command = [
-                '-i', video_src,
+                '-i', ensure_path_accessible(video_src),
                 '-ss', f'{self.start_time}',
                 '-frames:v', '1',
                 os.path.join(self.data_dir, f'{self.media_type}.jpg')
