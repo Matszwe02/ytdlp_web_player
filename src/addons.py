@@ -1012,7 +1012,6 @@ def get_meta(url: str, max_meta_age = None):
         possible_meta = None
         for i in range(len(proxies) * 2 + 1):
             try:
-                print(f'Setting proxy {proxies[i]}')
                 ydl_opts = {'skip_download': True}
                 if i < len(proxies): ydl_opts = {'skip_download': True, 'socket_timeout': 3, 'extractor_retries': 0}
                 ydl_opts.update(ydl_global_opts)
