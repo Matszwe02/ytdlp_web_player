@@ -159,7 +159,7 @@ class YTDLP:
 
 
     @staticmethod
-    def download(url, opts):
+    def download(url, opts, expected_media: str|None = None):
         if (proxy := get_proxy(url)): opts["proxy"] = proxy
         logger = YTDLP.Logger(url, opts, 'download')
         def ydl_download(url, opts, with_info = False):
@@ -174,6 +174,7 @@ class YTDLP:
                 logger.error(q.get())
             logger.info(f'Exited with code {p.exitcode}')
             if p.exitcode != 0: raise RuntimeError(f'YT-DLP exited unexpectedly with return code {p.exitcode}')
+            if expected_media and not check_media(url, expected_media): raise RuntimeError(f'YT-DLP did not download {expected_media}')
 
         try:
             try:
@@ -547,7 +548,10 @@ class MediaDownloader:
             if f := check_media(url=self.url, media_type=self.media_type):
                 os.remove(f)
             self.ydl_opts.update({'writesubtitles': True, 'skip_download': True, 'subtitleslangs': [lang]})
-            YTDLP.download(self.url, self.ydl_opts)
+            try:
+                YTDLP.download(self.url, self.ydl_opts, self.media_type)
+            except Exception as e:
+                pprint_exc(e)
 
         file = check_media(url=self.url, media_type=self.media_type)
         if file and file.endswith('srt'):
