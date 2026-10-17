@@ -1011,9 +1011,9 @@ def get_meta(url: str, max_meta_age = None):
                     except: pass
         print(f'downloading meta for {url}')
         possible_meta = None
+        last_exception = None
         for i in range(len(proxies) * 2 + 1):
             try:
-                print(f'Setting proxy {proxies[i]}')
                 ydl_opts = {'skip_download': True}
                 if i < len(proxies): ydl_opts = {'skip_download': True, 'socket_timeout': 3, 'extractor_retries': 0}
                 ydl_opts.update(ydl_global_opts)
@@ -1044,6 +1044,8 @@ def get_meta(url: str, max_meta_age = None):
             except Exception as e:
                 pprint_exc(e)
                 advance_proxy(url, True)
+                last_exception = e
+        if last_exception and not possible_meta: raise last_exception
         return possible_meta
     return None
 
