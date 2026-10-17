@@ -342,6 +342,7 @@ class MediaDownloader:
         except Exception as e:
             print(f"Error cropping thumbnail")
             pprint_exc(e)
+        compress_image(self.url, 'thumb')
 
 
     def playlist(self):
@@ -600,6 +601,7 @@ class MediaDownloader:
                         y = row * frame_height
                         sprite_image.paste(img, (x, y))
                 sprite_image.save(os.path.join(self.data_dir, 'sprite.jpg'))
+                compress_image(self.url, 'sprite')
                 shutil.rmtree(sprite_dir)
             except Exception as e:
                 print(f"Sprite error: {e}")
@@ -1307,11 +1309,24 @@ def get_sprite(url = None, meta = None, simulate = False):
                 current_y += img.height
 
             final_sprite.save(os.path.join(get_data_dir(url), 'sprite.jpg'))
+            compress_image(url, 'sprite')
 
         return [format['width'], format['height'], format['columns'], 1 / format['fps']]
     except Exception as e:
         pprint_exc(e)
         return None
+
+
+def compress_image(url: str, media_type: str) -> None:
+    path = check_media(url, media_type)
+    if not path or os.path.splitext(path)[1].lower() == ".webp":
+        return
+
+    output = os.path.splitext(path)[0] + ".webp"
+    ff = FFMPEG(url, ["-i", path, output])
+    if not ff.success: return
+    os.remove(path)
+    print(f'Compressed {media_type}')
 
 
 def search(query, search_engine='auto'):
