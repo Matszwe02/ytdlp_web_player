@@ -311,38 +311,41 @@ class MediaDownloader:
                     pprint_exc(e)
                 thumb_file = check_media(url=self.url, media_type='thumb-orig')
 
-        if not thumb_file: raise RuntimeError("No thumbnail could be generated or found.")
+        if thumb_file:
 
-        try:
-            if video_width and video_height:
+            try:
+                if video_width and video_height:
 
-                with Image.open(thumb_file) as im:
-                    im = im.convert("RGB")
+                    with Image.open(thumb_file) as im:
+                        im = im.convert("RGB")
 
-                    in_w, in_h = im.size
-                    target_ar = video_width / video_height
-                    if in_w / in_h > target_ar:
-                        new_w = int(in_h * target_ar)
-                        new_h = in_h
-                    else:
-                        new_h = int(in_w / target_ar)
-                        new_w = in_w
+                        in_w, in_h = im.size
+                        target_ar = video_width / video_height
+                        if in_w / in_h > target_ar:
+                            new_w = int(in_h * target_ar)
+                            new_h = in_h
+                        else:
+                            new_h = int(in_w / target_ar)
+                            new_w = in_w
 
-                    left = (in_w - new_w) // 2
-                    top = (in_h - new_h) // 2
-                    right = left + new_w
-                    bottom = top + new_h
+                        left = (in_w - new_w) // 2
+                        top = (in_h - new_h) // 2
+                        right = left + new_w
+                        bottom = top + new_h
 
-                    im = im.crop((left, top, right, bottom))
-                    im.save(os.path.join(self.data_dir, 'thumb.jpg'), quality=95)
+                        im = im.crop((left, top, right, bottom))
+                        im.save(os.path.join(self.data_dir, 'thumb.jpg'), quality=95)
 
-                print(f"Thumbnail cropped using PIL")
-                os.remove(thumb_file)
-            else:
-                print("Video dimensions not found in meta, skipping thumbnail cropping.")
-        except Exception as e:
-            print(f"Error cropping thumbnail")
-            pprint_exc(e)
+                    print(f"Thumbnail cropped")
+                    os.remove(thumb_file)
+                else:
+                    print("Video dimensions not found in meta, skipping thumbnail cropping.")
+            except Exception as e:
+                print(f"Error cropping thumbnail")
+                pprint_exc(e)
+        else:
+            print("No thumbnail could be generated or found")
+            Image.new('RGB', (10, 10), color = 'black').save(os.path.join(self.data_dir, 'thumb-missing.png'), format='PNG')
         compress_image(self.url, 'thumb')
 
 

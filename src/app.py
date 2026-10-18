@@ -75,15 +75,8 @@ def iframe():
 
 @app.route('/thumb')
 def serve_thumbnail():
-    try:
-        url = get_url(request)
-        return host_file(url, 'thumb')
-    except Exception as e:
-        pprint_exc(e)
-        thumb = BytesIO()
-        Image.new('RGB', (10, 10), color = 'black').save(thumb, format='PNG')
-        thumb.seek(0)
-        return Response(thumb, mimetype='image/png')
+    url = get_url(request)
+    return host_file(url, 'thumb')
 
 
 @app.route('/sprite')
