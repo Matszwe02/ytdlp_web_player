@@ -259,6 +259,7 @@ class MediaDownloader:
         self.ydl_opts.update(ydl_global_opts)
         if cookies := check_media(self.url, 'cookies') or get_global_cookies_file(): self.ydl_opts["cookiefile"] = cookies
         self.meta = get_meta(self.url)
+        if not self.meta: raise RuntimeError("Video metadata cannot be gathered!")
         if int(self.meta.get('duration') or 0) > max_video_duration: raise ValueError("Video too long for this app to handle")
         self.timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', self.media_type)
         self.start_time = None
@@ -293,7 +294,7 @@ class MediaDownloader:
             YTDLP.download(self.url, self.ydl_opts)
             thumb_file = check_media(url=self.url, media_type='thumb-orig')
 
-            if not thumb_file:
+            if not thumb_file and (video_height or video_width):
                 print('Thumbnail download did not succeed. Generating from video.')
                 try:
                     src = check_media(self.url, 'video')
@@ -566,10 +567,14 @@ class MediaDownloader:
 
 
     def sprite(self):
-        if self.meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
+        err = None
+        if self.meta.get('is_live'): err = 'Sprite not available for livestreams'
+        if self.meta["duration"] > generate_sprite_below: err = f"Video too long to generate sprite ({self.meta['duration']}s)"
+        if not self.meta.get('height') and not self.meta.get('width'): err = 'Sprite not available for non-video media'
+        if err:
+            print(err)
+            return
         if get_sprite(self.url, self.meta): return
-        if self.meta["duration"] > generate_sprite_below: raise ValueError(f"Video too long to generate sprite! ({self.meta['duration']}s)")
-        if not self.meta.get('height') and not self.meta.get('width'): raise TypeError('Sprite not available on non-video media!')
         video_path = check_media(url=self.url, media_type='video')
         sprite_dir = os.path.join(self.data_dir, 'temp_sprite')
         os.makedirs(sprite_dir, exist_ok=True)
@@ -1034,8 +1039,8 @@ def get_meta(url: str, max_meta_age = None):
                         srcs = choose_sources_for_res(get_video_sources(url, info), get_good_quality(get_video_formats(url, info)))
                         src = srcs[0] or srcs[1]
                         duration = get_media_duration(url, None, src[0])
-                        w, h = get_media_res(url, None, src[0])
                         info['duration'] = duration
+                        w, h = get_media_res(url, None, src[0])
                         info['width'] = w
                         info['height'] = h
                     except Exception as e:
@@ -1209,6 +1214,7 @@ def choose_sources_for_res(sources: dict, res = None):
     Chooses (audio_source, video_source) among sources, needed for playback with specific resolution.
     """
     res = str(res) if res else ''
+    if res == '0': res = 'audio'
     video_source = None
     audio_source = None
     for s in sources.keys():
@@ -1288,7 +1294,9 @@ def get_sprite(url = None, meta = None, simulate = False):
             format = f
             if (f.get('width') or 0) >= 150 or (f.get('height') or 0) >= 150: break
 
-        if not format: raise ValueError('Video does not contain sprite data')
+        if not format:
+            print('Video does not contain sprite data')
+            return None
         if not simulate:
             image_urls = []
             if format.get('fragments'):
