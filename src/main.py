@@ -57,7 +57,7 @@ if not ffmpeg and not disable_transcoding:
 
 js_runtime = External.download_deno()
 
-ydl_global_opts = {'ffmpeg-location': ffmpeg, "noplaylist": True, 'playlistend': 0, "remote_components": ["ejs:github"], "concurrent_fragment_downloads": 2}
+ydl_global_opts = {'ffmpeg_location': ffmpeg, "noplaylist": True, 'playlistend': 0, "remote_components": ["ejs:github"], "concurrent_fragment_downloads": 2}
 if js_runtime and 'deno' not in subprocess.check_output([js_runtime, '--version']).decode(): ydl_global_opts["js_runtimes"] = {"node": {}}
 
 app_version = External.get_app_version()
