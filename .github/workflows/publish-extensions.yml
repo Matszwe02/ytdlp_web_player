@@ -30,8 +30,8 @@ jobs:
           mode: publish
           extension_id: ${{ vars.CHROME_EXTENSION_ID }}
           zip_file_path: ./extension_chrome.zip
-          client_id: ${{ secrets.GOOGLE_CLIENT_ID }}
-          client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          client_id: ${{ secrets.GOOGLE_CLIENT_ID }} # this fucker https://console.cloud.google.com/apis/credentials?project=yt-dlp-web-player
+          client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }} # and this https://developer.chrome.com/docs/webstore/using-api
           refresh_token: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
           publish_target: public
           expedited_review: true
