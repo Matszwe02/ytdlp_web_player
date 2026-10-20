@@ -506,7 +506,7 @@ function setVideoQuality(height = null, button = null)
     else
     {
         log('Fetching Direct...');
-        retryFetch(getVideoSource()[0], undefined, 2, undefined, undefined, true)
+        retryFetch(getVideoSource()[0], 2, undefined, undefined, undefined, true)
             .then(response => {
                 applyVideoQuality();
                 buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
@@ -1731,7 +1731,7 @@ function loadVideo()
         },
     });
     player.doubleTapFF();
-    player.controlBar.ZoomToFillToggle.handleClick(null, false);
+    player.controlBar.ZoomToFillToggle.handleClick(null, state = false);
     if (window.location.href.includes('/iframe?')) player.controlBar.addChild('PlayerButton');
     
     const spacer = document.createElement('div');
@@ -2016,7 +2016,7 @@ function loadVideo()
 
 function loadMediaSession()
 {
-    if (!("mediaSession" in navigator)) return;
+    if (! "mediaSession" in navigator) return;
 
     var url = getUrlInfo();
     navigator.mediaSession.metadata = new MediaMetadata({

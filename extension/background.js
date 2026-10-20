@@ -9,7 +9,7 @@ storageSync.get({ playerUrl: '' }, (items) => {
 });
 
 storage.onChanged.addListener((changes, namespace) => {
-    if ((namespace === 'sync' || namespace === 'local') && changes.playerUrl) {
+    if (namespace === 'sync' && changes.playerUrl) {
         playerUrl = changes.playerUrl.newValue;
     }
 });
