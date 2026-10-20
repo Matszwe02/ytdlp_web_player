@@ -38,21 +38,33 @@ Some of these features are off by default and need to be turned on in `.env`.
   <tr>
     <td align="center" valign="top" width="50%">
       <b>Multi-Platform</b><br>Server app for Linux and Windows, docker images, unraid app
-      <br><br><img src=".github/images/main.png" alt="Main Page" />
     </td>
     <td align="center" valign="top" width="50%">
       <b>Vertical Video Support</b><br>Player automatically adjusts its aspect ratio to each video, in fullscreen you can zoom to fill
-      <br><br><img src=".github/images/vert.png" alt="Vertical Video Support" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src=".github/images/main.png" alt="Main Page" />
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src=".github/images/vert.png" alt="Vertical Video Support" />
     </td>
   </tr>
   <tr>
     <td align="center" valign="top" width="50%">
       <b>Phone App</b><br>Installable as PWA app - native phone experience, opening links with "share with YT-DLP Player"
-      <br><br><img src=".github/images/app.png" alt="Phone App" />
     </td>
     <td align="center" valign="top" width="50%">
       <b>Browser Extension</b><br>Replace all videos seamlessly - consistent UI across every website
-      <br><br><img src=".github/images/stream.png" alt="Browser Extension" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center" valign="top" width="50%">
+      <img src=".github/images/app.png" alt="Phone App" />
+    </td>
+    <td align="center" valign="top" width="50%">
+      <img src=".github/images/stream.png" alt="Browser Extension" />
     </td>
   </tr>
 </table>
