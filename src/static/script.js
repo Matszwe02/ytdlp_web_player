@@ -181,7 +181,7 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible 
         {
             throw error;
         }
-        err(`Fetch failed, retrying in ${delay / 1000} seconds...`, error);
+        err(`Fetch failed, retrying in ${delay / 1000} seconds... ${error}`);
         if (retries > 0)
         {
             await new Promise(resolve => setTimeout(resolve, delay));
@@ -246,7 +246,7 @@ function formatTimeShort(timeInSeconds)
 function updatePlaybackTime(newTime = null)
 {
     const url = new URL(window.location.href);
-    if (newTime === null) newTime = currentTime();
+    if (newTime === null) newTime = player.currentTime();
     if (newTime > 2 && newTime < info.duration - 2)
     {
         url.searchParams.set('t', Math.floor(newTime));
@@ -270,7 +270,7 @@ function fullscreenOnRotate()
         player.exitFullscreen();
     }
 }
-screen.orientation.addEventListener("change", (event) => {
+screen.orientation?.addEventListener("change", (event) => {
     fullscreenOnRotate();
 });
 
@@ -507,7 +507,7 @@ function setVideoQuality(height = null, button = null)
     else
     {
         log('Fetching Direct...');
-        retryFetch(getVideoSource()[0], 2, undefined, undefined, undefined, true)
+        retryFetch(getVideoSource()[0], {}, 2, undefined, undefined, true)
             .then(response => {
                 applyVideoQuality();
                 buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
@@ -529,7 +529,7 @@ function setVideoQuality(height = null, button = null)
             })
             .catch(error => {
                 clearInterval(ongoingRequest);
-                err('Error fetching new quality:', error);
+                err(`Error fetching new quality: ${error}`);
                 if (info.disable_transcoding) return;
                 usesHls = true;
                 setVideoQuality(height);
@@ -1574,7 +1574,7 @@ function checkSponsorTime()
         if (currentTime > segment.start - 1 && currentTime < segment.start)
         {
             setTimeout(() => {
-                if (!player.paused) checkSponsorTime();
+                if (!player.paused()) checkSponsorTime();
             }, (segment.start - currentTime + .01) * 1000 / player.playbackRate());
         }
     });
@@ -1756,7 +1756,12 @@ function loadVideo()
         {
             let timeDiff= player.bufferedEnd() - player.currentTime();
             let minLiveBuffer = parseFloat(info.min_live_buffer);
-            if (timeDiff > 30 || minLiveBuffer <= 0) return;
+            if (timeDiff > 30 || minLiveBuffer <= 0)
+            {
+                let rate = player.playbackRate();
+                if (rate != 1 && rate < 1.15 && rate > 0.9) player.playbackRate(1);
+                return;
+            }
             if (timeDiff < minBufferAheadTime) minBufferAheadTime = Math.max(timeDiff, 0);
             else minBufferAheadTime = (minBufferAheadTime * 2047 + timeDiff) / 2048;
             
