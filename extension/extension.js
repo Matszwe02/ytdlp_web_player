@@ -505,7 +505,7 @@ else
             const currentUrl = new URL(windowHref());
             if (allowedDomains.includes(currentUrl.hostname))
             {
-                allowedDomains.pop(currentUrl.hostname);
+                allowedDomains = allowedDomains.filter(domain => domain !== currentUrl.hostname);
             }
             else
             {

@@ -1732,7 +1732,7 @@ function loadVideo()
         },
     });
     player.doubleTapFF();
-    player.controlBar.ZoomToFillToggle.handleClick(null, state = false);
+    player.controlBar.ZoomToFillToggle.handleClick(null, false);
     if (window.location.href.includes('/iframe?')) player.controlBar.addChild('PlayerButton');
     
     const spacer = document.createElement('div');
@@ -2022,7 +2022,7 @@ function loadVideo()
 
 function loadMediaSession()
 {
-    if (! "mediaSession" in navigator) return;
+    if (!("mediaSession" in navigator)) return;
 
     var url = getUrlInfo();
     navigator.mediaSession.metadata = new MediaMetadata({
