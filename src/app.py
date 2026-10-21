@@ -1,7 +1,7 @@
 import os
 import signal
 import sys
-from flask import Flask, render_template, request, jsonify, Response
+from flask import Flask, render_template, request, jsonify, Response, send_file
 from io import BytesIO
 from starlette.middleware.wsgi import WSGIMiddleware
 
@@ -271,7 +271,7 @@ def hls_segment():
         host_file(get_url(request), media_type)
         return jsonify({"error": "File not found"}), 404
 
-    return send_file_partial(file)
+    return send_file(file)
 
 
 @app.route('/search')
