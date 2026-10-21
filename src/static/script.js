@@ -200,32 +200,6 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible 
 }
 
 
-// Uses a request started early in <head> (see prefetch.html), falling back to retryFetch
-async function prefetchedFetch(url)
-{
-    const pending = window.prefetchedRequests?.[url];
-    if (!pending) return retryFetch(url);
-    delete window.prefetchedRequests[url];
-    addFetch();
-    try
-    {
-        const response = await pending;
-        if (response.status == 500) throw new Error(`Server error: ${await response.text()}`);
-        if (response.ok) return response;
-    }
-    catch (error)
-    {
-        if (error.message.startsWith('Server error:')) throw error;
-    }
-    finally
-    {
-        removeFetch();
-    }
-    warn(`Prefetched request for "${url}" failed, retrying`);
-    return retryFetch(url);
-}
-
-
 function getUrlInfo()
 {
     const urlParams = new URLSearchParams(window.location.search);
@@ -1895,7 +1869,7 @@ function loadVideo()
             player.currentTime(parseFloat(url.startTime));
         }
     }
-    prefetchedFetch(`/info?url=${url.encodedUrl}`)
+    retryFetch(`/info?url=${url.encodedUrl}`)
         .then(response => response.json())
         .then(rawInfo => {
             info = rawInfo;
@@ -2024,7 +1998,7 @@ function loadVideo()
         });
 
         
-    prefetchedFetch(`/sb?url=${url.encodedUrl}`)
+    retryFetch(`/sb?url=${url.encodedUrl}`)
         .then(response => response.json())
         .then(data => {
             if (Array.isArray(data)) {
