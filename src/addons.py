@@ -670,10 +670,32 @@ def assert_safe_url(url: str):
             raise ValueError(f'Refusing to fetch URL resolving to disallowed address: {hostname}')
 
 
+def fetch_safe(url: str, max_redirects: int = 5, **kwargs) -> requests.Response:
+    """requests.get wrapper enforcing assert_safe_url on every hop.
+
+    requests follows redirects without re-validating the target, so a bare
+    assert_safe_url(url) is bypassable by a 302 to an internal address. This
+    follows redirects manually and re-checks each Location against the SSRF
+    guard.
+    """
+    current = url
+    kwargs.pop('allow_redirects', None)
+    for _ in range(max_redirects + 1):
+        assert_safe_url(current)
+        response = requests.get(current, allow_redirects=False, **kwargs)
+        if response.is_redirect or response.is_permanent_redirect:
+            location = response.headers.get('Location')
+            if not location:
+                raise ValueError('Redirect missing Location header')
+            current = urljoin(current, location)
+            continue
+        return response
+    raise ValueError(f'Too many redirects fetching: {url}')
+
+
 def download_media_file(url: str, path_without_ext: str, ext: str|None = None):
     """Download raw file with requests.get with selected filename"""
-    assert_safe_url(url)
-    response = requests.get(url, stream=True, proxies=get_proxy(url, True))
+    response = fetch_safe(url, stream=True, proxies=get_proxy(url, True))
     response.raise_for_status()
     if not ext:
         urlpath = url
@@ -695,12 +717,11 @@ def load_http_cookies(cookies_str):
 def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str|None = None):
     """Stream raw file with requests.get"""
     try:
-        assert_safe_url(src)
         headers_dict = json.loads(headers) if headers else {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         url = url or ""
-        response = requests.get(src, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies), proxies=get_proxy(url, True))
+        response = fetch_safe(src, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies), proxies=get_proxy(url, True))
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
@@ -1121,7 +1142,7 @@ def generate_hls(url, audio_source, video_source):
 def generate_dash(url, audio_source, video_source, duration):
     def get_mp4_dash_ranges(source):
         headers_dict = json.loads(source[1]) | {"Range": "bytes=0-60000"}
-        response = requests.get(source[0], headers=headers_dict, cookies=load_http_cookies(source[2]), proxies=get_proxy(url, True))
+        response = fetch_safe(source[0], headers=headers_dict, cookies=load_http_cookies(source[2]), proxies=get_proxy(url, True))
         response.raise_for_status()
         data = response.content
         offset = 0
@@ -1270,7 +1291,7 @@ def get_sprite(url = None, meta = None, simulate = False):
             height = 0
 
             for i, img_url in enumerate(image_urls):
-                response = requests.get(img_url, proxies=get_proxy(url, True))
+                response = fetch_safe(img_url, proxies=get_proxy(url, True))
                 response.raise_for_status()
                 img = Image.open(io.BytesIO(response.content))
 
