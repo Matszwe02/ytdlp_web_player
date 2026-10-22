@@ -20,7 +20,6 @@ from ffmpeg import FFMPEG
 from main import *
 from sb import SponsorBlock
 
-yt_dlp = External.yt_dlp()
 
 
 class FileCachingLock:
@@ -147,7 +146,7 @@ class YTDLP:
         try:
             if ffmpeg: os.environ['PATH'] += os.path.dirname(ffmpeg)
             if js_runtime: os.environ['PATH'] += os.path.dirname(js_runtime)
-            with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
+            with External.yt_dlp().YoutubeDL(opts | {'logger': logger}) as ydl:
                 if with_info:
                     ydl.download_with_info_file(arg)
                 else:
@@ -202,7 +201,7 @@ class YTDLP:
         logger = YTDLP.Logger(url, opts, 'extract_info')
         if js_runtime: os.environ['PATH'] += os.path.dirname(js_runtime)
         try:
-            with yt_dlp.YoutubeDL(json.loads(json.dumps(opts)) | {'logger': logger}) as ydl:
+            with External.yt_dlp().YoutubeDL(json.loads(json.dumps(opts)) | {'logger': logger}) as ydl:
                 return ydl.sanitize_info(ydl.extract_info(url, download=False))
         except Exception as e:
             if (cookies := get_global_cookies_file(True)):
@@ -212,7 +211,7 @@ class YTDLP:
                 opts["mark_watched"] = False
                 logger.start(url, opts, 'extract_info')
                 try:
-                    with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
+                    with External.yt_dlp().YoutubeDL(opts | {'logger': logger}) as ydl:
                         return ydl.sanitize_info(ydl.extract_info(url, download=False))
                 except Exception as e:
                     advance_proxy(url)
@@ -270,7 +269,7 @@ class MediaDownloader:
             try:
                 self.start_time = float(self.timestamps.group(1))
                 self.end_time = float(self.timestamps.group(2))
-                self.ydl_opts.update({'download_ranges': yt_dlp.utils.download_range_func(None, [(self.start_time, self.end_time)]), 'force_keyframes_at_cuts': True})
+                self.ydl_opts.update({'download_ranges': External.yt_dlp().utils.download_range_func(None, [(self.start_time, self.end_time)]), 'force_keyframes_at_cuts': True})
                 print(f"Downloading section {self.start_time}-{self.end_time}")
             except ValueError:
                 print("Error parsing start/end times from media_type")

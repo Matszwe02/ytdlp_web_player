@@ -1,3 +1,6 @@
+import importlib
+import importlib.metadata
+import io
 import json
 import os
 import shutil
@@ -42,14 +45,13 @@ class External:
                 External._load_frozen_ytdlp()
             else:
                 External._pip_install('yt-dlp')
-            try:
-                import importlib
-                importlib.reload(yt_dlp)
-                importlib.reload(yt_dlp.version)
-                importlib.util
-            except:
-                import yt_dlp
-                import yt_dlp.version
+            importlib.invalidate_caches()
+            if getattr(sys.modules.get('yt_dlp.version'), '__version__', None) == importlib.metadata.version('yt-dlp'):
+                print(f'yt-dlp is up to date')
+                return
+            for name in [m for m in list(sys.modules) if m == 'yt_dlp' or m.startswith('yt_dlp.')]:
+                sys.modules.pop(name, None)
+            print(f'yt-dlp {External.get_ytdlp_version()} loaded')
         except Exception as e:
             print(f'Warning: yt-dlp update failed: {e}')
 
@@ -164,13 +166,10 @@ class External:
         version = data["info"]["version"]
         url = [f for f in data["releases"][version] if f["filename"].endswith(".whl")][0]["url"]
 
-        shutil.rmtree(ytdlp_dir, ignore_errors=True)
-        wheel_path = os.path.join(ytdlp_dir, '.whl')
-        os.makedirs(wheel_path, exist_ok=True)
+        with urllib.request.urlopen(url, timeout=60) as r:
+            wheel = io.BytesIO(r.read())
 
-        wheel = os.path.join(wheel_path, "yt-dlp.whl")
-        with urllib.request.urlopen(url, timeout=60) as r, open(wheel, "wb") as f:
-            shutil.copyfileobj(r, f)
+        shutil.rmtree(ytdlp_dir, ignore_errors=True)
         with zipfile.ZipFile(wheel) as z:
             z.extractall(ytdlp_dir)
         print(f'Yt-dlp {version} installed!')
@@ -180,9 +179,6 @@ class External:
     def _load_frozen_ytdlp():
         ytdlp_dir = str(os.path.abspath('./yt-dlp_update'))
         External._install_ytdlp_raw(ytdlp_dir)
-
-        sys.modules.pop("yt_dlp", None)
-        sys.modules.pop("yt_dlp.version", None)
 
         if str(ytdlp_dir) in sys.path: sys.path.remove(ytdlp_dir)
         sys.path.insert(0, ytdlp_dir)
