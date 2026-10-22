@@ -209,7 +209,7 @@ Additionally adds `Open in YT-DLP Player` context menu for all links. So you can
 
 ### Tampermonkey script
 
-- Create a new script and copy extension js from player's dropdown menu (or `/extension/extension.js`)
+- Install userscript from player's dropdown menu (you need to have `Tampermonkey`/`Violentmonkey` extension installed)
 - In script settings: enable/disable domains or start/stop temporarily
 - For some websites you need to install one of `disable CSM` extensions
 

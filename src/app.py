@@ -248,6 +248,11 @@ def serve_extension():
     return Response(extension, mimetype='text/javascript')
 
 
+@app.route('/extension.user.js')
+def serve_userscript():
+    return serve_extension()
+
+
 @app.route('/hls')
 def download_hls():
     try:
