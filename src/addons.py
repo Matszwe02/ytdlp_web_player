@@ -6,8 +6,10 @@ import re
 import time
 import traceback
 import io
+import ipaddress
 import requests
 import shutil
+import socket
 import struct
 from PIL import Image
 from datetime import datetime
@@ -657,23 +659,26 @@ def check_alerts():
     return alerts
 
 
-def assert_safe_url(url: str):
-    """Raise ValueError if url resolves to a private/internal/loopback address (SSRF guard)"""
-    import ipaddress
-    import socket
-    hostname = urlparse(url).hostname
-    if not hostname:
-        raise ValueError('Invalid URL: missing hostname')
-    for family, _, _, _, sockaddr in socket.getaddrinfo(hostname, None):
-        ip = ipaddress.ip_address(sockaddr[0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
-            raise ValueError(f'Refusing to fetch URL resolving to disallowed address: {hostname}')
+def fetch_safe(url: str, **kwargs) -> requests.Response:
+    for _ in range(5):
+        hostname = urlparse(url).hostname
+        if not hostname:
+            raise ValueError('Invalid URL: missing hostname')
+        for addrinfo in socket.getaddrinfo(hostname, None):
+            ip = ipaddress.ip_address(addrinfo[4][0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+                raise ValueError(f'Refusing to fetch URL resolving to disallowed address: {hostname}')
+        response = requests.get(url, allow_redirects=False, **kwargs)
+        if not response.is_redirect:
+            return response
+        url = urljoin(url, response.headers['Location'])
+        response.close()
+    raise ValueError('Too many redirects')
 
 
 def download_media_file(url: str, path_without_ext: str, ext: str|None = None):
     """Download raw file with requests.get with selected filename"""
-    assert_safe_url(url)
-    response = requests.get(url, stream=True, proxies=get_proxy(url, True))
+    response = fetch_safe(url, stream=True, proxies=get_proxy(url, True))
     response.raise_for_status()
     if not ext:
         urlpath = url
@@ -695,12 +700,11 @@ def load_http_cookies(cookies_str):
 def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str|None = None):
     """Stream raw file with requests.get"""
     try:
-        assert_safe_url(src)
         headers_dict = json.loads(headers) if headers else {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         url = url or ""
-        response = requests.get(src, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies), proxies=get_proxy(url, True))
+        response = fetch_safe(src, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies), proxies=get_proxy(url, True))
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
@@ -1121,7 +1125,7 @@ def generate_hls(url, audio_source, video_source):
 def generate_dash(url, audio_source, video_source, duration):
     def get_mp4_dash_ranges(source):
         headers_dict = json.loads(source[1]) | {"Range": "bytes=0-60000"}
-        response = requests.get(source[0], headers=headers_dict, cookies=load_http_cookies(source[2]), proxies=get_proxy(url, True))
+        response = fetch_safe(source[0], headers=headers_dict, cookies=load_http_cookies(source[2]), proxies=get_proxy(url, True))
         response.raise_for_status()
         data = response.content
         offset = 0
@@ -1270,7 +1274,7 @@ def get_sprite(url = None, meta = None, simulate = False):
             height = 0
 
             for i, img_url in enumerate(image_urls):
-                response = requests.get(img_url, proxies=get_proxy(url, True))
+                response = fetch_safe(img_url, proxies=get_proxy(url, True))
                 response.raise_for_status()
                 img = Image.open(io.BytesIO(response.content))
 
