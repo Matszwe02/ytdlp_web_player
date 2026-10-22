@@ -9,7 +9,7 @@ self.addEventListener("install", (event) =>
 
 function isCacheable(request)
 {
-    return !request.url.includes("?") && !request.url.includes("hls_stream");
+    return !request.url.includes("?") && !request.url.includes("user.js");
 }
 
 async function cacheFirstWithRefresh(request)
