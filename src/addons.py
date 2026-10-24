@@ -1,14 +1,15 @@
 import http.cookies
 import json
 import math
-import mimetypes
 import os
 import re
 import time
 import traceback
 import io
+import ipaddress
 import requests
 import shutil
+import socket
 import struct
 from PIL import Image
 from datetime import datetime
@@ -21,7 +22,6 @@ from ffmpeg import FFMPEG
 from main import *
 from sb import SponsorBlock
 
-yt_dlp = External.yt_dlp()
 
 
 class FileCachingLock:
@@ -148,7 +148,7 @@ class YTDLP:
         try:
             if ffmpeg: os.environ['PATH'] += os.path.dirname(ffmpeg)
             if js_runtime: os.environ['PATH'] += os.path.dirname(js_runtime)
-            with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
+            with External.yt_dlp().YoutubeDL(opts | {'logger': logger}) as ydl:
                 if with_info:
                     ydl.download_with_info_file(arg)
                 else:
@@ -159,7 +159,7 @@ class YTDLP:
 
 
     @staticmethod
-    def download(url, opts):
+    def download(url, opts, expected_media: str|None = None):
         if (proxy := get_proxy(url)): opts["proxy"] = proxy
         logger = YTDLP.Logger(url, opts, 'download')
         def ydl_download(url, opts, with_info = False):
@@ -174,6 +174,7 @@ class YTDLP:
                 logger.error(q.get())
             logger.info(f'Exited with code {p.exitcode}')
             if p.exitcode != 0: raise RuntimeError(f'YT-DLP exited unexpectedly with return code {p.exitcode}')
+            if expected_media and not check_media(url, expected_media): raise RuntimeError(f'YT-DLP did not download {expected_media}')
 
         try:
             try:
@@ -202,7 +203,7 @@ class YTDLP:
         logger = YTDLP.Logger(url, opts, 'extract_info')
         if js_runtime: os.environ['PATH'] += os.path.dirname(js_runtime)
         try:
-            with yt_dlp.YoutubeDL(json.loads(json.dumps(opts)) | {'logger': logger}) as ydl:
+            with External.yt_dlp().YoutubeDL(json.loads(json.dumps(opts)) | {'logger': logger}) as ydl:
                 return ydl.sanitize_info(ydl.extract_info(url, download=False))
         except Exception as e:
             if (cookies := get_global_cookies_file(True)):
@@ -212,7 +213,7 @@ class YTDLP:
                 opts["mark_watched"] = False
                 logger.start(url, opts, 'extract_info')
                 try:
-                    with yt_dlp.YoutubeDL(opts | {'logger': logger}) as ydl:
+                    with External.yt_dlp().YoutubeDL(opts | {'logger': logger}) as ydl:
                         return ydl.sanitize_info(ydl.extract_info(url, download=False))
                 except Exception as e:
                     advance_proxy(url)
@@ -257,6 +258,7 @@ class MediaDownloader:
         self.ydl_opts.update(ydl_global_opts)
         if cookies := check_media(self.url, 'cookies') or get_global_cookies_file(): self.ydl_opts["cookiefile"] = cookies
         self.meta = get_meta(self.url)
+        if not self.meta: raise RuntimeError("Video metadata cannot be gathered!")
         if int(self.meta.get('duration') or 0) > max_video_duration: raise ValueError("Video too long for this app to handle")
         self.timestamps = re.search(r'_(\d+\.?\d*)-(\d+\.?\d*)', self.media_type)
         self.start_time = None
@@ -268,7 +270,7 @@ class MediaDownloader:
             try:
                 self.start_time = float(self.timestamps.group(1))
                 self.end_time = float(self.timestamps.group(2))
-                self.ydl_opts.update({'download_ranges': yt_dlp.utils.download_range_func(None, [(self.start_time, self.end_time)]), 'force_keyframes_at_cuts': True})
+                self.ydl_opts.update({'download_ranges': External.yt_dlp().utils.download_range_func(None, [(self.start_time, self.end_time)]), 'force_keyframes_at_cuts': True})
                 print(f"Downloading section {self.start_time}-{self.end_time}")
             except ValueError:
                 print("Error parsing start/end times from media_type")
@@ -291,7 +293,7 @@ class MediaDownloader:
             YTDLP.download(self.url, self.ydl_opts)
             thumb_file = check_media(url=self.url, media_type='thumb-orig')
 
-            if not thumb_file:
+            if not thumb_file and (video_height or video_width):
                 print('Thumbnail download did not succeed. Generating from video.')
                 try:
                     src = check_media(self.url, 'video')
@@ -309,38 +311,42 @@ class MediaDownloader:
                     pprint_exc(e)
                 thumb_file = check_media(url=self.url, media_type='thumb-orig')
 
-        if not thumb_file: raise RuntimeError("No thumbnail could be generated or found.")
+        if thumb_file:
 
-        try:
-            if video_width and video_height:
+            try:
+                if video_width and video_height:
 
-                with Image.open(thumb_file) as im:
-                    im = im.convert("RGB")
+                    with Image.open(thumb_file) as im:
+                        im = im.convert("RGB")
 
-                    in_w, in_h = im.size
-                    target_ar = video_width / video_height
-                    if in_w / in_h > target_ar:
-                        new_w = int(in_h * target_ar)
-                        new_h = in_h
-                    else:
-                        new_h = int(in_w / target_ar)
-                        new_w = in_w
+                        in_w, in_h = im.size
+                        target_ar = video_width / video_height
+                        if in_w / in_h > target_ar:
+                            new_w = int(in_h * target_ar)
+                            new_h = in_h
+                        else:
+                            new_h = int(in_w / target_ar)
+                            new_w = in_w
 
-                    left = (in_w - new_w) // 2
-                    top = (in_h - new_h) // 2
-                    right = left + new_w
-                    bottom = top + new_h
+                        left = (in_w - new_w) // 2
+                        top = (in_h - new_h) // 2
+                        right = left + new_w
+                        bottom = top + new_h
 
-                    im = im.crop((left, top, right, bottom))
-                    im.save(os.path.join(self.data_dir, 'thumb.jpg'), quality=95)
+                        im = im.crop((left, top, right, bottom))
+                        im.save(os.path.join(self.data_dir, 'thumb.jpg'), quality=95)
 
-                print(f"Thumbnail cropped using PIL")
-                os.remove(thumb_file)
-            else:
-                print("Video dimensions not found in meta, skipping thumbnail cropping.")
-        except Exception as e:
-            print(f"Error cropping thumbnail")
-            pprint_exc(e)
+                    print(f"Thumbnail cropped")
+                    os.remove(thumb_file)
+                else:
+                    print("Video dimensions not found in meta, skipping thumbnail cropping.")
+            except Exception as e:
+                print(f"Error cropping thumbnail")
+                pprint_exc(e)
+        else:
+            print("No thumbnail could be generated or found")
+            Image.new('RGB', (10, 10), color = 'black').save(os.path.join(self.data_dir, 'thumb-missing.png'), format='PNG')
+        compress_image(self.url, 'thumb')
 
 
     def playlist(self):
@@ -536,7 +542,10 @@ class MediaDownloader:
             if f := check_media(url=self.url, media_type=self.media_type):
                 os.remove(f)
             self.ydl_opts.update({'writesubtitles': True, 'skip_download': True, 'subtitleslangs': [lang]})
-            YTDLP.download(self.url, self.ydl_opts)
+            try:
+                YTDLP.download(self.url, self.ydl_opts, self.media_type)
+            except Exception as e:
+                pprint_exc(e)
 
         file = check_media(url=self.url, media_type=self.media_type)
         if file and file.endswith('srt'):
@@ -548,10 +557,14 @@ class MediaDownloader:
 
 
     def sprite(self):
-        if self.meta.get('is_live'): raise NotImplementedError('Livestream transcoding is not supported')
+        err = None
+        if self.meta.get('is_live'): err = 'Sprite not available for livestreams'
+        if self.meta["duration"] > generate_sprite_below: err = f"Video too long to generate sprite ({self.meta['duration']}s)"
+        if not self.meta.get('height') and not self.meta.get('width'): err = 'Sprite not available for non-video media'
+        if err:
+            print(err)
+            return
         if get_sprite(self.url, self.meta): return
-        if self.meta["duration"] > generate_sprite_below: raise ValueError(f"Video too long to generate sprite! ({self.meta['duration']}s)")
-        if not self.meta.get('height') and not self.meta.get('width'): raise TypeError('Sprite not available on non-video media!')
         video_path = check_media(url=self.url, media_type='video')
         sprite_dir = os.path.join(self.data_dir, 'temp_sprite')
         os.makedirs(sprite_dir, exist_ok=True)
@@ -590,6 +603,7 @@ class MediaDownloader:
                         y = row * frame_height
                         sprite_image.paste(img, (x, y))
                 sprite_image.save(os.path.join(self.data_dir, 'sprite.jpg'))
+                compress_image(self.url, 'sprite')
                 shutil.rmtree(sprite_dir)
             except Exception as e:
                 print(f"Sprite error: {e}")
@@ -635,17 +649,21 @@ def check_alerts():
     return alerts
 
 
-def assert_safe_url(url: str):
-    """Raise ValueError if url resolves to a private/internal/loopback address (SSRF guard)"""
-    import ipaddress
-    import socket
-    hostname = urlparse(url).hostname
-    if not hostname:
-        raise ValueError('Invalid URL: missing hostname')
-    for family, _, _, _, sockaddr in socket.getaddrinfo(hostname, None):
-        ip = ipaddress.ip_address(sockaddr[0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
-            raise ValueError(f'Refusing to fetch URL resolving to disallowed address: {hostname}')
+def fetch_safe(url: str, **kwargs) -> requests.Response:
+    for _ in range(5):
+        hostname = urlparse(url).hostname
+        if not hostname:
+            raise ValueError('Invalid URL: missing hostname')
+        for addrinfo in socket.getaddrinfo(hostname, None):
+            ip = ipaddress.ip_address(addrinfo[4][0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+                raise ValueError(f'Refusing to fetch URL resolving to disallowed address: {hostname}')
+        response = requests.get(url, allow_redirects=False, **kwargs)
+        if not response.is_redirect:
+            return response
+        url = urljoin(url, response.headers['Location'])
+        response.close()
+    raise ValueError('Too many redirects')
 
 
 def ensure_path_accessible(path: str):
@@ -655,8 +673,7 @@ def ensure_path_accessible(path: str):
 
 def download_media_file(url: str, path_without_ext: str, ext: str|None = None):
     """Download raw file with requests.get with selected filename"""
-    assert_safe_url(url)
-    response = requests.get(url, stream=True, proxies=get_proxy(url, True))
+    response = fetch_safe(url, stream=True, proxies=get_proxy(url, True))
     response.raise_for_status()
     if not ext:
         urlpath = url
@@ -679,12 +696,11 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
     """Stream raw file with requests.get"""
     if url: mark_watched(url)
     try:
-        assert_safe_url(src)
         headers_dict = json.loads(headers) if headers else {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
         url = url or ""
-        response = requests.get(src, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies), proxies=get_proxy(url, True))
+        response = fetch_safe(src, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies), proxies=get_proxy(url, True))
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
@@ -740,44 +756,6 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
 
 
 
-def send_file_partial(path, download_name: str | None = None):
-    """ 
-        Simple wrapper around send_file which handles HTTP 206 Partial Content
-        (byte ranges)
-        TODO: handle all send_file args, mirror send_file's error handling
-        (if it has any)
-    """
-    range_header = request.headers.get('Range')
-    if not range_header: return send_file(path, download_name=download_name)
-    
-    size = os.path.getsize(path)    
-    byte1, byte2 = 0, None
-    
-    m = re.search(r'(\d+)-(\d*)', range_header)
-    g = m.groups()
-    
-    if g[0]: byte1 = int(g[0])
-    if g[1]: byte2 = int(g[1])
-
-    length = size - byte1
-    if byte2 is not None:
-        length = byte2 - byte1
-    
-    data = None
-    with open(path, 'rb') as f:
-        f.seek(byte1)
-        data = f.read(length)
-
-    rv = Response(data, 
-        206,
-        mimetype=mimetypes.guess_type(path)[0], 
-        direct_passthrough=True)
-    rv.headers.add('Content-Range', 'bytes {0}-{1}/{2}'.format(byte1, byte1 + length - 1, size))
-
-    return rv
-
-
-
 def host_file(url: str, media_type='video', download_name: str | None = None):
     if not url: return jsonify({"error": "URL parameter is required"}), 400
     file = MediaDownloader(url, media_type).run()
@@ -786,7 +764,7 @@ def host_file(url: str, media_type='video', download_name: str | None = None):
             if '-' in media_type or '_' in media_type: download_name += '-' + media_type.replace('_', '-').split('-', 1)[-1]
             download_name += os.path.splitext(file)[1]
             download_name = download_name.replace('-0.0.', '-.').replace('_0.0-', '_-')
-        return send_file_partial(file, download_name=download_name)
+        return send_file(file, download_name=download_name)
     return jsonify({"error": f"Cannot gather {media_type}"}), 404
 
 
@@ -1010,6 +988,7 @@ def get_meta(url: str, max_meta_age = None):
                     except: pass
         print(f'downloading meta for {url}')
         possible_meta = None
+        last_exception = None
         for i in range(len(proxies) * 2 + 1):
             try:
                 ydl_opts = {'skip_download': True}
@@ -1044,6 +1023,8 @@ def get_meta(url: str, max_meta_age = None):
             except Exception as e:
                 pprint_exc(e)
                 advance_proxy(url, True)
+                last_exception = e
+        if last_exception and not possible_meta: raise last_exception
         return possible_meta
     return None
 
@@ -1215,7 +1196,9 @@ def get_sprite(url = None, meta = None, simulate = False):
             format = f
             if (f.get('width') or 0) >= 150 or (f.get('height') or 0) >= 150: break
 
-        if not format: raise ValueError('Video does not contain sprite data')
+        if not format:
+            print('Video does not contain sprite data')
+            return None
         if not simulate:
             image_urls = []
             if format.get('fragments'):
@@ -1229,7 +1212,7 @@ def get_sprite(url = None, meta = None, simulate = False):
             height = 0
 
             for i, img_url in enumerate(image_urls):
-                response = requests.get(img_url, proxies=get_proxy(url, True))
+                response = fetch_safe(img_url, proxies=get_proxy(url, True))
                 response.raise_for_status()
                 img = Image.open(io.BytesIO(response.content))
 
@@ -1245,11 +1228,24 @@ def get_sprite(url = None, meta = None, simulate = False):
                 current_y += img.height
 
             final_sprite.save(os.path.join(get_data_dir(url), 'sprite.jpg'))
+            compress_image(url, 'sprite')
 
         return [format['width'], format['height'], format['columns'], 1 / format['fps']]
     except Exception as e:
         pprint_exc(e)
         return None
+
+
+def compress_image(url: str, media_type: str) -> None:
+    path = check_media(url, media_type)
+    if not path or os.path.splitext(path)[1].lower() == ".webp":
+        return
+
+    output = os.path.splitext(path)[0] + ".webp"
+    ff = FFMPEG(url, ["-i", path, output])
+    if not ff.success: return
+    os.remove(path)
+    print(f'Compressed {media_type}')
 
 
 def search(query, search_engine='auto'):

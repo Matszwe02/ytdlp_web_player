@@ -36,10 +36,12 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          PRERELEASE: ${{ github.event.release.prerelease }}
         run: |
-          docker buildx build --platform linux/amd64,linux/arm64 \
-            -t ghcr.io/matszwe02/ytdlp_web_player:${{ github.event.release.tag_name }} \
-            -t ghcr.io/matszwe02/ytdlp_web_player:stable \
-            -t matszwe02/ytdlp_web_player:${{ github.event.release.tag_name }} \
-            -t matszwe02/ytdlp_web_player:stable \
-            --push .
+          TAGS="-t ghcr.io/matszwe02/ytdlp_web_player:$TAG -t matszwe02/ytdlp_web_player:$TAG"
+          if [ "$PRERELEASE" != "true" ]; then
+            TAGS="$TAGS -t ghcr.io/matszwe02/ytdlp_web_player:stable -t matszwe02/ytdlp_web_player:stable"
+          fi
+          docker buildx build --platform linux/amd64,linux/arm64 $TAGS --push .
