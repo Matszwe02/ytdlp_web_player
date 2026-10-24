@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import urllib.request
 import zipfile
 
@@ -17,13 +18,24 @@ app_version = '-'
 class External:
 
 
+    _reload_lock = threading.Lock()
+
+
     @staticmethod
     def yt_dlp():
-        import yt_dlp
-        try:
-            import yt_dlp.version
-        except:
-            print('Warning: ytdlp does not support version')
+        with External._reload_lock:
+            try:
+                importlib.invalidate_caches()
+                if getattr(sys.modules.get('yt_dlp.version'), '__version__', None) != importlib.metadata.version('yt-dlp'):
+                    for name in [m for m in list(sys.modules) if m == 'yt_dlp' or m.startswith('yt_dlp.')]:
+                        sys.modules.pop(name, None)
+            except Exception as e:
+                print(f'Warning: yt-dlp reload check failed: {e}')
+            import yt_dlp
+            try:
+                import yt_dlp.version
+            except:
+                print('Warning: yt-dlp does not support version')
         return yt_dlp
 
 
@@ -45,13 +57,7 @@ class External:
                 External._load_frozen_ytdlp()
             else:
                 External._pip_install('yt-dlp')
-            importlib.invalidate_caches()
-            if getattr(sys.modules.get('yt_dlp.version'), '__version__', None) == importlib.metadata.version('yt-dlp'):
-                print(f'yt-dlp is up to date')
-                return
-            for name in [m for m in list(sys.modules) if m == 'yt_dlp' or m.startswith('yt_dlp.')]:
-                sys.modules.pop(name, None)
-            print(f'yt-dlp {External.get_ytdlp_version()} loaded')
+            print(f'yt-dlp downloaded')
         except Exception as e:
             print(f'Warning: yt-dlp update failed: {e}')
 
