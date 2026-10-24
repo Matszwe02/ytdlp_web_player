@@ -526,10 +526,10 @@ class MediaDownloader:
         try:
             sub = {**(self.meta.get('subtitles') or {}), **(self.meta.get('automatic_captions') or {})}.get(lang) or []
             selected = next((i for ext in ('srt', 'vtt') for i in sub if i.get('ext') == ext and i.get('url')), None)
-            download_media_file(selected['url'], os.path.join(self.data_dir, self.media_type), selected['ext'])
-
             if not selected:
                 raise FileNotFoundError('Selected subtitles not found')
+            download_media_file(selected['url'], os.path.join(self.data_dir, self.media_type), selected['ext'])
+
             file = check_media(url=self.url, media_type=self.media_type)
             if not file:
                 raise FileNotFoundError('Selected subtitles not found')
