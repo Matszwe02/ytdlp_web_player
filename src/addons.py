@@ -146,8 +146,8 @@ class YTDLP:
     def _ydl_runner(url, opts, with_info, arg, queue, yt_id = None):
         logger = YTDLP.Logger(url, opts, 'download', yt_id)
         try:
-            if ffmpeg: os.environ['PATH'] += os.path.dirname(ffmpeg)
-            if js_runtime: os.environ['PATH'] += os.path.dirname(js_runtime)
+            add_to_path(ffmpeg)
+            add_to_path(js_runtime)
             with External.yt_dlp().YoutubeDL(opts | {'logger': logger}) as ydl:
                 if with_info:
                     ydl.download_with_info_file(arg)
@@ -201,7 +201,7 @@ class YTDLP:
     def get_info(url, opts):
         if (proxy := get_proxy(url)): opts["proxy"] = proxy
         logger = YTDLP.Logger(url, opts, 'extract_info')
-        if js_runtime: os.environ['PATH'] += os.path.dirname(js_runtime)
+        add_to_path(js_runtime)
         try:
             with External.yt_dlp().YoutubeDL(json.loads(json.dumps(opts)) | {'logger': logger}) as ydl:
                 return ydl.sanitize_info(ydl.extract_info(url, download=False))
@@ -648,6 +648,12 @@ class MediaDownloader:
 
 
 
+def add_to_path(file):
+    d = file and os.path.dirname(file)
+    if d and d not in os.environ.get('PATH', '').split(os.pathsep):
+        os.environ['PATH'] = os.pathsep.join(filter(None, [os.environ.get('PATH'), d]))
+
+
 def check_alerts():
     alerts = []
     if os.environ.get('SUPRESS_WARNINGS'): return alerts
@@ -660,13 +666,14 @@ def check_alerts():
 
 
 def fetch_safe(url: str, **kwargs) -> requests.Response:
+    """prevents requesting from local network"""
     for _ in range(5):
         hostname = urlparse(url).hostname
-        if not hostname:
-            raise ValueError('Invalid URL: missing hostname')
+        if urlparse(url).scheme not in ('http', 'https') or not hostname:
+            raise ValueError('Invalid URL')
         for addrinfo in socket.getaddrinfo(hostname, None):
             ip = ipaddress.ip_address(addrinfo[4][0])
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            if not (getattr(ip, 'ipv4_mapped', None) or ip).is_global:
                 raise ValueError(f'Refusing to fetch URL resolving to disallowed address: {hostname}')
         response = requests.get(url, allow_redirects=False, **kwargs)
         if not response.is_redirect:
@@ -739,6 +746,7 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
                     lines.append(line)
 
             resp = Response('\n'.join(lines), status=response.status_code, mimetype=mime_type)
+            resp.headers['Content-Security-Policy'] = 'sandbox'
             return resp
 
         def generate():
@@ -746,6 +754,7 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
                 yield chunk
 
         resp = Response(generate(), status=response.status_code, mimetype=mime_type)
+        resp.headers['Content-Security-Policy'] = 'sandbox'
 
         if 'Content-Length' in response.headers:
             resp.headers['Content-Length'] = response.headers['Content-Length']
@@ -762,6 +771,7 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
 
 def host_file(url: str, media_type='video', download_name: str | None = None):
     if not url: return jsonify({"error": "URL parameter is required"}), 400
+    if '/' in media_type or '\\' in media_type: return jsonify({"error": "Invalid media type"}), 400
     file = MediaDownloader(url, media_type).run()
     if file:
         if download_name:
@@ -779,6 +789,7 @@ def preload(url = None, meta = None, playlist = None):
 
     if meta:
         if meta.get('entries'): meta = meta['entries'][0]
+        meta.setdefault('timestamp', int(time.time()))
         try:
             os.makedirs(get_data_dir(url), exist_ok=True)
             with open(os.path.join(get_data_dir(url), 'meta.json'), 'w') as f:
@@ -852,7 +863,7 @@ def get_media_res(url, meta, media):
 def pprint_exc(e, code = 500):
     error = (re.sub(r'[^\x20-\x7e]',r'', re.sub(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])", "", str(e))))
     traceback.print_exception(e)
-    return error, code
+    return Response(error, status=code, mimetype='text/plain')
 
 
 def gen_pathname(url: str):
@@ -881,8 +892,8 @@ def get_proxy(url, as_requests_dict = False, as_ffmpeg_dict = False):
             with open(proxy_path, 'r') as f:
                 _, proxy = f.read().split('\n')
     if proxy == 'local': proxy = None
-    if as_ffmpeg_dict: return {f"{proxy.split('://')[0]}_proxy": proxy} if proxy else None
-    if as_requests_dict: return {proxy.split('://')[0]: proxy} if proxy else None
+    if as_ffmpeg_dict: return {'http_proxy': proxy} if proxy else None
+    if as_requests_dict: return {'http': proxy, 'https': proxy} if proxy else None
     return proxy
 
 
@@ -970,7 +981,7 @@ def get_meta(url: str, max_meta_age = None):
                 with open(cache, 'r') as f:
                     meta = json.load(f)
                 max_meta_age = max(5, max_meta_age if max_meta_age is not None else (60 if meta.get('is_live') else 600))
-                if time.time() - meta.get('timestamp') > max_meta_age:
+                if time.time() - (meta.get('timestamp') or 0) > max_meta_age:
                     if not check_meta_validity(url, meta): raise RuntimeError('Metadata invalid')
                     meta['timestamp'] = int(time.time())
                     with open(cache, 'w') as f:
@@ -983,6 +994,7 @@ def get_meta(url: str, max_meta_age = None):
                 data_dir = get_data_dir(url)
                 for file in os.listdir(data_dir):
                     if os.path.isdir(os.path.join(data_dir, file)): continue
+                    if file in ('cookies.txt', 'proxy') or file.endswith('.temp'): continue
                     try: os.remove(os.path.join(data_dir, file))
                     except: pass
         print(f'downloading meta for {url}')
@@ -1107,10 +1119,10 @@ def get_subtitles(meta: dict):
 
 def generate_hls(url, audio_source, video_source):
 
-    get_url = lambda s: f'/external?src={quote_plus(s[0])}&headers={quote_plus(s[1])}&cookies={quote_plus(s[2])}&url={quote_plus(url)}'
+    get_src_url = lambda s: f'/external?src={quote_plus(s[0])}&headers={quote_plus(s[1])}&cookies={quote_plus(s[2])}&url={quote_plus(url)}'
 
-    audio_url = get_url(audio_source) if audio_source and audio_source != video_source else None
-    video_url = get_url(video_source) if video_source else None
+    audio_url = get_src_url(audio_source) if audio_source and audio_source != video_source else None
+    video_url = get_src_url(video_source) if video_source else None
     audio_grp = ',AUDIO="audio_grp"'
 
     return '\n'.join([

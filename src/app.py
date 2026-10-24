@@ -4,6 +4,7 @@ import sys
 from flask import Flask, render_template, request, jsonify, Response, send_file
 from io import BytesIO
 from starlette.middleware.wsgi import WSGIMiddleware
+from urllib.parse import quote_plus
 
 from main import *
 from addons import *
@@ -101,8 +102,7 @@ def get_sponsor_segments():
 
 @app.route('/raw')
 def raw():
-    html_template = f'<video controls autoplay><source src="/download?url={get_url(request)}" type="video/mp4"></video>'
-    return html_template
+    return f'<video controls autoplay><source src="/download?url={quote_plus(get_url(request))}" type="video/mp4"></video>'
 
 
 @app.route('/download')
@@ -269,6 +269,7 @@ def hls_segment():
     data_dir = get_data_dir(url)
     quality = request.args.get('quality')
     seg = request.args.get('seg')
+    if '/' in f'{quality}{seg}' or '\\' in f'{quality}{seg}': return jsonify({"error": "Invalid media type"}), 400
     file = os.path.join(data_dir, f'hls_segment-{quality}/segment{seg:>0{4}}.ts')
 
     if not os.path.exists(file):
@@ -322,5 +323,6 @@ def cancel_download():
 @app.after_request
 def after_request(response):
     response.headers.setdefault('Accept-Ranges', 'bytes')
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
     response.headers.setdefault('Content-Security-Policy', "frame-src *")
     return response
