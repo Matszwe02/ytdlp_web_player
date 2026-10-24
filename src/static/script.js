@@ -261,6 +261,7 @@ class PlayerState
     {
         if (this.switchTime > 0) TargetPlayer.currentTime(this.switchTime);
         player.playbackRate(this.speed);
+        player.one('loadedmetadata', () => player.playbackRate(this.speed));
         if (this.isPlaying) player.play();
         for (let i = 0; i < this.tracks.length; i++)
         {
@@ -367,7 +368,7 @@ async function retryFetch(url, options = {}, retries = 5, delay = 5000, visible 
         {
             throw error;
         }
-        err(`Fetch failed, retrying in ${delay / 1000} seconds...`, error);
+        err(`Fetch failed, retrying in ${delay / 1000} seconds... ${error}`);
         if (retries > 0)
         {
             await new Promise(resolve => setTimeout(resolve, delay));
@@ -494,7 +495,7 @@ function fullscreenOnRotate()
         player.exitFullscreen();
     }
 }
-screen.orientation.addEventListener("change", (event) => {
+screen.orientation?.addEventListener("change", (event) => {
     fullscreenOnRotate();
 });
 
@@ -1964,7 +1965,12 @@ function loadVideo()
             if (playerMode == PlayerModes.VIDEO_AUDIO)
                 timeDiff = Math.min(timeDiff, audioPlayer.bufferedEnd() - audioPlayer.currentTime());
             let minLiveBuffer = parseFloat(info.min_live_buffer);
-            if (timeDiff > 30 || minLiveBuffer <= 0) return;
+            if (timeDiff > 30 || minLiveBuffer <= 0)
+            {
+                let rate = TargetPlayer.playbackRate();
+                if (rate != 1 && rate < 1.15 && rate > 0.9) TargetPlayer.playbackRate(1);
+                return;
+            }
             if (timeDiff < minBufferAheadTime) minBufferAheadTime = Math.max(timeDiff, 0);
             else minBufferAheadTime = (minBufferAheadTime * 2047 + timeDiff) / 2048;
             
