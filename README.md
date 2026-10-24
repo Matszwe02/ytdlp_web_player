@@ -190,6 +190,11 @@ Link is generated and visible in app logs just before app starts.
 Note that it is a temporary link that changes each time this app starts. For a more robust way, you need to set up your own proxy with HTTPS certificate.
 
 
+### Security notes
+
+This app fetches and transcodes arbitrary URLs on behalf of anyone who can reach it, and has no built-in authentication. It blocks requests to local network addresses where it can, but this is best-effort. It is adviced that if you expose it to the global network, you take appropriate safety precautions, like isolating its LAN from the rest of your network.
+
+
 ## Extension
 
 YT-DLP Web Player provides an extension that replaces every video in allowed (in extension settings) domains with YT-DLP Player. That results with all of the default video players to be seamlessly replaced with YT-DLP Player
