@@ -39,6 +39,7 @@ auto_bg_playback = os.environ.get('AUTO_BG_PLAYBACK', 'True').lower() == 'true'
 audio_visualizer = os.environ.get('AUDIO_VISUALIZER', 'False').lower() == 'true'
 data_path = os.path.abspath(os.environ.get('DATA_PATH', './data'))
 proxies = [proxy for proxy in (os.environ.get('PROXIES') or 'local').split(',') if proxy != '']
+impersonate_browser = os.environ.get('IMPERSONATE_BROWSER', 'chrome')
 port = int(os.environ.get('PORT', '5000'))
 publish_with_cloudflare = (os.environ.get('PUBLISH_WITH_CLOUDFLARE', 'False')).lower() == 'true'
 linked_pid = int(os.environ.get('LINKED_PID', '0'))
@@ -57,8 +58,9 @@ if not ffmpeg and not disable_transcoding:
 
 js_runtime = External.download_deno()
 
-ydl_global_opts = {'ffmpeg_location': ffmpeg, "noplaylist": True, 'playlistend': 0, "remote_components": ["ejs:github"], "concurrent_fragment_downloads": 2}
+ydl_global_opts = {'ffmpeg_location': ffmpeg, "noplaylist": True, 'playlistend': 0, "remote_components": ["ejs:github"], "concurrent_fragment_downloads": 2, "impersonate": impersonate_browser}
 if js_runtime and 'deno' not in subprocess.check_output([js_runtime, '--version']).decode(): ydl_global_opts["js_runtimes"] = {"node": {}}
+# if impersonate_browser: ydl_global_opts["impersonate"] = impersonate_browser
 
 app_version = External.get_app_version()
 

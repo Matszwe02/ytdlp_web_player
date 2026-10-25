@@ -1,3 +1,4 @@
+import copy
 import http.cookies
 import json
 import math
@@ -143,12 +144,26 @@ class YTDLP:
 
 
     @staticmethod
+    def ydl(opts: dict):
+        yt_dlp = External.yt_dlp()
+        if imp_str := opts.get('impersonate'):
+            try:
+                target = yt_dlp.networking.impersonate.ImpersonateTarget.from_str(imp_str)
+                return yt_dlp.YoutubeDL(opts | {'impersonate': target})
+            except Exception as e:
+                pprint_exc(e)
+                print('Impersonation raised an error, removing "impersonate" argument from yt-dlp')
+                opts.pop('impersonate', None)
+        return yt_dlp.YoutubeDL(opts)
+
+
+    @staticmethod
     def _ydl_runner(url, opts, with_info, arg, queue, yt_id = None):
         logger = YTDLP.Logger(url, opts, 'download', yt_id)
         try:
             add_to_path(ffmpeg)
             add_to_path(js_runtime)
-            with External.yt_dlp().YoutubeDL(opts | {'logger': logger}) as ydl:
+            with YTDLP.ydl(copy.deepcopy(opts) | {'logger': logger}) as ydl:
                 if with_info:
                     ydl.download_with_info_file(arg)
                 else:
@@ -203,7 +218,7 @@ class YTDLP:
         logger = YTDLP.Logger(url, opts, 'extract_info')
         add_to_path(js_runtime)
         try:
-            with External.yt_dlp().YoutubeDL(json.loads(json.dumps(opts)) | {'logger': logger}) as ydl:
+            with YTDLP.ydl(copy.deepcopy(opts) | {'logger': logger}) as ydl:
                 return ydl.sanitize_info(ydl.extract_info(url, download=False))
         except Exception as e:
             if (cookies := get_global_cookies_file(True)):
@@ -213,7 +228,7 @@ class YTDLP:
                 opts["mark_watched"] = False
                 logger.start(url, opts, 'extract_info')
                 try:
-                    with External.yt_dlp().YoutubeDL(opts | {'logger': logger}) as ydl:
+                    with YTDLP.ydl(copy.deepcopy(opts) | {'logger': logger}) as ydl:
                         return ydl.sanitize_info(ydl.extract_info(url, download=False))
                 except Exception as e:
                     advance_proxy(url)
