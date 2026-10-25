@@ -239,7 +239,7 @@ def serve_extension():
     request_url = request.url_root.rstrip('/')
     if p := request.headers.get('X-Forwarded-Proto'): request_url = request_url.replace('http', p, 1)
 
-    extension = extension.replace('https://github.com/Matszwe02/ytdlp_web_player/raw/main/extension', request_url)
+    extension = extension.replace('https://github.com/Matszwe02/ytdlp_web_player/raw/main/extension', request_url).replace('extension.js', 'extension.user.js')
     extension = extension.replace('https://github.com/Matszwe02/ytdlp_web_player/raw/main/src/static', request_url)
     extension = extension.replace('1.0.0', External.get_app_version(), 1)
     extension = extension.replace('YT-DLP Web Player', app_title, 1)
