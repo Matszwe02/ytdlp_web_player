@@ -1207,6 +1207,15 @@ def choose_sources_for_res(sources: dict, res = None):
     return [], []
 
 
+def hls_available(url, *sources):
+    for s in sources:
+        if not s: continue
+        try:
+            if fetch_safe(s[0], headers=json.loads(s[1] or '{}'), proxies=get_proxy(url, True), timeout=5).status_code > 399: return False
+        except: return False
+    return True
+
+
 def get_direct(url = None, meta = None, res = None, simulate = False):
     try:
         url = url or meta.get('original_url')
@@ -1220,7 +1229,7 @@ def get_direct(url = None, meta = None, res = None, simulate = False):
 
         sources = get_video_sources(url, meta, protocols=['m3u8_native'])
         a, v = choose_sources_for_res(sources, res)
-        if a or v:
+        if (a or v) and hls_available(url, a, v):
             if not simulate:
                 print(f'Generating HLS direct for {res}')
                 try:
