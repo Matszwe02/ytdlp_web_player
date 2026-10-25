@@ -821,6 +821,7 @@ def mark_watched(url):
 
 
 def get_media_duration(url, meta, media):
+    if meta.get('is_live') or meta.get('live_status') == 'is_live': return 0
     try:
         if d := meta.get("duration"): return d
     except:
@@ -835,7 +836,7 @@ def get_media_duration(url, meta, media):
             duration = line.split('Duration:')[-1].split(', start:')[0].strip()
             h, m, s = duration.split(":")
             return int(h)*3600 + int(m)*60 + float(s)
-    raise RuntimeError('Media duration impossible to gather - report this bug')
+    return 0
 
 
 def get_media_res(url, meta, media):
