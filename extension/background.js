@@ -15,38 +15,43 @@ storage.onChanged.addListener((changes, namespace) => {
 });
 
 
-chrome.runtime.onInstalled.addListener(() => {
-    chrome.contextMenus.create({
-        id: "open-in-app",
-        title: "Watch in YT-DLP Player",
-        contexts: ["link"]
+if (chrome.contextMenus)
+{
+
+    chrome.runtime.onInstalled.addListener(() => {
+        chrome.contextMenus.create({
+            id: "open-in-app",
+            title: "Watch in YT-DLP Player",
+            contexts: ["link"]
+        });
     });
-});
 
 
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-    if (info.menuItemId != "open-in-app" || !info.linkUrl) return;
-    try
-    {
-        chrome.windows.create({
-            incognito: true,
-            url: `${playerUrl}/watch?url=${encodeURIComponent(info.linkUrl)}`,
-            type: "popup",
-            focused: true,
-            state: "maximized"
-        });
-    }
-    catch
-    {
-        chrome.windows.create({
-            incognito: false,
-            url: `${playerUrl}/watch?url=${encodeURIComponent(info.linkUrl)}`,
-            type: "popup",
-            focused: true,
-            state: "maximized"
-        });
-    }
-});
+    chrome.contextMenus.onClicked.addListener((info, tab) => {
+        if (info.menuItemId != "open-in-app" || !info.linkUrl) return;
+        try
+        {
+            chrome.windows.create({
+                incognito: true,
+                url: `${playerUrl}/watch?url=${encodeURIComponent(info.linkUrl)}`,
+                type: "popup",
+                focused: true,
+                state: "maximized"
+            });
+        }
+        catch
+        {
+            chrome.windows.create({
+                incognito: false,
+                url: `${playerUrl}/watch?url=${encodeURIComponent(info.linkUrl)}`,
+                type: "popup",
+                focused: true,
+                state: "maximized"
+            });
+        }
+    });
+
+}
 
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
