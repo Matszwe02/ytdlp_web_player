@@ -135,14 +135,8 @@ def download_low_quality():
 
 @app.route('/external')
 def serve_external():
-    src = request.args.get('src')
     url = get_url(request)
-    headers = request.args.get('headers')
-    if client_range := request.headers.get('Range'):
-        headers_dict = json.loads(headers) if headers else {}
-        headers_dict['Range'] = client_range
-        headers= json.dumps(headers_dict)
-    return stream_media_file(url, src, headers, request.args.get('cookies'))
+    return stream_media_file(url, request.args.get('src'), request.args.get('fmt_id'), request.headers.get('Range'))
 
 
 @app.route('/subtitle')

@@ -699,13 +699,20 @@ def load_http_cookies(cookies_str):
     return requests.utils.cookiejar_from_dict({k: v.value for k, v in c.items()})
 
 
-def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str|None = None):
+def stream_media_file(url: str, src: str, fmt_id: str|None = None, headers_range = None, meta: dict|None = None):
     """Stream raw file with requests.get"""
     if url: mark_watched(url)
+    headers = None
+    cookies = None
+    if url and fmt_id:
+        fmt = next(f for f in ((meta or get_meta(url)).get('formats') or []) if (f.get('format_id') == fmt_id or f.get('url') == url))
+        headers = fmt.get('http_headers')
+        cookies = fmt.get('cookies')
     try:
-        headers_dict = json.loads(headers) if headers else {
+        headers_dict = dict(headers) if headers else {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
+        if headers_range: headers_dict['Range'] = headers_range
         url = url or ""
         response = fetch_safe(src, stream=True, headers=headers_dict, cookies=load_http_cookies(cookies), proxies=get_proxy(url, True))
         response.raise_for_status()
@@ -717,7 +724,7 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
 
             def replace_src(match):
                 prefix, orig_src, suffix = match.groups()
-                new_src = f'/external?src={quote_plus(urljoin(src, orig_src))}&headers={quote_plus(headers or "")}&cookies={quote_plus(cookies or "")}&url={quote_plus(url)}'
+                new_src = f'/external?src={quote_plus(urljoin(src, orig_src))}&url={quote_plus(url)}&fmt_id={fmt_id}'
                 return f'{prefix}{new_src}{suffix}'
             raw_lines = response.content.decode('utf-8', errors='ignore').splitlines()
             skipline = False
@@ -738,7 +745,7 @@ def stream_media_file(url: str, src: str, headers: str|None = None, cookies: str
                     lines.append(src_regex.sub(replace_src, line))
                 else:
                     urlbase = src if '://' in src else url
-                    line = f'/external?src={quote_plus(urljoin(urlbase, line_str))}&headers={quote_plus(headers or "")}&cookies={quote_plus(cookies or "")}&url={quote_plus(url)}'
+                    line = f'/external?src={quote_plus(urljoin(urlbase, line_str))}&url={quote_plus(url)}&fmt_id={fmt_id}'
                     lines.append(line)
 
             resp = Response('\n'.join(lines), status=response.status_code, mimetype=mime_type)
@@ -949,11 +956,10 @@ def check_meta_validity(url: str, meta: dict):
         print(f'## Checking meta validity for {url}')
         srcs = choose_sources_for_res(get_all_video_sources(url, meta))
         src = (srcs[0] or srcs[1])[0]
-        sq = parse_qs(urlparse(src[0]).query)
-        source = (sq.get('src') or [None])[0]
-        headers = (sq.get('headers') or [None])[0]
-        cookies = (sq.get('cookies') or [None])[0]
-        resp = stream_media_file(url, source, headers, cookies)
+        query = parse_qs(urlparse(src[0]).query)
+        source = (query.get('src') or [None])[0]
+        fmt_id = (query.get('fmt_id') or [None])[0]
+        resp = stream_media_file(url, source, fmt_id, meta=meta)
         if isinstance(resp, Response):
             if resp.status_code > 399: raise ConnectionError(resp.response)
 
@@ -964,7 +970,7 @@ def check_meta_validity(url: str, meta: dict):
                 for line in raw_lines:
                     line_str = line.strip()
                     if not line_str or line_str.startswith('#'): continue
-                    resp = stream_media_file(url, urljoin(url, line_str), headers, cookies)
+                    resp = stream_media_file(url, (parse_qs(urlparse(line_str).query).get('src') or [None])[0], fmt_id, meta=meta)
                     if not isinstance(resp, Response) or resp.status_code > 399: raise ConnectionError('Can not send a HLS request')
                     break
         else: raise ConnectionError('Can not send a request')
@@ -1170,10 +1176,8 @@ def get_external_video_sources(url = None, meta = None) -> dict[str, list[tuple[
         name = video_name + audio_name
         if not name: continue
 
-        headers = json.dumps(src.get('http_headers') or {})
-        cookies = src.get('cookies') or ''
         codec = src.get('vcodec') if name != 'audio' else src.get('acodec')
-        media_url = f'/external?src={quote_plus(src["url"])}&headers={quote_plus(headers)}&cookies={quote_plus(cookies)}&url={quote_plus(url)}'
+        media_url = f'/external?src={quote_plus(src["url"])}&url={quote_plus(url)}&fmt_id={src.get("format_id")}'
         if name not in sources.keys(): sources[name] = []
         sources[name].append((source_preference, media_url, codec, get_mimetype(src.get('protocol') or '', src.get('ext') or '', video_name), False))
     sorted_sources = {}
