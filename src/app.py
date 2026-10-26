@@ -14,10 +14,17 @@ from external import External
 app = Flask(__name__)
 wsgi = WSGIMiddleware(app)
 
+_shutting_down = False
+
 def signal_handler(signum, frame):
+    global _shutting_down
+    if _shutting_down: os._exit(1)
+    _shutting_down = True
     print(f"Signal {signum} received. Shutting down...")
-    Processes.rm_all()
-    sys.exit(0)
+    try:
+        Processes.rm_all()
+    finally:
+        os._exit(0)
 
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)

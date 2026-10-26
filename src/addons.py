@@ -8,6 +8,7 @@ import time
 import traceback
 import io
 import ipaddress
+import psutil
 import requests
 import shutil
 import socket
@@ -114,6 +115,18 @@ class Processes:
                 except Exception as e:
                     pprint_exc(e)
             time.sleep(0.2)
+        if url is None:
+            try:
+                children = psutil.Process().children(recursive=True)
+            except Exception as e:
+                pprint_exc(e)
+                return 0
+            for child in children:
+                cancelled_count += 1
+                try: child.kill()
+                except psutil.NoSuchProcess: pass
+                except Exception as e: pprint_exc(e)
+            psutil.wait_procs(children, timeout=2)
         return cancelled_count
 
 
