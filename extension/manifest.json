@@ -12,7 +12,8 @@
           ]
         },
       "strict_min_version": "126.0"
-    }
+    },
+    "gecko_android": {}
   },
   "permissions": [
     "declarativeNetRequest",

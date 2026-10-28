@@ -393,7 +393,7 @@ function getUrlInfo()
     const originalUrl = urlParams.get('v') || urlParams.get('url');
     const encodedUrl = encodeURIComponent(originalUrl);
     let startTime = null;
-    try {startTime = parseFloat(urlParams.get('t')) || parseFloat((new URL(info.url)).searchParams.get('t').replaceAll('s', ''))}
+    try {startTime = parseFloat((urlParams.get('t') || (new URL(originalUrl)).searchParams.get('t')).replaceAll('s', ''))}
     catch {}
     var quality = urlParams.get('quality');
     if (quality == '') quality = null;

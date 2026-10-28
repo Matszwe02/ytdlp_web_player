@@ -14,10 +14,17 @@ from external import External
 app = Flask(__name__)
 wsgi = WSGIMiddleware(app)
 
+_shutting_down = False
+
 def signal_handler(signum, frame):
+    global _shutting_down
+    if _shutting_down: os._exit(1)
+    _shutting_down = True
     print(f"Signal {signum} received. Shutting down...")
-    Processes.rm_all()
-    sys.exit(0)
+    try:
+        Processes.rm_all()
+    finally:
+        os._exit(0)
 
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
@@ -218,7 +225,7 @@ def serve_extension():
     request_url = request.url_root.rstrip('/')
     if p := request.headers.get('X-Forwarded-Proto'): request_url = request_url.replace('http', p, 1)
 
-    extension = extension.replace('https://github.com/Matszwe02/ytdlp_web_player/raw/main/extension', request_url)
+    extension = extension.replace('https://github.com/Matszwe02/ytdlp_web_player/raw/main/extension', request_url).replace('extension.js', 'extension.user.js')
     extension = extension.replace('https://github.com/Matszwe02/ytdlp_web_player/raw/main/src/static', request_url)
     extension = extension.replace('1.0.0', External.get_app_version(), 1)
     extension = extension.replace('YT-DLP Web Player', app_title, 1)

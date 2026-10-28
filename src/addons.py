@@ -1,3 +1,4 @@
+import copy
 import http.cookies
 import json
 import math
@@ -7,6 +8,7 @@ import time
 import traceback
 import io
 import ipaddress
+import psutil
 import requests
 import shutil
 import socket
@@ -113,6 +115,18 @@ class Processes:
                 except Exception as e:
                     pprint_exc(e)
             time.sleep(0.2)
+        if url is None:
+            try:
+                children = psutil.Process().children(recursive=True)
+            except Exception as e:
+                pprint_exc(e)
+                return 0
+            for child in children:
+                cancelled_count += 1
+                try: child.kill()
+                except psutil.NoSuchProcess: pass
+                except Exception as e: pprint_exc(e)
+            psutil.wait_procs(children, timeout=2)
         return cancelled_count
 
 
@@ -143,12 +157,26 @@ class YTDLP:
 
 
     @staticmethod
+    def ydl(opts: dict):
+        yt_dlp = External.yt_dlp()
+        if imp_str := opts.get('impersonate'):
+            try:
+                target = yt_dlp.networking.impersonate.ImpersonateTarget.from_str(imp_str)
+                return yt_dlp.YoutubeDL(opts | {'impersonate': target})
+            except Exception as e:
+                pprint_exc(e)
+                print('Impersonation raised an error, removing "impersonate" argument from yt-dlp')
+                opts.pop('impersonate', None)
+        return yt_dlp.YoutubeDL(opts)
+
+
+    @staticmethod
     def _ydl_runner(url, opts, with_info, arg, queue, yt_id = None):
         logger = YTDLP.Logger(url, opts, 'download', yt_id)
         try:
             add_to_path(ffmpeg)
             add_to_path(js_runtime)
-            with External.yt_dlp().YoutubeDL(opts | {'logger': logger}) as ydl:
+            with YTDLP.ydl(copy.deepcopy(opts) | {'logger': logger}) as ydl:
                 if with_info:
                     ydl.download_with_info_file(arg)
                 else:
@@ -203,7 +231,7 @@ class YTDLP:
         logger = YTDLP.Logger(url, opts, 'extract_info')
         add_to_path(js_runtime)
         try:
-            with External.yt_dlp().YoutubeDL(json.loads(json.dumps(opts)) | {'logger': logger}) as ydl:
+            with YTDLP.ydl(copy.deepcopy(opts) | {'logger': logger}) as ydl:
                 return ydl.sanitize_info(ydl.extract_info(url, download=False))
         except Exception as e:
             if (cookies := get_global_cookies_file(True)):
@@ -213,7 +241,7 @@ class YTDLP:
                 opts["mark_watched"] = False
                 logger.start(url, opts, 'extract_info')
                 try:
-                    with External.yt_dlp().YoutubeDL(opts | {'logger': logger}) as ydl:
+                    with YTDLP.ydl(copy.deepcopy(opts) | {'logger': logger}) as ydl:
                         return ydl.sanitize_info(ydl.extract_info(url, download=False))
                 except Exception as e:
                     advance_proxy(url)
@@ -824,6 +852,7 @@ def mark_watched(url):
 
 
 def get_media_duration(url, meta, media):
+    if meta.get('is_live') or meta.get('live_status') == 'is_live': return 0
     try:
         if d := meta.get("duration"): return d
     except:
@@ -838,7 +867,7 @@ def get_media_duration(url, meta, media):
             duration = line.split('Duration:')[-1].split(', start:')[0].strip()
             h, m, s = duration.split(":")
             return int(h)*3600 + int(m)*60 + float(s)
-    raise RuntimeError('Media duration impossible to gather - report this bug')
+    return 0
 
 
 def get_media_res(url, meta, media):
@@ -904,12 +933,12 @@ def advance_proxy(url, force = False):
     if not url or len(proxies) < 2: return
     proxy_path = os.path.join(get_data_dir(url), 'proxy')
     proxy = None
-    if os.path.exists(proxy_path) and not force:
+    if os.path.exists(proxy_path):
         with open(proxy_path, 'r') as f:
             proxy_time, proxy = f.read().split('\n')
-            if time.time() - float(proxy_time) < 20:
-                print('Skipping advancing proxy before 20s has passed')
-                return
+        if not force and time.time() - float(proxy_time) < 20:
+            print('Skipping advancing proxy before 20s has passed')
+            return
 
     if proxy and proxy in proxies:
         proxy_idx = proxies.index(proxy)
@@ -1009,8 +1038,8 @@ def get_meta(url: str, max_meta_age = None):
         last_exception = None
         for i in range(len(proxies) * 2 + 1):
             try:
-                ydl_opts = {'skip_download': True}
-                if i < len(proxies): ydl_opts = {'skip_download': True, 'socket_timeout': 3, 'extractor_retries': 0}
+                ydl_opts = {'skip_download': True, 'extractor_retries': 0, 'socket_timeout': 5}
+                if i < len(proxies): ydl_opts['socket_timeout'] = 2
                 ydl_opts.update(ydl_global_opts)
                 if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["cookiefile"] = cookies
                 info = YTDLP.get_info(url, ydl_opts)
