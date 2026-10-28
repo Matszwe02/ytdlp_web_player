@@ -1031,8 +1031,8 @@ def get_meta(url: str, max_meta_age = None):
         last_exception = None
         for i in range(len(proxies) * 2 + 1):
             try:
-                ydl_opts = {'skip_download': True}
-                if i < len(proxies): ydl_opts = {'skip_download': True, 'socket_timeout': 3, 'extractor_retries': 0}
+                ydl_opts = {'skip_download': True, 'extractor_retries': 0, 'socket_timeout': 5}
+                if i < len(proxies): ydl_opts['socket_timeout'] = 2
                 ydl_opts.update(ydl_global_opts)
                 if cookies := check_media(url, 'cookies') or get_global_cookies_file(): ydl_opts["cookiefile"] = cookies
                 info = YTDLP.get_info(url, ydl_opts)
