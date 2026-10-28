@@ -930,12 +930,12 @@ def advance_proxy(url, force = False):
     if not url or len(proxies) < 2: return
     proxy_path = os.path.join(get_data_dir(url), 'proxy')
     proxy = None
-    if os.path.exists(proxy_path) and not force:
+    if os.path.exists(proxy_path):
         with open(proxy_path, 'r') as f:
             proxy_time, proxy = f.read().split('\n')
-            if time.time() - float(proxy_time) < 20:
-                print('Skipping advancing proxy before 20s has passed')
-                return
+        if not force and time.time() - float(proxy_time) < 20:
+            print('Skipping advancing proxy before 20s has passed')
+            return
 
     if proxy and proxy in proxies:
         proxy_idx = proxies.index(proxy)
