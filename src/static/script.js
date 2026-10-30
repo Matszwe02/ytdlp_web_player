@@ -403,6 +403,7 @@ function getUrlInfo()
         if (quality == null) quality = `${info.default_quality}`;;
         if (info['height'] == null && info['width'] == null) quality = 'audio';
     }
+    if (quality && quality !== 'audio') quality = quality.replace('audio', '');
     return { quality: quality, originalUrl: originalUrl, encodedUrl:encodedUrl, urlParams:urlParams, startTime: startTime };
 }
 
@@ -676,7 +677,7 @@ function setVideoQuality(height = null, button = null)
     if (height === null) height = `${url.quality}`;
     log(`Setting video quality to ${height}`);
     const buttons = menu.querySelectorAll('.vjs-resolution-option');
-    url.urlParams.set('quality', height);
+    url.urlParams.set('quality', (height && height !== 'audio') ? height.replace('audio', '') : height);
     if (button == null)
     {
         buttons.forEach(b => {
