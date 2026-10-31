@@ -733,7 +733,7 @@ def stream_media_file(url: str, src: str, fmt_id: str|None = None, headers_range
     headers = None
     cookies = None
     if url and fmt_id:
-        fmt = next(f for f in ((meta or get_meta(url)).get('formats') or []) if (f.get('format_id') == fmt_id or f.get('url') == url))
+        fmt = next(f for f in ((meta or get_meta(url, force=True)).get('formats') or []) if (f.get('format_id') == fmt_id or f.get('url') == url))
         headers = fmt.get('http_headers')
         cookies = fmt.get('cookies')
     try:
@@ -1009,7 +1009,12 @@ def check_meta_validity(url: str, meta: dict):
         return False
 
 
-def get_meta(url: str, max_meta_age = None):
+def get_meta(url: str, max_meta_age = None, force = False):
+    if force:
+        if m := check_media(url, 'meta'):
+            with open(m, 'r') as f:
+                return json.load(f)
+        return None
     with FileCachingLock(url, 'meta') as cache:
         print(cache)
         if cache:
@@ -1048,13 +1053,15 @@ def get_meta(url: str, max_meta_age = None):
                 if not info.get('duration') or not info.get('width') or not info.get('height'):
                     try:
                         print('Fetching additional info for meta')
+                        with open(os.path.join(get_data_dir(url), 'meta.json'), 'w') as f:
+                            json.dump(info, f)
                         raw_srcs = get_all_video_sources(url, info)
                         srcs = choose_sources_for_res(raw_srcs)
                         src = srcs[1] or srcs[0]
-                        duration = get_media_duration(url, None, src[0][0])
+                        duration = get_media_duration(url, info, src[0][0])
                         info['duration'] = duration
                         if any(key and key != 'audio' for key in raw_srcs.keys()):
-                            w, h = get_media_res(url, None, src[0][0])
+                            w, h = get_media_res(url, info, src[0][0])
                             info['width'] = w
                             info['height'] = h
                     except Exception as e:
