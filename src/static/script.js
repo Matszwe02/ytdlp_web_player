@@ -2251,6 +2251,7 @@ function loadMediaSession()
         navigator.mediaSession.setPositionState?.({ duration: info.duration, playbackRate: TargetPlayer.playbackRate(), position: Math.min(TargetPlayer.currentTime(), info.duration) });
     }
     player.on(['play', 'pause', 'ratechange', 'seeked'], updateMediaSession);
+    audioPlayer.on(['play', 'pause', 'ratechange', 'seeked'], updateMediaSession);
     log("Loaded Media Player API");
 }
 
