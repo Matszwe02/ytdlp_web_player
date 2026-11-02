@@ -99,9 +99,15 @@ function unblockVideos()
 }
 
 
+function editable(element)
+{
+    return !!element && (element.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(element.tagName));
+}
+
+
 function getIframeContainer()
 {
-    let ordered_video_types = [
+    const ordered_video_types = [
         '.html5-video-player',
         'shreddit-player,.vimeo-player,.jwplayer,.video-js,.wistia_embed,.flowplayer,.dm_player_container',
         '.player,.video',
@@ -109,11 +115,12 @@ function getIframeContainer()
         'img'
     ];
     let allVideos = [];
-    for (let index = 0; index < ordered_video_types.length; index++) {
-        allVideos = Array.from(document.querySelectorAll(ordered_video_types[index]));
+    for (const selector of ordered_video_types)
+    {
+        allVideos = document.querySelectorAll(selector);
         if (allVideos.length > 0)
         {
-            console.debug(`Total videos of type "${ordered_video_types[index]}" found: ${allVideos.length}`);
+            console.debug(`Total videos of type "${selector}" found: ${allVideos.length}`);
             break;
         }
     }
@@ -122,16 +129,16 @@ function getIframeContainer()
     let maxArea = 0;
     let bestVideo = null;
     let maxDisplayScore = -Infinity;
+    const size = window.innerHeight + window.innerWidth;
 
     allVideos.forEach(video => {
         const rect = video.getBoundingClientRect();
         const area = rect.width * rect.height;
-        const closeX = Math.min(rect.left - 0, window.innerWidth - rect.right);
-        const closeY = Math.min(rect.top - 0, window.innerHeight - rect.bottom);
-        const visibilityScore = Math.max(Math.min(Math.min(closeX, closeY), (window.innerHeight + window.innerWidth) / 4), -(window.innerHeight + window.innerWidth) / 8);
+        const closest = Math.min(rect.left, rect.top, window.innerWidth - rect.right, window.innerHeight - rect.bottom);
+        const visibilityScore = Math.max(Math.min(closest, size / 4), -size / 8);
         console.debug(`Visibility score: ${visibilityScore}`);
         const displayScore = Math.sqrt(area) + visibilityScore * 2;
-        if (area > maxArea) maxArea = area;
+        maxArea = Math.max(maxArea, area);
 
         console.debug(`  - Display Score: ${displayScore.toFixed(0)}, top:${rect.top}, left:${rect.left}, w:${rect.width}, h:${rect.height}`);
 
@@ -146,36 +153,26 @@ function getIframeContainer()
         if (iframeContainer) videoResizeObserver.unobserve(iframeContainer);
         return;
     }
-    if (bestVideo)
+    const rect = bestVideo.getBoundingClientRect();
+    altSrc = "";
+    const left = Math.max(Math.min(window.innerWidth - 10, rect.left + rect.width / 2), 10);
+    const top = Math.max(Math.min(window.innerHeight - 10, rect.top + rect.height / 2), 10);
+    const currentOrigin = new URL(windowHref()).origin;
+    for (const el of document.elementsFromPoint(left, top))
     {
-        const rect = bestVideo.getBoundingClientRect();
-
-        altSrc = "";
-        let a = bestVideo;
-        while (a.parentElement !== document.body)
+        if (el.tagName != "A") continue;
+        try
         {
-            a = a.parentElement;
+            const url = new URL(el.href, currentOrigin);
+            if (currentOrigin === url.origin && url.pathname != '/') altSrc = url.href;
         }
-        let left = Math.max(Math.min(window.innerWidth - 10, rect.left + rect.width / 2), 10);
-        let top = Math.max(Math.min(window.innerHeight - 10, rect.top + rect.height / 2), 10);
-        let currentOrigin = new URL(windowHref()).origin;
-        document.elementsFromPoint(left, top).forEach((el, i) => {
-            if (el.tagName == "A")
-            {
-                try
-                {
-                    let url = new URL(el.href, currentOrigin);
-                    altSrc = (currentOrigin === url.origin && url.pathname != '/') ? url.href : altSrc;
-                }
-                catch {}
-            }
-        });
-        while (bestVideo.parentElement !== document.body)
-        {
-            const parentRect = bestVideo.parentElement.getBoundingClientRect();
-            if (parentRect.width > (rect.width * 1.02) || parentRect.height > (rect.height * 1.02)) break;
-            bestVideo = bestVideo.parentElement;
-        }
+        catch {}
+    }
+    while (bestVideo.parentElement !== document.body)
+    {
+        const parentRect = bestVideo.parentElement.getBoundingClientRect();
+        if (parentRect.width > (rect.width * 1.02) || parentRect.height > (rect.height * 1.02)) break;
+        bestVideo = bestVideo.parentElement;
     }
     console.debug(bestVideo);
     return bestVideo;
@@ -198,31 +195,23 @@ function createIframe(src='')
     iframe.src = src;
     document.body.appendChild(iframe);
     setTimeout(() => {
-        iframe.focus();
+        if (!editable(document.activeElement)) iframe?.focus();
     }, 2000);
-    if (cookies)
+    if (!cookies) return;
+    try
     {
-        try
-        {
-            chrome?.runtime?.sendMessage({
-                action: 'postCookies',
-                playerUrl: playerUrl,
-                documentCookies: document.cookie,
-                currentWebsiteUrl: windowHref()
-            });
-        }
-        catch (error)
-        {
-            console.warn(error);
-        }
+        chrome.runtime.sendMessage({ action: 'postCookies', playerUrl, documentCookies: document.cookie, currentWebsiteUrl: windowHref() });
+    }
+    catch (error)
+    {
+        console.warn(error);
     }
 }
 
 
 function updateIframeGeometry(forceZero = false)
 {
-    if (!tabEnabled) return;
-    if (document.fullscreenElement !== null) return;
+    if (!tabEnabled || !iframe || document.fullscreenElement) return;
     const containerRect = iframeContainer?.getBoundingClientRect();
     const vidRect = iframeContainer?.querySelector('video')?.getBoundingClientRect();
     const iframeRect = iframe ? iframe.getBoundingClientRect() : null;
@@ -359,10 +348,7 @@ function start()
     updateIframe(true);
     blockVideos();
     document.addEventListener('click', (e) => {
-        if (iframe !== null && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'SELECT')
-        {
-            iframe.focus();
-        }
+        if (iframe !== null && !editable(e.target)) iframe.focus();
     });
 }
 
@@ -453,18 +439,9 @@ if (storage !== null && storageSync !== null)
     });
 
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        if (message.action === 'start')
-        {
-            tryStart();
-        }
-        else if (message.action === 'stop')
-        {
-            stop();
-        }
-        else if (message.action === 'getTabStatus')
-        {
-            sendResponse({ status: tabEnabled &&  playerUrl});
-        }
+        if (message.action === 'start') tryStart();
+        else if (message.action === 'stop') stop();
+        else if (message.action === 'getTabStatus') sendResponse({ status: tabEnabled && playerUrl });
     });
 }
 else
@@ -487,13 +464,11 @@ else
             if (state === true || state === false) tabEnabled = state;
             if (tabEnabled)
             {
-                console.warn('Toggle (start)');
                 startCmd = GM_registerMenuCommand("Stop", GM_toggleStart);
                 start();
             }
             else
             {
-                console.warn('Toggle (stop)');
                 startCmd = GM_registerMenuCommand("Start", GM_toggleStart);
                 stop();
             }
@@ -501,18 +476,10 @@ else
 
         function GM_toggleDomain()
         {
-            var allowedDomains = GM_loadDomains().split(',');
-            const currentUrl = new URL(windowHref());
-            if (allowedDomains.includes(currentUrl.hostname))
-            {
-                allowedDomains = allowedDomains.filter(domain => domain !== currentUrl.hostname);
-            }
-            else
-            {
-                allowedDomains.push(currentUrl.hostname);
-            }
-            allowedDomains = allowedDomains.join(',');
-            GM_setValue("allowedDomains", allowedDomains);
+            const domains = GM_loadDomains().split(',');
+            const hostname = new URL(windowHref()).hostname;
+            const newDomains = domains.includes(hostname) ? domains.filter(domain => domain !== hostname) : [...domains, hostname];
+            GM_setValue("allowedDomains", newDomains.join(','));
             GM_toggleStart(updateAllowedDomains(GM_loadDomains()));
         }
 
@@ -520,18 +487,10 @@ else
         function GM_loadDomains()
         {
             if (domainCmd) GM_unregisterMenuCommand(domainCmd);
-            var allowedDomains = GM_getValue("allowedDomains", '').split(',').map(domain => domain.trim());
-            console.warn(allowedDomains);
-            const currentUrl = new URL(windowHref());
-            if (allowedDomains.includes(currentUrl.hostname))
-            {
-                domainCmd = GM_registerMenuCommand("Remove Current Domain", GM_toggleDomain);
-            }
-            else
-            {
-                domainCmd = GM_registerMenuCommand("Add Current Domain", GM_toggleDomain);
-            }
-            return allowedDomains.join(',');
+            const domains = GM_getValue("allowedDomains", '').split(',').map(domain => domain.trim());
+            const label = domains.includes(new URL(windowHref()).hostname) ? "Remove Current Domain" : "Add Current Domain";
+            domainCmd = GM_registerMenuCommand(label, GM_toggleDomain);
+            return domains.join(',');
         }
 
         if (new URL(windowHref()).origin != new URL(playerUrl).origin)
@@ -541,10 +500,7 @@ else
     }
     catch
     {
-        if (!playerUrl)
-        {
-            playerUrl = prompt("Enter YT-DLP Web Player URL:");
-        }
+        playerUrl = playerUrl || prompt("Enter YT-DLP Web Player URL:");
         tryStart();
     }
 }
