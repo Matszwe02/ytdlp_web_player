@@ -322,7 +322,6 @@ function updateIframe(updateContainer = false)
 function start()
 {
     tabEnabled = true;
-    window.addEventListener('scroll', updateIframeGeometry, { passive: true });
     window.addEventListener('popstate', updateIframe);
 
     if (window.navigation)
@@ -350,6 +349,17 @@ function start()
     document.addEventListener('click', (e) => {
         if (iframe !== null && !editable(e.target)) iframe.focus();
     });
+
+    var geometryFrame, geometryFramesLeft;
+    ['scroll', 'resize', 'transitionrun'].forEach(type => window.addEventListener(type, () => {
+        if (!tabEnabled) return;
+        geometryFramesLeft = 20;
+        geometryFrame ??= requestAnimationFrame(function loop() {
+            geometryFrame = null;
+            updateIframeGeometry();
+            if (tabEnabled && --geometryFramesLeft > 0) geometryFrame = requestAnimationFrame(loop);
+        });
+    }, { passive: true, capture: true }));
 }
 
 
