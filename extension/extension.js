@@ -23,10 +23,11 @@
 var playerUrl = '';
 
 var iframe = null;
+var iframeStyle = {};
 var iframeContainer = null;
 var cookies = false;
 var lastContainerRect = null;
-var lastBodyRect = null;
+var lastScroll = null;
 var tabEnabled = true;
 var altSrc = "";
 
@@ -125,7 +126,6 @@ function getIframeContainer()
         }
     }
 
-
     let maxArea = 0;
     let bestVideo = null;
     let maxDisplayScore = -Infinity;
@@ -179,17 +179,27 @@ function getIframeContainer()
 }
 
 
+function setIframeStyle(prop, value)
+{
+    if (iframeStyle[prop] === value) return false;
+    iframeStyle[prop] = value;
+    iframe.style[prop] = (typeof value === 'number') ? `${value}px` : value;
+    return true;
+}
+
+
 function createIframe(src='')
 {
     if (iframe = document.getElementById('ytdlp-player')) return;
     console.log(`Creating iframe`);
     iframe = document.createElement('iframe');
+    iframeStyle = {};
     iframe.id = 'ytdlp-player';
     iframe.style.border = 'none';
-    iframe.style.position = 'fixed';
     iframe.style.zIndex = '9999';
-    iframe.style.top = '0px';
-    iframe.style.left = '0px';
+    setIframeStyle('position', 'absolute');
+    setIframeStyle('top', 0);
+    setIframeStyle('left', 0);
     iframe.allowFullscreen = true;
     iframe.allow = 'autoplay';
     iframe.src = src;
@@ -214,43 +224,31 @@ function updateIframeGeometry(forceZero = false)
     if (!tabEnabled || !iframe || document.fullscreenElement) return;
     const containerRect = iframeContainer?.getBoundingClientRect();
     const vidRect = iframeContainer?.querySelector('video')?.getBoundingClientRect();
-    const iframeRect = iframe ? iframe.getBoundingClientRect() : null;
-    const bodyRect = document.body.getBoundingClientRect();
-    if (!iframeRect) return;
     const width = Math.max(containerRect?.width || 0, vidRect?.width || 0);
     const height = Math.max(containerRect?.height || 0, vidRect?.height || 0);
 
-    if ((width == 0 || height == 0) && iframe.style.width && iframe.style.height && !forceZero)
+    if ((width == 0 || height == 0) && 'width' in iframeStyle && 'height' in iframeStyle && !forceZero) return;
+
+    setIframeStyle('width', width);
+    setIframeStyle('height', height);
+
+    if (containerRect && lastContainerRect)
     {
-        return;
-    }
-
-    iframe.style.width = `${width}px`;
-    iframe.style.height = `${height}px`;
-
-    if (containerRect && lastContainerRect && bodyRect && lastBodyRect)
-    {
-        var fixedChange = Math.abs(containerRect.top - lastContainerRect.top) + Math.abs(containerRect.left - lastContainerRect.left);
-        var absoluteChange = Math.abs((containerRect.top - lastContainerRect.top) - (bodyRect.top - lastBodyRect.top))
-            + Math.abs((containerRect.left - lastContainerRect.left) - (bodyRect.left - lastBodyRect.left));
-
-        if (absoluteChange > fixedChange + 1) iframe.style.position = 'fixed';
-        if (absoluteChange < fixedChange - 1) iframe.style.position = 'absolute';
+        const dY = containerRect.top - lastContainerRect.top;
+        const dX = containerRect.left - lastContainerRect.left;
+        const fixedChange = Math.abs(dY) + Math.abs(dX);
+        const absoluteChange = Math.abs(dY + scrollY - lastScroll.y) + Math.abs(dX + scrollX - lastScroll.x);
+        if (absoluteChange > fixedChange + 1) setIframeStyle('position', 'fixed');
+        if (absoluteChange < fixedChange - 1) setIframeStyle('position', 'absolute');
     }
 
     lastContainerRect = containerRect;
-    lastBodyRect = bodyRect;
+    lastScroll = { x: scrollX, y: scrollY };
 
-    if (iframe.style.position == 'fixed')
-    {
-        iframe.style.top = `${containerRect?.top || 0}px`;
-        iframe.style.left = `${containerRect?.left || 0}px`;
-    }
-    else
-    {
-        iframe.style.top = `${(containerRect?.top || 0) - iframeRect.top + parseFloat(iframe.style.top || 0)}px`;
-        iframe.style.left = `${(containerRect?.left || 0) - iframeRect.left + parseFloat(iframe.style.left || 0)}px`;
-    }
+    const { top = 0, left = 0 } = iframeStyle;
+    const iframeRect = iframeStyle.position == 'fixed' ? { top, left } : iframe.getBoundingClientRect();
+    setIframeStyle('top', (containerRect?.top || 0) - iframeRect.top + top);
+    setIframeStyle('left', (containerRect?.left || 0) - iframeRect.left + left);
 }
 
 
