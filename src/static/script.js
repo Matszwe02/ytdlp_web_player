@@ -8,14 +8,13 @@ let repeatMode = false;
 let repeatStartTime = 0;
 let repeatEndTime = 0;
 let minBufferAheadTime = 0;
-let isBuffering = false;
 let ongoingRequest = null;
 let audioContext = null;
 let audioSource = null;
 let currentVideoSourceIndex = 0;
 let currentAudioSourceIndex = 0;
-let playerVisible = true;
 let logHistory = [];
+let holdAudio = false;
 
 
 const PlayerModes = {
@@ -52,171 +51,99 @@ function err(text)
 }
 
 
-let videoLock = 0;
-let audioLock = 0;
-
-function lockVideo(force = false)
+function releaseAudio()
 {
-    if (Date.now() - audioLock < 200 && !force) return false;
-    videoLock = Date.now();
-    return true;
+    if (!holdAudio) return;
+    holdAudio = false;
+    audioPlayer.play();
 }
 
-function lockAudio(force = false)
+
+function videoHidden()
 {
-    if (Date.now() - videoLock < 200 && !force) return false;
-    audioLock = Date.now();
-    return true;
+    return document.hidden && 'pictureInPictureEnabled' in document && !player.isInPictureInPicture();
+}
+
+
+function syncVideo(jump = false)
+{
+    if (playerMode != PlayerModes.VIDEO_AUDIO) return;
+    if (videoHidden()) return releaseAudio();
+
+    const video = player.tech(true).el();
+    const playing = !audioPlayer.paused() || holdAudio;
+    const offset = video.currentTime - audioPlayer.currentTime();
+
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA || Date.now() - ps.lastChange > 5)
+    {
+        if (Math.abs(offset) > (jump || !playing ? 0.02 : 5))
+        {
+            if (!jump && playing && offset < 0 && (video.seeking || video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA))
+            {
+                warn(`Audio paused: video player can't keep up`);
+                holdAudio = true;
+                audioPlayer.pause();
+            }
+            video.currentTime = audioPlayer.currentTime();
+            log(`Video synced to audio. Offset: ${offset.toFixed(3)}s`);
+        }
+        else if (Math.abs(offset) > 0.02)
+        {
+            video.playbackRate = Math.min((player.bufferedEnd() - video.currentTime), 4, Math.max(0.1, audioPlayer.playbackRate() * 2 ** (-offset)));
+        }
+        else video.playbackRate = audioPlayer.playbackRate();
+    }
+
+    if (playing && video.paused && !video.ended) video.play().catch(() => {});
+    if (!playing && !video.paused) video.pause();
 }
 
 
 function setupPlayerSync()
 {
-
-    player.on('play', () => {
-        if (!lockVideo()) return;
-        if (playerMode == PlayerModes.VIDEO_AUDIO && audioPlayer.paused())
-            audioPlayer.play();
-    });
-    audioPlayer.on('play', () => {
-        if (!lockAudio()) return;
-        if (playerMode == PlayerModes.VIDEO_AUDIO && player.paused())
-            player.play();
-    });
-
-    player.on('pause', () => {
-        if (!lockVideo()) return;
-        if (playerMode == PlayerModes.VIDEO_AUDIO && playerVisible && !audioPlayer.paused())
-            audioPlayer.pause();
-    });
-    audioPlayer.on('pause', () => {
-        if (!lockAudio()) return;
-        if (playerMode == PlayerModes.VIDEO_AUDIO && !player.paused())
-            player.pause();
-    });
-
-    function syncPlayers()
+    const linked = {
+        play: () => audioPlayer.play(),
+        pause: () => { holdAudio = false; audioPlayer.pause(); syncVideo(); },
+        paused: () => audioPlayer.paused() && !holdAudio,
+        currentTime: (time) => { if (time !== undefined) player.getCache().currentTime = time; return audioPlayer.currentTime(time); },
+        playbackRate: (rate) => audioPlayer.playbackRate(rate),
+    };
+    for (const name in linked)
     {
-        if (!playerVisible) return;
-        const offset = player.currentTime() - audioPlayer.currentTime();
-
-        if (Math.abs(offset) > 5)
-        {
-            lockAudio();
-            if (isBuffering)
-            {
-                warn(`Audio player paused: video player can't keep up`);
-                lockVideo(true);
-                audioPlayer.pause();
-            }
-            player.currentTime(audioPlayer.currentTime());
-            log(`Video synced to audio. Offset: ${offset.toFixed(3)}s`);
-        }
-        else if (Math.abs(offset) > 0.02)
-        {
-            let diff = Math.min(Math.abs(offset), 1);
-            let buffer = player.bufferedEnd() - player.currentTime();
-            let rate = audioPlayer.playbackRate() * (offset > 0 ? Math.max(1 - diff, 0.1) : 1 + diff * Math.min(Math.max(buffer, 1), 7));
-            player.playbackRate(rate);
-            log(`Keeping up with audio with playback rate ${player.playbackRate()}`);
-        }
-        else if (player.playbackRate() != audioPlayer.playbackRate())
-        {
-            player.playbackRate(audioPlayer.playbackRate());
-        }
+        const own = player[name].bind(player);
+        player[name] = (...args) => (playerMode == PlayerModes.VIDEO_AUDIO ? linked[name] : own)(...args);
     }
 
-    audioPlayer.on('timeupdate', () => {
+    audioPlayer.on(['play', 'pause', 'ratechange', 'timeupdate'], () => syncVideo());
+    audioPlayer.on('seeking', () => syncVideo(true));
+    player.on('loadedmetadata', () => syncVideo(true));
+    player.on(['seeked', 'playing'], () => {
+        if (player.tech(true).el().readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) releaseAudio();
+    });
+
+    let suspended = false;
+    let pipTime = 0;
+    player.on(['play', 'pause'], () => {
         if (playerMode != PlayerModes.VIDEO_AUDIO) return;
-        syncPlayers();
+        const video = player.tech(true).el();
+        const wasSuspended = suspended;
+        const inPip = player.isInPictureInPicture();
+        suspended = videoHidden() && video.paused;
+        if (video.paused == player.paused() || videoHidden()) return;
+        if (wasSuspended || video.ended || (!inPip && Date.now() - pipTime < 200)) return syncVideo();
+        if (inPip && video.paused) pipTime = Date.now();
+        video.paused ? player.pause() : player.play();
     });
 
-    function seekVideo()
-    {
-        if (!lockAudio()) return;
-        if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.02) return;
-        player.currentTime(audioPlayer.currentTime());
-    }
-    function seekAudio()
-    {
-        if (!lockVideo()) return;
-        if (document.visibilityState == 'hidden' && !player.isInPictureInPicture()) return;
-        if (Math.abs(audioPlayer.currentTime() - player.currentTime()) < 0.02) return;
-        audioPlayer.currentTime(player.currentTime());
-
-    }
-
-    player.on('seeked', seekAudio);
-    player.on('seeking', seekAudio);
-    audioPlayer.on('seeked', seekVideo);
-    audioPlayer.on('seeking', seekVideo);
+    player.on('leavepictureinpicture', () => {
+        if (Date.now() - pipTime < 200) player.play();
+        pipTime = Date.now();
+    });
 
     player.on('volumechange', () => {
-        if (!lockVideo()) return;
-        if (playerMode != PlayerModes.VIDEO_AUDIO) return;
         audioPlayer.muted(player.muted());
         audioPlayer.volume(player.volume());
     });
-
-    audioPlayer.on('volumechange', () => {
-        if (!lockAudio()) return;
-        if (playerMode != PlayerModes.VIDEO_AUDIO) return;
-        player.muted(audioPlayer.muted());
-        player.volume(audioPlayer.volume());
-    });
-}
-
-
-class TargetPlayer
-{
-
-    static play()
-    {
-        log('play() called');
-        if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.play();
-        player.play();
-    }
-    
-    static pause()
-    {
-        log('pause() called');
-        if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.pause();
-        player.pause();
-    }
-
-    static paused()
-    {
-        return (playerMode == PlayerModes.VIDEO_AUDIO) ? audioPlayer.paused() : player.paused();
-    }
-    
-    static currentTime(newtime = null)
-    {
-        if (newtime === null)
-        {
-            return playerMode == PlayerModes.VIDEO_AUDIO ? audioPlayer.currentTime() : player.currentTime();
-        }
-        if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.currentTime(newtime);
-        else
-            {
-            log('setting player currenttime from currenttime');
-            player.currentTime(newtime);
-        }
-    }
-    
-    
-    static playbackRate(speed = null)
-    {
-        if (speed == null)
-        {
-            try
-            {
-                return playerMode == PlayerModes.VIDEO_AUDIO ? audioPlayer.playbackRate() : player.playbackRate();
-            }
-            catch { return 1; }
-        }
-        if (playerMode == PlayerModes.VIDEO_AUDIO) audioPlayer.playbackRate(speed);
-        else player.playbackRate(speed);
-    }
 }
 
 
@@ -233,13 +160,14 @@ class PlayerState
     }
     save()
     {
-        if (this.ongoing && TargetPlayer.currentTime() == 0)
+        if (this.ongoing && player.currentTime() == 0)
         {
             warn('Preventing saving unknown player state');
             return;
         }
         this.ongoing = false;
-        this.switchTime = TargetPlayer.currentTime();
+        this.linked = playerMode == PlayerModes.VIDEO_AUDIO;
+        this.switchTime = player.currentTime();
         this.isPlaying = !player.paused();
         this.speed = player.playbackRate();
         this.tracks = [];
@@ -259,10 +187,13 @@ class PlayerState
     }
     apply()
     {
-        if (this.switchTime > 0) TargetPlayer.currentTime(this.switchTime);
+        if (!this.linked || playerMode != PlayerModes.VIDEO_AUDIO)
+        {
+            if (this.switchTime > 0) player.currentTime(this.switchTime);
+            if (this.isPlaying) player.play();
+        }
         player.playbackRate(this.speed);
         player.one('loadedmetadata', () => player.playbackRate(this.speed));
-        if (this.isPlaying) player.play();
         for (let i = 0; i < this.tracks.length; i++)
         {
             const track = this.tracks[i];
@@ -411,7 +342,7 @@ function getUrlInfo()
 function getVideoSource()
 {
     var url = getUrlInfo();
-    if (url.quality !== 'audio') playerMode = PlayerModes.VIDEO_AUDIO;
+    playerMode = url.quality === 'audio' ? PlayerModes.AUDIO : PlayerModes.VIDEO_AUDIO;
     let sources = info.sources[url.quality];
     if (!sources)
     {
@@ -435,14 +366,6 @@ function getAudioSource()
     let a = (info.sources['audio'] || [])[currentAudioSourceIndex];
     if (a) return a;
     return [`/hls?url=${url.encodedUrl}&quality=audio`, 'aac', 'application/x-mpegURL', false];
-}
-
-
-function updateAudioMode()
-{
-    if (playerMode == PlayerModes.VIDEO) return;
-    stopAudioPlayer();
-    log('Video source has audio - disabling separate audio player');
 }
 
 
@@ -472,7 +395,7 @@ function formatTimeShort(timeInSeconds)
 function updatePlaybackTime(newTime = null)
 {
     const url = new URL(window.location.href);
-    if (newTime === null) newTime = TargetPlayer.currentTime();
+    if (newTime === null) newTime = player.currentTime();
     if (newTime > 2 && newTime < info.duration - 2)
     {
         url.searchParams.set('t', Math.floor(newTime));
@@ -581,7 +504,7 @@ function loadChapters()
     function updateChapterTooltipOnPlayback()
     {
         if (isHoveringProgressBar) return;
-        updateChapterVisibility(TargetPlayer.currentTime());
+        updateChapterVisibility(player.currentTime());
     }
 
     player.controlBar.progressControl.on(['mousemove', 'touchmove'], onProgressBarMove);
@@ -619,6 +542,7 @@ function setAudioSource()
 function stopAudioPlayer()
 {
     if (!audioPlayer) return;
+    holdAudio = false;
     try
     {
         if (!audioPlayer.paused()) audioPlayer.pause();
@@ -627,15 +551,12 @@ function stopAudioPlayer()
 }
 
 
-function setVideoSource()
+function setVideoSource(videoSource)
 {
     var url = getUrlInfo();
-    let videoSource = getVideoSource();
 
     const videoEl = player.el_.querySelector('video');
     const posterEl = player.el_.querySelector('.vjs-poster');
-    ps.save();
-    if (ps.suspend) return;
     if (player.src() == videoSource[0])
     {
         log('Preventing switching to the same source');
@@ -695,20 +616,16 @@ function setVideoQuality(height = null, button = null)
 
 function applyVideoQuality()
 {
-    var url = getUrlInfo();
     ps.save();
     if (ps.suspend) return;
 
-    let audioActive = url.quality !== 'audio' && getAudioSource() != null;
-
-    playerMode = url.quality === 'audio' ? PlayerModes.AUDIO : (audioActive ? PlayerModes.VIDEO_AUDIO : PlayerModes.VIDEO);
-
+    const videoSource = getVideoSource();
     if (playerMode == PlayerModes.VIDEO_AUDIO) setAudioSource();
     else stopAudioPlayer();
 
     log(`Applying video source ${currentVideoSourceIndex}, separate audio player: ${playerMode == PlayerModes.VIDEO_AUDIO}`);
 
-    setVideoSource();
+    setVideoSource(videoSource);
 }
 
 
@@ -1086,16 +1003,16 @@ class DownloadButton extends videojs.getComponent('Button')
         this.startBtn.classList.add('vjs-resolution-option');
         this.startBtn.title = 'Click To Adjust Start Time';
         this.startBtn.style.display = 'none'; // Initially hidden
-        this.startBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.startTime = TargetPlayer.currentTime(); this.updateTimeLabels(); });
-        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.startTime = TargetPlayer.currentTime(); this.updateTimeLabels(); });
+        this.startBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.startTime = player.currentTime(); this.updateTimeLabels(); });
+        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.startTime = player.currentTime(); this.updateTimeLabels(); });
         menu.appendChild(this.startBtn);
 
         this.endBtn = document.createElement('button');
         this.endBtn.classList.add('vjs-resolution-option');
         this.endBtn.title = 'Click To Adjust End Time';
         this.endBtn.style.display = 'none'; // Initially hidden
-        this.endBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.endTime = TargetPlayer.currentTime(); this.updateTimeLabels(); });
-        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.endTime = TargetPlayer.currentTime(); this.updateTimeLabels(); });
+        this.endBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.endTime = player.currentTime(); this.updateTimeLabels(); });
+        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.endTime = player.currentTime(); this.updateTimeLabels(); });
         menu.appendChild(this.endBtn);
 
         this.updateTimeLabels();
@@ -1205,7 +1122,7 @@ class RepeatButton extends videojs.getComponent('Button')
         this.startBtn = document.createElement('button');
         this.startBtn.classList.add('vjs-resolution-option');
         this.startBtn.title = 'Click To Adjust Start Time';
-        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatStartTime = TargetPlayer.currentTime(); this.updateTimeLabels(); repeatStartTime = this.repeatStartTime; });
+        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatStartTime = player.currentTime(); this.updateTimeLabels(); repeatStartTime = this.repeatStartTime; });
 
         this.startBtn.ontouchstart = (event) => {
             setTimeout(() => {
@@ -1219,7 +1136,7 @@ class RepeatButton extends videojs.getComponent('Button')
         this.endBtn = document.createElement('button');
         this.endBtn.classList.add('vjs-resolution-option');
         this.endBtn.title = 'Click To Adjust End Time';
-        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatEndTime = TargetPlayer.currentTime(); this.updateTimeLabels(); repeatEndTime = this.repeatEndTime; });
+        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatEndTime = player.currentTime(); this.updateTimeLabels(); repeatEndTime = this.repeatEndTime; });
 
         this.endBtn.ontouchstart = (event) => {
             setTimeout(() => {
@@ -1555,7 +1472,7 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
             const button = document.createElement('button');
             button.textContent = `${speed}x`;
             button.classList.add('vjs-playback-speed-option');
-            if (TargetPlayer.playbackRate() === speed)
+            if (this.player.playbackRate() === speed)
             {
                 button.classList.add('vjs-menu-option-selected');
             }
@@ -1579,7 +1496,7 @@ class PlaybackSpeedButton extends videojs.getComponent('Button')
 
             button.onclick = (event) => {
                 tryStopPropagation(event);
-                TargetPlayer.playbackRate(speed);
+                player.playbackRate(speed);
                 if (speed == 1.0)
                     this.el().classList.remove('vjs-active');
                 else
@@ -1743,7 +1660,7 @@ videojs.registerComponent('PlaylistComponent', PlaylistComponent);
 
 function skipclick()
 {
-    if (TargetPlayer.currentTime() < skipTime) TargetPlayer.currentTime(skipTime);
+    if (player.currentTime() < skipTime) player.currentTime(skipTime);
 };
 
 
@@ -1771,7 +1688,7 @@ function adjustVideoSize()
 function checkSponsorTime()
 {
     var segmentShown = null;
-    const time = TargetPlayer.currentTime();
+    const time = player.currentTime();
     
     segments.forEach(segment => {
         if (time > segment.start && time < segment.end)
@@ -1781,8 +1698,8 @@ function checkSponsorTime()
         if (time > segment.start - 1 && time < segment.start)
         {
             setTimeout(() => {
-                if (!TargetPlayer.paused()) checkSponsorTime();
-            }, (segment.start - time + .01) * 1000 / TargetPlayer.playbackRate());
+                if (!player.paused()) checkSponsorTime();
+            }, (segment.start - time + .01) * 1000 / player.playbackRate());
         }
     });
     
@@ -1925,12 +1842,12 @@ function loadVideo()
                     preciseBackwardKey:
                     {
                         key: function (event) {return event.code == "Comma";},
-                        handler: function (player, options, event) {TargetPlayer.currentTime(TargetPlayer.currentTime() - 0.1);},
+                        handler: function (player, options, event) {player.currentTime(player.currentTime() - 0.1);},
                     },
                     preciseForwardKey:
                     {
                         key: function (event) {return event.code == "Period";},
-                        handler: function (player, options, event) {TargetPlayer.currentTime(TargetPlayer.currentTime() + 0.1);},
+                        handler: function (player, options, event) {player.currentTime(player.currentTime() + 0.1);},
                     },
                 },
                 captureDocumentHotkeys: true,
@@ -1939,7 +1856,7 @@ function loadVideo()
             },
         },
     });
-    player.doubleTapFF(TargetPlayer);
+    player.doubleTapFF();
     player.controlBar.ZoomToFillToggle.handleClick(null, false);
     if (window.location.href.includes('/iframe?')) player.controlBar.addChild('PlayerButton');
     
@@ -1953,9 +1870,9 @@ function loadVideo()
     skipSegment.onclick = function() {skipclick();};
 
     player.on('timeupdate', () => {
-        if (repeatMode && TargetPlayer.currentTime() >= repeatEndTime)
+        if (repeatMode && player.currentTime() >= repeatEndTime)
         {
-            TargetPlayer.currentTime(repeatStartTime);
+            player.currentTime(repeatStartTime);
             setTimeout(() => {
                 player.play();
             }, 100);
@@ -1968,8 +1885,8 @@ function loadVideo()
             let minLiveBuffer = parseFloat(info.min_live_buffer);
             if (timeDiff > 30 || minLiveBuffer <= 0)
             {
-                let rate = TargetPlayer.playbackRate();
-                if (rate != 1 && rate < 1.15 && rate > 0.9) TargetPlayer.playbackRate(1);
+                let rate = player.playbackRate();
+                if (rate != 1 && rate < 1.15 && rate > 0.9) player.playbackRate(1);
                 return;
             }
             if (timeDiff < minBufferAheadTime) minBufferAheadTime = Math.max(timeDiff, 0);
@@ -1977,42 +1894,32 @@ function loadVideo()
             
             if (minBufferAheadTime < minLiveBuffer)
             {
-                TargetPlayer.playbackRate(0.95);
+                player.playbackRate(0.95);
                 log('-');
             }
             else if (minBufferAheadTime > minLiveBuffer * 3)
             {
-                TargetPlayer.playbackRate(1.1);
+                player.playbackRate(1.1);
                 log('++');
             }
             else if (minBufferAheadTime > minLiveBuffer * 2)
             {
-                TargetPlayer.playbackRate(1.05);
+                player.playbackRate(1.05);
                 log('+');
             }
             else
             {
-                TargetPlayer.playbackRate(1);
+                player.playbackRate(1);
             }
         }
     });
 
     player.on('playing', () => {
-        if (isBuffering && playerMode == PlayerModes.VIDEO_AUDIO)
-        {
-            lockAudio(true);
-            if (!player.paused() && audioPlayer.paused()) audioPlayer.play();
-        }
-        isBuffering = false;
         minBufferAheadTime = 1;
-        if (info && parseFloat(info.duration) == 0 && TargetPlayer.currentTime() < 1)
+        if (info && parseFloat(info.duration) == 0 && player.currentTime() < 1)
         {
-            TargetPlayer.currentTime(99999999);
+            player.currentTime(99999999);
         }
-    });
-
-    player.on('waiting', () => {
-        isBuffering = true;
     });
 
     const errorDisplay = player.el_.querySelector('.vjs-error-display');
@@ -2075,7 +1982,7 @@ function loadVideo()
 
         if (url.startTime && parseFloat(url.startTime) > 0)
         {
-            TargetPlayer.currentTime(parseFloat(url.startTime));
+            player.currentTime(parseFloat(url.startTime));
         }
     }
     retryFetch(`/info?url=${url.encodedUrl}`)
@@ -2121,7 +2028,6 @@ function loadVideo()
 
             player.load();
             setupPlayerSync();
-            updateAudioMode();
             player.on('error', () => {
                 const error = player.error();
                 if (error)
@@ -2161,7 +2067,7 @@ function loadVideo()
             setInterval(()=>{ updatePlaybackTime(); }, 10000);
 
             document.addEventListener('visibilitychange', () => {
-                lockAudio();
+                syncVideo(true);
                 if (document.visibilityState === 'hidden') updatePlaybackTime();
                 if (info.auto_bg_playback && navigator?.userAgentData?.mobile)
                 {
@@ -2227,19 +2133,19 @@ function loadMediaSession()
     });
 
     navigator.mediaSession.setActionHandler("play", () => {
-        TargetPlayer.play();
+        player.play();
     });
     navigator.mediaSession.setActionHandler("pause", () => {
-        TargetPlayer.pause();
+        player.pause();
     });
     navigator.mediaSession.setActionHandler("seekbackward", (details) => {
-        TargetPlayer.currentTime(TargetPlayer.currentTime() - (details.seekOffset || 10));
+        player.currentTime(player.currentTime() - (details.seekOffset || 10));
     });
     navigator.mediaSession.setActionHandler("seekforward", (details) => {
-        TargetPlayer.currentTime(TargetPlayer.currentTime() + (details.seekOffset || 10));
+        player.currentTime(player.currentTime() + (details.seekOffset || 10));
     });
     navigator.mediaSession.setActionHandler("seekto", (details) => {
-        TargetPlayer.currentTime(details.seekTime);
+        player.currentTime(details.seekTime);
     });
     navigator.mediaSession.setActionHandler("previoustrack", null);
     navigator.mediaSession.setActionHandler("nexttrack", null);
@@ -2247,8 +2153,8 @@ function loadMediaSession()
     function updateMediaSession()
     {
         if (info.duration <= 0) return;
-        navigator.mediaSession.playbackState = TargetPlayer.paused() ? 'paused' : 'playing';
-        navigator.mediaSession.setPositionState?.({ duration: info.duration, playbackRate: TargetPlayer.playbackRate(), position: Math.min(TargetPlayer.currentTime(), info.duration) });
+        navigator.mediaSession.playbackState = player.paused() ? 'paused' : 'playing';
+        navigator.mediaSession.setPositionState?.({ duration: info.duration, playbackRate: player.playbackRate(), position: Math.min(player.currentTime(), info.duration) });
     }
     player.on(['play', 'pause', 'ratechange', 'seeked'], updateMediaSession);
     audioPlayer.on(['play', 'pause', 'ratechange', 'seeked'], updateMediaSession);
