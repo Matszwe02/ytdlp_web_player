@@ -411,7 +411,7 @@ class MediaDownloader:
         height_param = "" if self.media_type.startswith('video-best') else f'[height<={self.res}]'
         if self.timestamps:
             if vid := check_res_at_least(self.url, self.res):
-                FFMPEG(self.url, ['-i', vid, "-ss", f'{self.start_time}', "-to", f'{self.end_time}', '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
+                FFMPEG(self.url, ["-ss", f'{self.start_time}', "-to", f'{self.end_time}', '-i', vid, '-vf', f'scale=-2:{self.res}', os.path.join(get_data_dir(self.url), self.media_type + '.mp4')])
             else:
                 self.ydl_opts.update({"format": f"bestvideo{height_param}+bestaudio/best", "outtmpl": os.path.join(self.data_dir, f'{self.media_type}.%(ext)s')})
                 YTDLP.download(self.url, self.ydl_opts)
@@ -645,8 +645,8 @@ class MediaDownloader:
             video_src = s[0]
         try:
             ffmpeg_command = [
-                '-i', ensure_path_accessible(video_src),
                 '-ss', f'{self.start_time}',
+                '-i', ensure_path_accessible(video_src),
                 '-frames:v', '1',
                 os.path.join(self.data_dir, f'{self.media_type}.jpg')
             ]
@@ -655,8 +655,8 @@ class MediaDownloader:
         except Exception as e:
             if video_src.startswith('http'):
                 ffmpeg_command = [
-                    '-i', MediaDownloader(self.url, 'video').run(),
                     '-ss', f'{self.start_time}',
+                    '-i', MediaDownloader(self.url, 'video').run(),
                     '-frames:v', '1',
                     os.path.join(self.data_dir, f'{self.media_type}.jpg')
                 ]

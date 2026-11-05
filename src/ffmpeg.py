@@ -161,5 +161,9 @@ class FFMPEG:
                 self.success = False
                 self.start_time = time.time()
 
-        self._run_once(software_command)
+        try: self._run_once(software_command)
+        except RuntimeError:
+            if '/external?' not in str(software_command): raise
+            print(f'[FFMPEG {self.ff_id}] Failed, retrying with relaxed segment options')
+            self._run_once(['-allowed_segment_extensions', 'ALL', '-extension_picky', '0'] + software_command)
         return None
