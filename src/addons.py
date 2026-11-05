@@ -587,12 +587,12 @@ class MediaDownloader:
     def sprite(self):
         err = None
         if self.meta.get('is_live'): err = 'Sprite not available for livestreams'
-        if self.meta["duration"] > generate_sprite_below: err = f"Video too long to generate sprite ({self.meta['duration']}s)"
         if not self.meta.get('height') and not self.meta.get('width'): err = 'Sprite not available for non-video media'
         if err:
             print(err)
             return
         if get_sprite(self.url, self.meta): return
+        if self.meta["duration"] > generate_sprite_below: err = f"Video too long to generate sprite ({self.meta['duration']}s)"
         video_path = check_media(url=self.url, media_type='video')
         sprite_dir = os.path.join(self.data_dir, 'temp_sprite')
         os.makedirs(sprite_dir, exist_ok=True)
