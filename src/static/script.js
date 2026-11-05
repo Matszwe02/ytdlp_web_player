@@ -89,7 +89,8 @@ function syncVideo(jump = false)
         }
         else if (Math.abs(offset) > 0.02)
         {
-            video.playbackRate = Math.min((player.bufferedEnd() - video.currentTime), 4, Math.max(0.1, audioPlayer.playbackRate() * 2 ** (-offset)));
+            const buffer = Math.max(0.1, (player.bufferedEnd() - video.currentTime));
+            video.playbackRate = Math.min(buffer, 4, Math.max(0.1, audioPlayer.playbackRate() * 2 ** (-offset)));
         }
         else video.playbackRate = audioPlayer.playbackRate();
     }
