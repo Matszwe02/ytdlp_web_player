@@ -1245,7 +1245,7 @@ def get_sprite(url = None, meta = None, simulate = False):
 
         for f in formats:
             if not f.get('columns'): continue
-            format = f
+            if f.get('width') and f.get('height'): format = f
             if (f.get('width') or 0) >= 150 or (f.get('height') or 0) >= 150: break
 
         if not format:
@@ -1279,6 +1279,11 @@ def get_sprite(url = None, meta = None, simulate = False):
                 final_sprite.paste(img, (0, current_y))
                 current_y += img.height
 
+            target_width = format['width'] * format['columns']
+            target_height = int(math.ceil(format['fps'] * meta['duration'] / format['columns'] - 0.01) * format['height'])
+            if final_sprite.width != target_width or final_sprite.height != target_height:
+                print(f'Warning: sprite dimensions incorrect - resizing {final_sprite.width}x{final_sprite.height} -> {target_width}x{target_height}')
+                final_sprite = final_sprite.resize((target_width, target_height), resample=Image.Resampling.LANCZOS)
             final_sprite.save(os.path.join(get_data_dir(url), 'sprite.jpg'))
             compress_image(url, 'sprite')
 
