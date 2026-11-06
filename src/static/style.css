@@ -158,13 +158,26 @@ body
 }
 
 
-#videoPlayer:not(.vjs-fullscreen):not(.fit-contain) video
+.seek-preview
+{
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+
+#videoPlayer:not(.vjs-fullscreen):not(.fit-contain) video,
+#videoPlayer:not(.vjs-fullscreen):not(.fit-contain) .seek-preview
 {
     object-fit: cover !important;
 }
 
 
-#videoPlayer.vjs-fullscreen.fullscreen-cover video
+#videoPlayer.vjs-fullscreen.fullscreen-cover video,
+#videoPlayer.vjs-fullscreen.fullscreen-cover .seek-preview
 {
     object-fit: cover !important;
 }

@@ -15,6 +15,8 @@ let currentVideoSourceIndex = 0;
 let currentAudioSourceIndex = 0;
 let logHistory = [];
 let holdAudio = false;
+let sprite = null;
+let freezeFrame = () => {};
 
 
 const PlayerModes = {
@@ -144,6 +146,29 @@ function setupPlayerSync()
     player.on('volumechange', () => {
         audioPlayer.muted(player.muted());
         audioPlayer.volume(player.volume());
+    });
+}
+
+
+function setupSeekPreview()
+{
+    const video = player.tech(true).el();
+    const c = Object.assign(document.createElement('canvas'), { className: 'seek-preview', hidden: true });
+    video.after(c);
+    let shownAt = 0;
+    const show = (time, image, width, height, ...crop) => {
+        if (playerMode == PlayerModes.AUDIO) return;
+        [c.width, c.height, c.hidden, shownAt] = [width, height, false, time];
+        c.getContext('2d').drawImage(image, ...crop, 0, 0, width, height);
+    };
+    const ready = () => !video.seeking && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
+    const hide = () => ready() && (c.hidden = true);
+    freezeFrame = () => c.hidden && show(video.currentTime, (video.videoWidth ? video : player.el_.querySelector('.vjs-poster img')), info.width, info.height);
+    player.on('timeupdate', () => c.hidden && ready() && (shownAt = video.currentTime));
+    player.on(['seeked', 'canplay'], () => setTimeout(hide, video.requestVideoFrameCallback?.(hide) ? 1000 : 0));
+    player.on('seeking', () => {
+        const time = video.currentTime, [width, height, columns, interval] = info.sprite, i = Math.floor(time / interval);
+        if (sprite && Math.abs(time - shownAt) >= interval) show(time, sprite, width, height, i % columns * width, Math.floor(i / columns) * height, width, height);
     });
 }
 
@@ -563,6 +588,7 @@ function setVideoSource(videoSource)
         log('Preventing switching to the same source');
         return;
     }
+    freezeFrame();
     player.src({ src: videoSource[0], type: videoSource[2] });
     ps.apply();
 
@@ -1952,10 +1978,11 @@ function loadVideo()
 
         if (parseFloat(info.duration) < parseInt(info.generate_sprite_below) && parseFloat(info.duration) > 0)
         {
-            retryFetch(`/sprite?url=${url.encodedUrl}`, {}, 100, undefined, false).then(response => {
+            retryFetch(`/sprite?url=${url.encodedUrl}`, {}, 100, undefined, false).then(response => response.blob()).then(blob => {
                 let s = info.sprite;
-                player.spriteThumbnails({ url: `/sprite?url=${url.encodedUrl}`, width: s[0], height: s[1], columns: s[2], interval: s[3], initOnDemand: true });
-            });
+                player.spriteThumbnails({ url: URL.createObjectURL(blob), width: s[0], height: s[1], columns: s[2], interval: s[3], initOnDemand: true });
+                return createImageBitmap(blob);
+            }).then(bitmap => sprite = bitmap);
         }
 
         const volumePanel = player.el_.querySelector('.vjs-volume-panel');
@@ -2029,6 +2056,7 @@ function loadVideo()
 
             player.load();
             setupPlayerSync();
+            setupSeekPreview();
             player.on('error', () => {
                 const error = player.error();
                 if (error)
