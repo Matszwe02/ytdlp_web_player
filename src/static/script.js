@@ -192,7 +192,7 @@ class PlayerState
             return;
         }
         this.ongoing = false;
-        this.linked = playerMode == PlayerModes.VIDEO_AUDIO;
+        this.linked = playerMode == PlayerModes.VIDEO_AUDIO && parseFloat(info.duration) != 0;
         this.switchTime = player.currentTime();
         this.isPlaying = !player.paused();
         this.speed = player.playbackRate();
@@ -551,11 +551,11 @@ function loadChapters()
 }
 
 
-function setAudioSource()
+function setAudioSource(reload = false)
 {
     let audioSource = getAudioSource();
     if (!audioPlayer || !audioSource) return;
-    if (audioPlayer.src() !== audioSource[0])
+    if (reload || audioPlayer.src() !== audioSource[0])
     {
         audioPlayer.src({ src: audioSource[0], type: audioSource[2] });
         audioPlayer.load();
@@ -577,13 +577,13 @@ function stopAudioPlayer()
 }
 
 
-function setVideoSource(videoSource)
+function setVideoSource(videoSource, reload = false)
 {
     var url = getUrlInfo();
 
     const videoEl = player.el_.querySelector('video');
     const posterEl = player.el_.querySelector('.vjs-poster');
-    if (player.src() == videoSource[0])
+    if (!reload && player.src() == videoSource[0])
     {
         log('Preventing switching to the same source');
         return;
@@ -641,18 +641,19 @@ function setVideoQuality(height = null, button = null)
 }
 
 
-function applyVideoQuality()
+function applyVideoQuality(reload = false)
 {
     ps.save();
     if (ps.suspend) return;
 
     const videoSource = getVideoSource();
-    if (playerMode == PlayerModes.VIDEO_AUDIO) setAudioSource();
+    const reloadLive = parseFloat(info.duration) == 0 && (reload || player.src() != videoSource[0]);
+    if (playerMode == PlayerModes.VIDEO_AUDIO) setAudioSource(reloadLive);
     else stopAudioPlayer();
 
     log(`Applying video source ${currentVideoSourceIndex}, separate audio player: ${playerMode == PlayerModes.VIDEO_AUDIO}`);
 
-    setVideoSource(videoSource);
+    setVideoSource(videoSource, reloadLive);
 }
 
 
@@ -682,7 +683,8 @@ function advanceAudioSource()
         currentAudioSourceIndex = 0;
     }
     log(`Changing to audio source ${currentAudioSourceIndex} / ${availableSources}`);
-    setAudioSource();
+    if (parseFloat(info.duration) == 0) applyVideoQuality(true);
+    else setAudioSource();
 }
 
 
