@@ -746,7 +746,7 @@ def stream_media_file(url: str, src: str, fmt_id: str|None = None, headers_range
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
-        if 'mpegurl' in mime_type.lower():
+        if 'mpegurl' in mime_type.lower() or response.text.startswith('#EXTM3U'):
             lines = []
             src_regex = re.compile(r'(URI=["\'])([^"\']*)(["\'])')
 
