@@ -746,7 +746,8 @@ def stream_media_file(url: str, src: str, fmt_id: str|None = None, headers_range
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
-        content: bytes = next(response.iter_content(chunk_size=8192))
+        chunks = response.iter_content(chunk_size=8192)
+        content = next(chunks, b'')
         if 'mpegurl' in mime_type.lower() or content.startswith(b'#EXTM3U'):
             lines = []
             src_regex = re.compile(r'(URI=["\'])([^"\']*)(["\'])')
@@ -755,7 +756,7 @@ def stream_media_file(url: str, src: str, fmt_id: str|None = None, headers_range
                 prefix, orig_src, suffix = match.groups()
                 new_src = f'/external?src={quote_plus(urljoin(src, orig_src))}&url={quote_plus(url)}&fmt_id={fmt_id}'
                 return f'{prefix}{new_src}{suffix}'
-            raw_lines = (content + response.content).decode('utf-8', errors='ignore').splitlines()
+            raw_lines = (content + b''.join(chunks)).decode('utf-8', errors='ignore').splitlines()
             skipline = False
             for idx, line in enumerate(raw_lines):
                 line_str = line.strip()
@@ -777,14 +778,13 @@ def stream_media_file(url: str, src: str, fmt_id: str|None = None, headers_range
                     line = f'/external?src={quote_plus(urljoin(urlbase, line_str))}&url={quote_plus(url)}&fmt_id={fmt_id}'
                     lines.append(line)
 
-            resp = Response('\n'.join(lines), status=response.status_code, mimetype=mime_type)
+            resp = Response('\n'.join(lines), status=200, mimetype='application/vnd.apple.mpegurl')
             resp.headers['Content-Security-Policy'] = 'sandbox'
             return resp
 
         def generate():
-            yield content
-            for chunk in response.iter_content(chunk_size=8192):
-                yield chunk
+            if content: yield content
+            yield from chunks
 
         resp = Response(generate(), status=response.status_code, mimetype=mime_type)
         resp.headers['Content-Security-Policy'] = 'sandbox'
