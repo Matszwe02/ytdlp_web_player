@@ -746,7 +746,8 @@ def stream_media_file(url: str, src: str, fmt_id: str|None = None, headers_range
         response.raise_for_status()
         mime_type = response.headers.get('Content-Type', 'application/octet-stream')
 
-        if 'mpegurl' in mime_type.lower() or response.text.startswith('#EXTM3U'):
+        content: bytes = next(response.iter_content(chunk_size=8192))
+        if 'mpegurl' in mime_type.lower() or content.startswith(b'#EXTM3U'):
             lines = []
             src_regex = re.compile(r'(URI=["\'])([^"\']*)(["\'])')
 
@@ -754,7 +755,7 @@ def stream_media_file(url: str, src: str, fmt_id: str|None = None, headers_range
                 prefix, orig_src, suffix = match.groups()
                 new_src = f'/external?src={quote_plus(urljoin(src, orig_src))}&url={quote_plus(url)}&fmt_id={fmt_id}'
                 return f'{prefix}{new_src}{suffix}'
-            raw_lines = response.content.decode('utf-8', errors='ignore').splitlines()
+            raw_lines = (content + response.content).decode('utf-8', errors='ignore').splitlines()
             skipline = False
             for idx, line in enumerate(raw_lines):
                 line_str = line.strip()
@@ -781,6 +782,7 @@ def stream_media_file(url: str, src: str, fmt_id: str|None = None, headers_range
             return resp
 
         def generate():
+            yield content
             for chunk in response.iter_content(chunk_size=8192):
                 yield chunk
 
