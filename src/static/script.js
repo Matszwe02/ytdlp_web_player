@@ -8,7 +8,6 @@ let repeatMode = false;
 let repeatStartTime = 0;
 let repeatEndTime = 0;
 let minBufferAheadTime = 0;
-let ongoingRequest = null;
 let audioContext = null;
 let audioSource = null;
 let currentVideoSourceIndex = 0;
@@ -16,6 +15,7 @@ let currentAudioSourceIndex = 0;
 let logHistory = [];
 let holdAudio = false;
 let sprite = null;
+let segments = [];
 let freezeFrame = () => {};
 
 
@@ -182,7 +182,6 @@ class PlayerState
         this.isPlaying = false;
         this.speed = 1;
         this.tracks = null;
-        this.suspend = false;
     }
     save()
     {
@@ -644,7 +643,6 @@ function setVideoQuality(height = null, button = null)
 function applyVideoQuality(reload = false)
 {
     ps.save();
-    if (ps.suspend) return;
 
     const videoSource = getVideoSource();
     const reloadLive = parseFloat(info.duration) == 0 && (reload || player.src() != videoSource[0]);
@@ -1757,7 +1755,7 @@ function checkSponsorTime()
             if (time < segmentShown.start + 1) skipclick();
         }
 
-        if ( "mediaSession" in navigator)
+        if ("mediaSession" in navigator)
         {
             navigator.mediaSession.metadata.artist = info.uploader + `    [${segmentShown.category.replaceAll('_', ' ')}]`;
             navigator.mediaSession.setActionHandler("nexttrack", () => {
@@ -1782,7 +1780,7 @@ function addSponsorblock(data)
         sbContainer.appendChild(indicator);
         
         const startPosition = (entry.start / duration) * 100;
-        const endPosition = (entry.end / duration) * 100;
+        const endPosition = Math.min((entry.end / duration) * 100, 1);
         const width = endPosition - startPosition;
         
         if (entry.category == 'poi_highlight') indicator.style.aspectRatio = 1;
