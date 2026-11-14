@@ -1780,7 +1780,7 @@ function addSponsorblock(data)
         sbContainer.appendChild(indicator);
         
         const startPosition = (entry.start / duration) * 100;
-        const endPosition = Math.min((entry.end / duration) * 100, 1);
+        const endPosition = Math.min((entry.end / duration) * 100, 100);
         const width = endPosition - startPosition;
         
         if (entry.category == 'poi_highlight') indicator.style.aspectRatio = 1;
