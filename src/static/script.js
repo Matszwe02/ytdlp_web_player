@@ -1,15 +1,17 @@
 let player;
 let audioPlayer;
+let playerEl;
+let container;
 let skipSegment;
 let skipTime = 0;
 let info = null;
 let activeFetches = 0; // Counter for active retryFetch calls
 let repeatMode = false;
-let repeatStartTime = 0;
-let repeatEndTime = 0;
+let repeatRange = [null, null];
 let minBufferAheadTime = 0;
 let audioContext = null;
 let audioSource = null;
+let gainNode = null;
 let currentVideoSourceIndex = 0;
 let currentAudioSourceIndex = 0;
 let logHistory = [];
@@ -17,6 +19,18 @@ let holdAudio = false;
 let sprite = null;
 let segments = [];
 let freezeFrame = () => {};
+
+
+const sbColorMap = {
+    'selfpromo': '#ffff00',
+    'outro': '#0000ff',
+    'sponsor': '#00ff00',
+    'preview': '#0077ff',
+    'interaction': '#ff00ff',
+    'intro': '#00ffff',
+    'poi_highlight': '#ef4c9b',
+    'music_offtopic': '#ff9900',
+};
 
 
 const PlayerModes = {
@@ -28,8 +42,47 @@ const PlayerModes = {
     AUDIO: 2,
 }
 
-
 let playerMode = PlayerModes.VIDEO;
+
+
+class PlayerState
+{
+    constructor()
+    {
+        this.ongoing = false;
+        this.switchTime = 0;
+        this.isPlaying = false;
+        this.speed = 1;
+    }
+    save()
+    {
+        if (this.ongoing && player.currentTime == 0)
+        {
+            warn('Preventing saving unknown player state');
+            return;
+        }
+        this.ongoing = false;
+        this.linked = playerMode == PlayerModes.VIDEO_AUDIO && parseFloat(info.duration) != 0;
+        this.switchTime = player.currentTime;
+        this.isPlaying = !player.paused;
+        this.speed = player.playbackRate;
+    }
+    apply()
+    {
+        player.addEventListener('loadedmetadata', () => {
+            if (!this.linked || playerMode != PlayerModes.VIDEO_AUDIO)
+            {
+                if (this.switchTime > 0) player.currentTime = this.switchTime;
+                if (this.isPlaying) player.play();
+            }
+            player.playbackRate = this.speed;
+        }, { once: true });
+        this.ongoing = true;
+    }
+}
+
+let ps = new PlayerState();
+
 
 function log(text)
 {
@@ -63,7 +116,13 @@ function releaseAudio()
 
 function videoHidden()
 {
-    return document.hidden && 'pictureInPictureEnabled' in document && !player.isInPictureInPicture();
+    return document.hidden && 'pictureInPictureEnabled' in document && !document.pictureInPictureElement;
+}
+
+
+function bufferedEnd(media)
+{
+    return media.buffered.length ? media.buffered.end(media.buffered.length - 1) : 0;
 }
 
 
@@ -72,11 +131,11 @@ function syncVideo(jump = false)
     if (playerMode != PlayerModes.VIDEO_AUDIO) return;
     if (videoHidden()) return releaseAudio();
 
-    const video = player.tech(true).el();
-    const playing = !audioPlayer.paused() || holdAudio;
-    const offset = video.currentTime - audioPlayer.currentTime();
+    const video = player.target;
+    const playing = !audioPlayer.paused || holdAudio;
+    const offset = video.currentTime - audioPlayer.currentTime;
 
-    if (video.readyState >= HTMLMediaElement.HAVE_METADATA || Date.now() - ps.lastChange > 5)
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA)
     {
         if (Math.abs(offset) > (jump || !playing ? 0.02 : 5))
         {
@@ -86,15 +145,15 @@ function syncVideo(jump = false)
                 holdAudio = true;
                 audioPlayer.pause();
             }
-            video.currentTime = audioPlayer.currentTime();
+            video.currentTime = audioPlayer.currentTime;
             log(`Video synced to audio. Offset: ${offset.toFixed(3)}s`);
         }
         else if (Math.abs(offset) > 0.02)
         {
-            const buffer = Math.max(1.1, (player.bufferedEnd() - video.currentTime));
-            video.playbackRate = Math.min(buffer, 4, Math.max(0.1, audioPlayer.playbackRate() * 2 ** (-offset)));
+            const buffer = Math.max(1.1, (bufferedEnd(video) - video.currentTime));
+            video.playbackRate = Math.min(buffer, 4, Math.max(0.1, audioPlayer.playbackRate * 2 ** (-offset)));
         }
-        else video.playbackRate = audioPlayer.playbackRate();
+        else video.playbackRate = audioPlayer.playbackRate;
     }
 
     if (playing && video.paused && !video.ended) video.play().catch(() => {});
@@ -105,56 +164,58 @@ function syncVideo(jump = false)
 function setupPlayerSync()
 {
     const linked = {
-        play: () => audioPlayer.play(),
-        pause: () => { holdAudio = false; audioPlayer.pause(); syncVideo(); },
-        paused: () => audioPlayer.paused() && !holdAudio,
-        currentTime: (time) => { if (time !== undefined) player.getCache().currentTime = time; return audioPlayer.currentTime(time); },
-        playbackRate: (rate) => audioPlayer.playbackRate(rate),
+        play: { value: () => audioPlayer.play() },
+        pause: { value: () => { holdAudio = false; audioPlayer.pause(); syncVideo(); } },
+        paused: { get: () => audioPlayer.paused && !holdAudio },
+        currentTime: { get: () => audioPlayer.currentTime, set: (time) => { audioPlayer.currentTime = time; } },
+        playbackRate: { get: () => audioPlayer.playbackRate, set: (rate) => { audioPlayer.playbackRate = rate; } },
     };
     for (const name in linked)
     {
-        const own = player[name].bind(player);
-        player[name] = (...args) => (playerMode == PlayerModes.VIDEO_AUDIO ? linked[name] : own)(...args);
+        let own;
+        for (let proto = player; proto && !own; proto = Object.getPrototypeOf(proto)) own = Object.getOwnPropertyDescriptor(proto, name);
+        const route = (key) => [key, (...args) => (playerMode == PlayerModes.VIDEO_AUDIO ? linked[name] : own)[key].apply(player, args)];
+        Object.defineProperty(player, name, { configurable: true, enumerable: true, ...Object.fromEntries(Object.keys(linked[name]).map(route)) });
     }
 
-    audioPlayer.on(['play', 'pause', 'ratechange', 'timeupdate'], () => syncVideo());
-    audioPlayer.on('seeking', () => syncVideo(true));
-    player.on('loadedmetadata', () => syncVideo(true));
-    player.on(['seeked', 'playing'], () => {
-        if (player.tech(true).el().readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) releaseAudio();
-    });
+    ['play', 'pause', 'ratechange', 'timeupdate'].forEach(type => audioPlayer.addEventListener(type, () => syncVideo()));
+    audioPlayer.addEventListener('seeking', () => syncVideo(true));
+    player.addEventListener('loadedmetadata', () => syncVideo(true));
+    ['seeked', 'playing'].forEach(type => player.addEventListener(type, () => {
+        if (player.target.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) releaseAudio();
+    }));
 
     let suspended = false;
     let pipTime = 0;
-    player.on(['play', 'pause'], () => {
+    ['play', 'pause'].forEach(type => player.addEventListener(type, () => {
         if (playerMode != PlayerModes.VIDEO_AUDIO) return;
-        const video = player.tech(true).el();
+        const video = player.target;
         const wasSuspended = suspended;
-        const inPip = player.isInPictureInPicture();
+        const inPip = !!document.pictureInPictureElement;
         suspended = videoHidden() && video.paused;
-        if (video.paused == player.paused() || videoHidden()) return;
+        if (video.paused == player.paused || videoHidden()) return;
         if (wasSuspended || video.ended || (!inPip && Date.now() - pipTime < 200)) return syncVideo();
         if (inPip && video.paused) pipTime = Date.now();
         video.paused ? player.pause() : player.play();
-    });
+    }));
 
-    player.on('leavepictureinpicture', () => {
+    player.addEventListener('leavepictureinpicture', () => {
         if (Date.now() - pipTime < 200) player.play();
         pipTime = Date.now();
     });
 
-    player.on('volumechange', () => {
-        audioPlayer.muted(player.muted());
-        audioPlayer.volume(player.volume());
+    player.addEventListener('volumechange', () => {
+        audioPlayer.muted = player.muted;
+        audioPlayer.volume = player.volume;
     });
 }
 
 
 function setupSeekPreview()
 {
-    const video = player.tech(true).el();
+    const video = player.target;
     const c = Object.assign(document.createElement('canvas'), { className: 'seek-preview', hidden: true });
-    video.after(c);
+    player.after(c);
     let shownAt = 0;
     const show = (time, image, width, height, ...crop) => {
         if (playerMode == PlayerModes.AUDIO) return;
@@ -163,71 +224,14 @@ function setupSeekPreview()
     };
     const ready = () => !video.seeking && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
     const hide = () => ready() && (c.hidden = true);
-    freezeFrame = () => c.hidden && show(video.currentTime, (video.videoWidth ? video : player.el_.querySelector('.vjs-poster img')), info.width, info.height);
-    player.on('timeupdate', () => c.hidden && ready() && (shownAt = video.currentTime));
-    player.on(['seeked', 'canplay'], () => setTimeout(hide, video.requestVideoFrameCallback?.(hide) ? 1000 : 0));
-    player.on('seeking', () => {
+    freezeFrame = () => c.hidden && show(video.currentTime, (video.videoWidth ? video : container.querySelector('.media-poster-image')), info.width, info.height);
+    player.addEventListener('timeupdate', () => c.hidden && ready() && (shownAt = video.currentTime));
+    ['seeked', 'canplay'].forEach(type => player.addEventListener(type, () => setTimeout(hide, video.requestVideoFrameCallback?.(hide) ? 1000 : 0)));
+    player.addEventListener('seeking', () => {
         const time = video.currentTime, [width, height, columns, interval] = info.sprite, i = Math.floor(time / interval);
         if (sprite && Math.abs(time - shownAt) >= interval) show(time, sprite, width, height, i % columns * width, Math.floor(i / columns) * height, width, height);
     });
 }
-
-
-class PlayerState
-{
-    constructor()
-    {
-        this.ongoing = false;
-        this.switchTime = 0;
-        this.isPlaying = false;
-        this.speed = 1;
-        this.tracks = null;
-    }
-    save()
-    {
-        if (this.ongoing && player.currentTime() == 0)
-        {
-            warn('Preventing saving unknown player state');
-            return;
-        }
-        this.ongoing = false;
-        this.linked = playerMode == PlayerModes.VIDEO_AUDIO && parseFloat(info.duration) != 0;
-        this.switchTime = player.currentTime();
-        this.isPlaying = !player.paused();
-        this.speed = player.playbackRate();
-        this.tracks = [];
-        const textTracks = player.textTracks();
-        for (let i = 0; i < textTracks.length; i++)
-        {
-            const track = textTracks[i];
-            if (!track.src || track.kind != 'subtitles') continue;
-            this.tracks.push({
-                kind: track.kind,
-                src: track.src,
-                srclang: track.language,
-                label: track.label,
-                mode: track.mode
-            });
-        }
-    }
-    apply()
-    {
-        if (!this.linked || playerMode != PlayerModes.VIDEO_AUDIO)
-        {
-            if (this.switchTime > 0) player.currentTime(this.switchTime);
-            if (this.isPlaying) player.play();
-        }
-        player.playbackRate(this.speed);
-        player.one('loadedmetadata', () => player.playbackRate(this.speed));
-        for (let i = 0; i < this.tracks.length; i++)
-        {
-            const track = this.tracks[i];
-            if (track.kind == 'subtitles') player.addRemoteTextTrack(track);
-        }
-        this.ongoing = true;
-    }
-}
-let ps = new PlayerState();
 
 
 function setUpAudioContext()
@@ -237,24 +241,24 @@ function setUpAudioContext()
         log(`Setting up AudioContext`);
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         if (playerMode == PlayerModes.VIDEO_AUDIO)
-            audioSource = audioContext.createMediaElementSource(audioPlayer.el_.querySelector('audio'));
+            audioSource = audioContext.createMediaElementSource(audioPlayer.target);
         else
-            audioSource = audioContext.createMediaElementSource(player.el_.querySelector('video'));
+            audioSource = audioContext.createMediaElementSource(player.target);
         audioSource.connect(audioContext.destination);
     }
 }
 
 
-function tryStopPropagation(event)
+function setOverAmplification(enabled)
 {
-    try
+    if (gainNode === null)
     {
-        if (player && event.target?.classList.contains('menu-button'))
-            player.clickedChildMenuButton = true;
-        event.stopPropagation();
+        setUpAudioContext();
+        gainNode = new GainNode(audioContext);
+        audioSource.disconnect(audioContext.destination);
+        audioSource.connect(gainNode).connect(audioContext.destination);
     }
-    catch (error) {}
-    player.el_.focus({ preventScroll: true });
+    gainNode.gain.value = enabled ? 2 : 1;
 }
 
 
@@ -262,18 +266,7 @@ function addFetch()
 {
     activeFetches += 1;
     log(activeFetches);
-    try
-    {
-        const settingsIcon = player?.controlBar?.SettingsButton?.el().querySelector('.fa-gear');
-        if (settingsIcon)
-        {
-            settingsIcon.classList.add('vjs-spin');
-        }
-    }
-    catch (error)
-    {
-        log(error);
-    }
+    document.getElementById('settings-trigger')?.classList.toggle('fetching', activeFetches > 0);
 }
 
 
@@ -281,21 +274,7 @@ function removeFetch()
 {
     activeFetches -= 1;
     log(activeFetches);
-    try
-    {
-        const settingsIcon = player?.controlBar?.SettingsButton?.el().querySelector('.fa-gear');
-        if (settingsIcon)
-        {
-            if (activeFetches == 0)
-            {
-                settingsIcon.classList.remove('vjs-spin');
-            }
-        }
-    }
-    catch (error)
-    {
-        log(error);
-    }
+    document.getElementById('settings-trigger')?.classList.toggle('fetching', activeFetches > 0);
 }
 
 
@@ -394,33 +373,18 @@ function getAudioSource()
 }
 
 
-function formatTime(timeInSeconds)
+function formatTime(timeInSeconds, decimals = 0, short = false)
 {
     if (timeInSeconds === null || isNaN(timeInSeconds)) return '-';
-    const hours = Math.floor(timeInSeconds / 3600);
-    const minutes = Math.floor((timeInSeconds % 3600) / 60);
-    const seconds = Math.floor(timeInSeconds % 60);
-    const milliseconds = Math.floor((timeInSeconds % 1) * 10);
-    return String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0') + '.' + String(milliseconds);
-}
-
-function formatTimeShort(timeInSeconds)
-{
-    if (timeInSeconds === null || isNaN(timeInSeconds)) return '-';
-    var out_str = "";
-    const hours = Math.floor(timeInSeconds / 3600);
-    if (hours > 0) out_str += String(hours).padStart(2, '0') + ":";
-    const minutes = Math.floor((timeInSeconds % 3600) / 60);
-    const seconds = Math.floor(timeInSeconds % 60);
-    out_str += String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
-    return out_str.startsWith("0") ? out_str.substring(1) : out_str;
+    const out = new Date(timeInSeconds * 1000).toISOString().substring(11, decimals ? 20 + decimals : 19);
+    return short ? out.replace(/^00:/, '').replace(/^0/, '') : out;
 }
 
 
 function updatePlaybackTime(newTime = null)
 {
     const url = new URL(window.location.href);
-    if (newTime === null) newTime = player.currentTime();
+    if (newTime === null) newTime = player.currentTime;
     if (newTime > 2 && newTime < info.duration - 2)
     {
         url.searchParams.set('t', Math.floor(newTime));
@@ -433,15 +397,15 @@ var prevRotation = 0;
 function fullscreenOnRotate()
 {
     const screenAspect = (screen.height / screen.width);
-    const videoAspect = ((player.videoHeight() || 480) / (player.videoWidth() || 720));
+    const videoAspect = ((player.videoHeight || 480) / (player.videoWidth || 720));
     const aspectDiff = Math.abs(videoAspect - screenAspect) - Math.abs((1/videoAspect) - screenAspect);
-    if (aspectDiff < -0.3 && !player.isFullscreen())
+    if (aspectDiff < -0.3 && !playerEl.store.isFullscreen)
     {
-        player.requestFullscreen();
+        playerEl.store.requestFullscreen().catch(() => {});
     }
-    else if (aspectDiff > 0.3 && player.isFullscreen())
+    else if (aspectDiff > 0.3 && playerEl.store.isFullscreen)
     {
-        player.exitFullscreen();
+        playerEl.store.exitFullscreen().catch(() => {});
     }
 }
 screen.orientation?.addEventListener("change", (event) => {
@@ -454,99 +418,67 @@ function displayPlayerError(message)
     err(message);
     if (audioPlayer) try { audioPlayer.pause(); } catch (error) {}
     if (!player) return;
-    const errorDisplay = player.el_.querySelector('.vjs-error-display');
-    errorDisplay.innerHTML = message;
-    errorDisplay.classList.remove('spinner-parent');
-    errorDisplay.classList.remove('vjs-hidden');
-    player.src({ src: 'null', type: 'null' });
+    const errorDisplay = container.querySelector('.app-message');
+    errorDisplay.innerHTML = '<i class="fa-solid fa-circle-exclamation error-icon"></i><div></div>';
+    errorDisplay.lastChild.textContent = message;
+    errorDisplay.hidden = false;
+    container.classList.remove('loading');
+    player.source = null;
     player = null;
 }
 
 
-function loadChapters()
+function addCues(kind, label, cues)
 {
-    var progressEl = player.controlBar.progressControl.children_[0].el_;
-    var timeToolip = progressEl.querySelector('.vjs-time-tooltip');
-    var chapterHoverTooltip = document.createElement('div');
-    chapterHoverTooltip.className = 'vjs-time-tooltip chapter-tooltip';
-    chapterHoverTooltip.style.display = "none";
-    progressEl.querySelector('.vjs-mouse-display').appendChild(chapterHoverTooltip);
-
-    let isHoveringProgressBar = false;
-
-    function turnOnChapterLabel(label)
-    {
-        chapterHoverTooltip.style.display = "block";
-        chapterHoverTooltip.style.right = timeToolip.style.right;
-        chapterHoverTooltip.textContent = label;
-        chapterHoverTooltip.style.transform = 'translateY(-100%)';
-    }
-
-    function turnOffChapterLabel()
-    {
-        chapterHoverTooltip.style.display = "none";
-    }
-
-    function updateChapterVisibility(currentTime)
-    {
-        const progressControlWidth = progressEl.clientWidth;
-        const scale = info.duration / progressControlWidth;
-        const margin = 4; // px
-        let chapterFound = false;
-        for (let i = 0; i < info.chapters.length; i++)
-        {
-            const chapter = info.chapters[i];
-            const diff = currentTime - chapter.time;
-            if (diff > (-margin * scale) && diff < (margin * scale))
-            {
-                turnOnChapterLabel(chapter.label);
-                chapterFound = true;
-                break;
-            }
-        }
-        if (!chapterFound)
-        {
-            turnOffChapterLabel();
-        }
-    }
-
-    function onProgressBarMove(event)
-    {
-        isHoveringProgressBar = true;
-        const progressControlWidth = progressEl.clientWidth;
-        const rect = progressEl.getBoundingClientRect();
-        const mouseX = (event.touches && event.touches[0] ? event.touches[0].clientX : event.clientX) - rect.left;
-
-        updateChapterVisibility((mouseX / progressControlWidth) * info.duration);
-    }
-
-    function onProgressBarLeave()
-    {
-        isHoveringProgressBar = false;
-        turnOffChapterLabel();
-    }
-
-    function updateChapterTooltipOnPlayback()
-    {
-        if (isHoveringProgressBar) return;
-        updateChapterVisibility(player.currentTime());
-    }
-
-    player.controlBar.progressControl.on(['mousemove', 'touchmove'], onProgressBarMove);
-    player.controlBar.progressControl.on(['mouseout', 'touchend'], onProgressBarLeave);
-    player.on('timeupdate', updateChapterTooltipOnPlayback);
+    playerEl.store.addTextTrack({ kind, label, cues });
+}
 
 
-    for(let i=0; i<info.chapters.length; i++)
-    {
-        var el = document.createElement('div');
-        el.className = 'vjs-marker';
-        el.style.left = `${(info.chapters[i].time / info.duration * 100)}%`;
-        let label = info.chapters[i].label;
-        el.addEventListener('mouseover', ()=>{turnOnChapterLabel(label);});
-        el.addEventListener('mouseout', turnOffChapterLabel);
-        progressEl.appendChild(el);
-    }
+function addTrack(attributes)
+{
+    const track = document.createElement('track');
+    Object.assign(track, attributes);
+    player.appendChild(track);
+}
+
+
+function setUpSubtitleDisplay()
+{
+    const hideNative = new CSSStyleSheet();
+    hideNative.replaceSync('video::-webkit-media-text-track-container { display: none !important; } video::cue { visibility: hidden; }');
+    player.shadowRoot.adoptedStyleSheets.push(hideNative);
+
+    const overlay = Object.assign(document.createElement('div'), { className: 'subtitle-overlay' });
+    container.append(overlay);
+    let lines = new Map();
+    const render = () => {
+        const track = [...player.textTracks].find(track => track.kind == 'subtitles' && track.mode == 'showing');
+        if (track) track.oncuechange = render;
+        const bottoms = new Map([...lines].map(([cue, line]) => [cue, line.getBoundingClientRect().bottom]));
+        lines = new Map([...(track?.activeCues || [])].map(cue => [cue, document.createElement('div')]));
+        overlay.replaceChildren(...lines.values());
+        lines.forEach((line, cue) => line.append(cue.getCueAsHTML()));
+        lines.forEach((line, cue) => {
+            line.animate(bottoms.has(cue) ? { transform: [`translateY(${bottoms.get(cue) - line.getBoundingClientRect().bottom}px)`, 'none'] } : { opacity: [0, 1] }, 200);
+        });
+    };
+    player.textTracks.addEventListener('change', render);
+}
+
+
+function loadSubtitles(subtitleList)
+{
+    if (!subtitleList || subtitleList.length === 0) return;
+    var url = getUrlInfo();
+    setUpSubtitleDisplay();
+    [...subtitleList].sort().forEach(lang => addTrack({ kind: 'subtitles', srclang: lang, label: lang, id: lang }));
+    player.textTracks.addEventListener('change', () => {
+        const enabled = [...player.target.querySelectorAll('track[kind="subtitles"]:not([src])')].filter(el => el.track.mode != 'disabled');
+        const showing = enabled.filter(el => el.track.mode == 'showing');
+        (showing.length ? showing : enabled.length == 1 ? enabled : []).forEach(el => {
+            el.src = `/subtitle?url=${url.encodedUrl}&lang=${encodeURIComponent(el.srclang)}`;
+        });
+    });
 }
 
 
@@ -554,13 +486,12 @@ function setAudioSource(reload = false)
 {
     let audioSource = getAudioSource();
     if (!audioPlayer || !audioSource) return;
-    if (reload || audioPlayer.src() !== audioSource[0])
+    if (reload || audioPlayer.source?.src !== audioSource[0])
     {
-        audioPlayer.src({ src: audioSource[0], type: audioSource[2] });
-        audioPlayer.load();
+        audioPlayer.source = { src: audioSource[0], type: audioSource[2] };
     }
-    audioPlayer.muted(player.muted());
-    audioPlayer.volume(player.volume());
+    audioPlayer.muted = player.muted;
+    audioPlayer.volume = player.volume;
 }
 
 
@@ -570,7 +501,7 @@ function stopAudioPlayer()
     holdAudio = false;
     try
     {
-        if (!audioPlayer.paused()) audioPlayer.pause();
+        if (!audioPlayer.paused) audioPlayer.pause();
     }
     catch (error) {}
 }
@@ -578,62 +509,37 @@ function stopAudioPlayer()
 
 function setVideoSource(videoSource, reload = false)
 {
-    var url = getUrlInfo();
-
-    const videoEl = player.el_.querySelector('video');
-    const posterEl = player.el_.querySelector('.vjs-poster');
-    if (!reload && player.src() == videoSource[0])
+    if (!reload && player.source?.src === videoSource[0])
     {
         log('Preventing switching to the same source');
         return;
     }
     freezeFrame();
-    player.src({ src: videoSource[0], type: videoSource[2] });
+    player.source = { src: videoSource[0], type: videoSource[2] };
     ps.apply();
 
-    if (url.quality === 'audio')
-    {
-        if (videoEl) videoEl.style.display = 'none';
-        if (posterEl)
-        {
-            posterEl.style.display = 'block';
-            posterEl.style.backgroundImage = `url('${player.poster()}')`;
-            posterEl.style.backgroundSize = 'cover';
-            posterEl.style.backgroundRepeat = 'no-repeat';
-            posterEl.style.backgroundPosition = 'center';
-            if (info.audio_visualizer) enableVisualizer(player);
-        }
-    }
-    else
-    {
-        if (info.audio_visualizer) disableVisualizer(player);
-        if (videoEl) videoEl.style.display = 'block';
-        if (posterEl)
-        {
-            posterEl.style.display = '';
-            posterEl.style.backgroundImage = '';
-        }
-    }
+    const audio = playerMode == PlayerModes.AUDIO;
+    container.classList.toggle('audio-mode', audio);
+    if (info.audio_visualizer) audio ? enableVisualizer(player) : disableVisualizer(player);
 }
 
 
-function setVideoQuality(height = null, button = null)
+function qualityValue(quality)
 {
-    let menu = player.controlBar.SettingsButton.resolutionSwitcher.menu;
+    const bare = (value) => value === 'audio' ? value : value.replace('audio', '');
+    const values = [...document.querySelectorAll('#quality-group > [value]')].map(item => item.getAttribute('value'));
+    return values.find(value => bare(value) === bare(quality)) ?? quality;
+}
+
+
+function setVideoQuality(height = null)
+{
     var url = getUrlInfo();
     if (height === null) height = `${url.quality}`;
     log(`Setting video quality to ${height}`);
-    const buttons = menu.querySelectorAll('.vjs-resolution-option');
     url.urlParams.set('quality', (height && height !== 'audio') ? height.replace('audio', '') : height);
-    if (button == null)
-    {
-        buttons.forEach(b => {
-            if ((b.textContent.toLowerCase().includes(`${height}`))) button = b;
-        });
-    }
     history.replaceState(null, '', `${window.location.pathname}?${url.urlParams.toString()}`);
-    buttons.forEach(btn => btn.classList.remove('vjs-menu-option-selected'));
-    button?.classList?.add('vjs-menu-option-selected');
+    document.getElementById('quality-group').value = qualityValue(height);
 
     currentVideoSourceIndex = 0;
     applyVideoQuality();
@@ -645,7 +551,7 @@ function applyVideoQuality(reload = false)
     ps.save();
 
     const videoSource = getVideoSource();
-    const reloadLive = parseFloat(info.duration) == 0 && (reload || player.src() != videoSource[0]);
+    const reloadLive = parseFloat(info.duration) == 0 && (reload || player.source?.src != videoSource[0]);
     if (playerMode == PlayerModes.VIDEO_AUDIO) setAudioSource(reloadLive);
     else stopAudioPlayer();
 
@@ -686,1036 +592,347 @@ function advanceAudioSource()
 }
 
 
-const sbColorMap = {
-    'selfpromo': '#ffff00',
-    'outro': '#0000ff',
-    'sponsor': '#00ff00',
-    'preview': '#0077ff',
-    'interaction': '#ff00ff',
-    'intro': '#00ffff',
-    'poi_highlight': '#ef4c9b',
-    'music_offtopic': '#ff9900',
-};
-
-
-
-class ZoomToFillToggle extends videojs.getComponent('Button')
+function setUpResolutionMenu()
 {
-    constructor(player, options)
-    {
-        super(player, options);
-        this.addClass('vjs-zoom-control');
-    }
-    
-    handleClick(event, state = null)
-    {
-        const video = player.el_.querySelector('video');
-        var newState = video.style.objectFit == 'contain';
-        var newState = !player.el_.classList.contains('fullscreen-cover');
-        if (state === false || state === true)
-        {
-            newState = state;
-        }
-        if (newState === true)
-        {
-            player.el_.classList.add('fullscreen-cover');
-            this.el().innerHTML = '<span class="fa-solid fa-down-left-and-up-right-to-center"></span>';
-            this.controlText('Restore Zoom');
-        }
-        else
-        {
-            player.el_.classList.remove('fullscreen-cover');
-            this.el().innerHTML = '<span class="fa-solid fa-up-right-and-down-left-from-center"></span>';
-            this.controlText('Zoom to Fill');
-        }
-    };
+    let resolutions = Object.keys(info.sources);
+    if (resolutions.length < 1) return;
+    const resolutionSet = new Set(resolutions);
+
+    resolutions = resolutions.filter((resolution) => {
+        if (resolution === 'audio') return false;
+        const isAudio = resolution.endsWith('audio');
+        const res = resolution.replace(/audio$/, '');
+        return !isAudio || !resolutionSet.has(res);
+    });
+    resolutions.sort((a, b) => (parseInt(b.replace(/\D/g, ''), 10) || 0) - (parseInt(a.replace(/\D/g, ''), 10) || 0));
+    resolutions.push('audio');
+
+    const group = document.getElementById('quality-group');
+    group.replaceChildren(...resolutions.map(height => {
+        const item = document.getElementById('radio-item').content.firstElementChild.cloneNode(true);
+        item.setAttribute('value', height);
+        item.querySelector('[data-part="label"]').textContent = height === 'audio' ? 'Audio' : `${height.replace(/\D/g, "")}p`;
+        return item;
+    }));
+    group.addEventListener('value-change', () => {
+        if (group.value && qualityValue(group.value) != qualityValue(getUrlInfo().quality)) setVideoQuality(group.value);
+    });
 }
-videojs.registerComponent('ZoomToFillToggle', ZoomToFillToggle);
-
-
-class PlayerButton extends videojs.getComponent('Button')
-{
-    constructor(player, options)
-    {
-        super(player, options);
-        this.addClass('vjs-player-button');
-        this.el().innerHTML = `<a href="${window.location.href.replace('iframe', 'watch')}" target="_blank"><img src="/favicon.svg" width="50%"></a>`;
-        this.controlText(`Watch in ${document.querySelector('meta[property="og:site_name"]').getAttribute('content')}`);
-    }
-}
-videojs.registerComponent('PlayerButton', PlayerButton);
-
-
-class SettingsButton extends videojs.getComponent('Button')
-{
-    constructor(player, options)
-    {
-        super(player, options);
-        this.addClass('vjs-settings-button');
-        this.controlText('Settings');
-        this.el().innerHTML = '<i class="fa-solid fa-gear"></i>';
-
-        this.menu = this.createSettingsMenu();
-        this.el().appendChild(this.menu);
-
-        this.resolutionSwitcher = new ResolutionSwitcherButton(player, options);
-        this.subtitleSwitcher = new SubtitleSwitcherButton(player, options);
-        this.playbackSpeedButton = new PlaybackSpeedButton(player, options);
-        this.downloadButton = new DownloadButton(player, options);
-        this.repeatButton = new RepeatButton(player, options);
-        this.overAmplificationButton = new OverAmplificationButton(player, options);
-        this.resolutionSwitcher.parent = this;
-        this.subtitleSwitcher.parent = this;
-        this.playbackSpeedButton.parent = this;
-        this.downloadButton.parent = this;
-        this.repeatButton.parent = this;
-
-        this.menu.appendChild(this.resolutionSwitcher.el());
-        this.menu.appendChild(this.subtitleSwitcher.el());
-        this.menu.appendChild(this.playbackSpeedButton.el());
-        this.menu.appendChild(this.downloadButton.el());
-        this.menu.appendChild(this.repeatButton.el());
-        this.menu.appendChild(this.overAmplificationButton.el());
-    }
-
-    closeAllSubmenus()
-    {
-        this.resolutionSwitcher.handleCloseMenu();
-        this.subtitleSwitcher.handleCloseMenu();
-        this.playbackSpeedButton.handleCloseMenu();
-        this.downloadButton.handleCloseMenu();
-        this.repeatButton.handleCloseMenu();
-    }
-
-    handleClick(event)
-    {
-        if (player.clickedChildMenuButton)
-        {
-            setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
-            return;
-        }
-        tryStopPropagation(event);
-        if (this.menu.style.display === 'flex')
-        {
-            this.handleCloseMenu();
-            this.closeAllSubmenus();
-        }
-        else
-        {
-            this.handleOpenMenu();
-        }
-    }
-
-    handleOpenMenu()
-    {
-        this.menu.style.display = 'flex';
-    }
-
-    handleCloseMenu()
-    {
-        this.menu.style.display = 'none';
-        player.clickedChildMenuButton = false;
-    }
-
-    createSettingsMenu()
-    {
-        const menu = document.createElement('div');
-        menu.classList.add('vjs-settings-menu');
-        menu.style.display = 'none';
-        return menu;
-    }
-
-    updateResolutions()
-    {
-        this.resolutionSwitcher.updateResolutions();
-    }
-
-    updateSubtitles(subtitleList)
-    {
-        this.subtitleSwitcher.updateSubtitles(subtitleList);
-    }
-
-    enableNonLiveControls()
-    {
-        this.downloadButton.el().style.display = '';
-        this.repeatButton.el().style.display = '';
-        this.playbackSpeedButton.el().style.display = '';
-    }
-}
-videojs.registerComponent('SettingsButton', SettingsButton);
-
-
-class OverAmplificationButton extends videojs.getComponent('Button')
-{
-    constructor(player, options)
-    {
-        super(player, options);
-        this.addClass('menu-button');
-        this.el().innerHTML = '<i class="fa-solid fa-bullhorn"></i>';
-        this.enabled = false;
-        this.gainNode = null;
-        this.controlText('Over-Amplification');
-    }
-
-    handleClick(event, state = null)
-    {
-        setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
-        this.enabled = state != null ? state : !this.enabled;
-        this.setUpGain(this.enabled);
-    }
-
-    setUpGain()
-    {
-        if (this.enabled)
-        {
-            if (this.gainNode === null)
-            {
-                setUpAudioContext();
-                this.gainNode = new GainNode(audioContext);
-                audioSource.disconnect(audioContext.destination);
-                audioSource.connect(this.gainNode).connect(audioContext.destination);
-            }
-            this.el().classList.add('vjs-active');
-            this.gainNode.gain.value = 2;
-        }
-        else
-        {
-            this.el().classList.remove('vjs-active');
-            this.gainNode.gain.value = 1;
-        }
-    }
-}
-videojs.registerComponent('OverAmplificationButton', OverAmplificationButton);
-
-
-class DownloadButton extends videojs.getComponent('Button')
-{
-    constructor(player, options)
-    {
-        super(player, options);
-        this.addClass('menu-button');
-        this.controlText('Download');
-        this.el().innerHTML = '<span class="fa-solid fa-download"></span>';
-        this.el().style.display = 'none';
-
-        this.startTime = null;
-        this.endTime = null;
-        this.startBtn = null;
-        this.endBtn = null;
-        this.parent = null;
-        this.menu = this.createDownloadMenu();
-        this.el().appendChild(this.menu);
-    }
-
-    handleClick(event)
-    {
-        setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
-        tryStopPropagation(event);
-        if (this.menu.style.display === 'block')
-        {
-            this.handleCloseMenu();
-        }
-        else
-        {
-            this.handleOpenMenu();
-        }
-    }
-
-    handleOpenMenu()
-    {
-        this.parent.closeAllSubmenus();
-        this.menu.style.display = 'block';
-    }
-
-    handleCloseMenu(propagate = false)
-    {
-        this.menu.style.display = 'none';
-        if (this.parent && propagate)
-        {
-            this.parent.handleCloseMenu();
-        }
-    }
-
-    updateTimeLabels()
-    {
-        if (this.startBtn != null)
-            this.startBtn.innerHTML = "Start<br><div class=time_disp>" + formatTime(this.startTime) + "</div>";
-        if (this.endBtn != null)
-            this.endBtn.innerHTML = "End<br><div class=time_disp>" + formatTime(this.endTime) + "</div>";
-    }
-
-    createDownloadMenu()
-    {
-        const menu = document.createElement('div');
-        menu.classList.add('vjs-setting-menu');
-        menu.style.display = 'none'; // Initially hidden
-
-        const options = [
-            { quality: 'best', title: 'Highest Quality' },
-            { quality: 'current', title: 'Current Quality' },
-            { quality: 'audio', title: 'Audio' },
-            { quality: 'picture', title: 'Picture' },
-            { quality: 'trim', title: 'Trim' }
-        ];
-
-        options.forEach(option => {
-            const button = document.createElement('button');
-            button.textContent = option.title;
-            button.classList.add('vjs-resolution-option');
-
-            const handleEvent = (event) => {
-                tryStopPropagation(event);
-                if (option.quality == 'picture')
-                {
-                    var url = getUrlInfo();
-                    const quality = url.quality || info.default_quality;
-                    const link = document.createElement('a');
-                    link.href = `/picture?url=${url.encodedUrl}&quality=${quality}&start=${player.currentTime()}`;
-                    link.download = 'file';
-
-                    this.handleCloseMenu(true);
-                    retryFetch(link.href, {}, 100, undefined, true, true).then(response => {
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                    }).catch(error => { err(`Could not download picture: ${error.message || error}`); });
-                }
-                else if (option.quality == 'trim')
-                {
-                    if (this.startBtn.style.display === 'block')
-                    {
-                        this.startBtn.style.display = 'none';
-                        this.endBtn.style.display = 'none';
-                    }
-                    else
-                    {
-                        this.startBtn.style.display = 'block';
-                        this.endBtn.style.display = 'block';
-                        this.startTime = null;
-                        this.endTime = null;
-                        this.updateTimeLabels();
-                    }
-                }
-                else
-                {
-                    var url = getUrlInfo();
-                    const currentQuality = url.quality || info.default_quality;
-                    var quality = option.quality;
-                    if (option.quality == 'current') quality = currentQuality;
-
-                    const link = document.createElement('a');
-                    link.href = `/download?url=${url.encodedUrl}&quality=${quality}`;
-
-                    if (this.startTime != null || this.endTime != null)
-                        link.href += `&start=${this.startTime ? this.startTime.toFixed(1) : ''}&end=${this.endTime ? this.endTime.toFixed(1) : ''}`;
-
-                    link.download = 'file';
-
-                    this.handleCloseMenu(true);
-                    retryFetch(link.href, {}, 100, undefined, true, true).then(response => {
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                    }).catch(error => { err(`Could not download video: ${error.message || error}`); });
-                }
-            };
-
-            button.addEventListener('touchend', handleEvent);
-            button.addEventListener('click', handleEvent);
-
-            menu.appendChild(button);
-        });
-
-        this.startBtn = document.createElement('button');
-        this.startBtn.classList.add('vjs-resolution-option');
-        this.startBtn.title = 'Click To Adjust Start Time';
-        this.startBtn.style.display = 'none'; // Initially hidden
-        this.startBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.startTime = player.currentTime(); this.updateTimeLabels(); });
-        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.startTime = player.currentTime(); this.updateTimeLabels(); });
-        menu.appendChild(this.startBtn);
-
-        this.endBtn = document.createElement('button');
-        this.endBtn.classList.add('vjs-resolution-option');
-        this.endBtn.title = 'Click To Adjust End Time';
-        this.endBtn.style.display = 'none'; // Initially hidden
-        this.endBtn.addEventListener('touchend', (e) => { tryStopPropagation(e); this.endTime = player.currentTime(); this.updateTimeLabels(); });
-        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.endTime = player.currentTime(); this.updateTimeLabels(); });
-        menu.appendChild(this.endBtn);
-
-        this.updateTimeLabels();
-
-        return menu;
-    }
-}
-videojs.registerComponent('DownloadButton', DownloadButton);
 
 
 // TODO: Universal time range selection: Share between RepeatButton and DownloadButton, draggable markers on seekbar
-class RepeatButton extends videojs.getComponent('Button')
+function setUpRangeItems(range, ...ids)
 {
-    constructor(player, options)
-    {
-        super(player, options);
-        this.addClass('menu-button');
-        this.controlText('Repeat');
-        this.el().innerHTML = '<i class="fa-solid fa-repeat"></i>';
-        this.el().style.display = 'none';
-
-        this.repeatActive = false;
-        this.repeatStartTime = null;
-        this.repeatEndTime = null;
-        this.startBtn = null;
-        this.endBtn = null;
-        this.parent = null;
-        this.menu = this.createRepeatMenu();
-        this.el().appendChild(this.menu);
-    }
-
-    handleClick(event)
-    {
-        setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
-        tryStopPropagation(event);
-        if (this.menu.style.display === 'block')
-        {
-            this.handleCloseMenu();
-        }
-        else
-        {
-            this.handleOpenMenu();
-        }
-    }
-
-    handleOpenMenu()
-    {
-        this.parent.closeAllSubmenus();
-        this.menu.style.display = 'block';
-    }
-
-    handleCloseMenu(propagate = false)
-    {
-        this.menu.style.display = 'none';
-        if (this.parent && propagate)
-        {
-            this.parent.handleCloseMenu();
-        }
-    }
-
-    updateTimeLabels()
-    {
-        if (this.startBtn != null)
-            this.startBtn.innerHTML = "Start<br><div class=time_disp>" + formatTime(this.repeatStartTime) + "</div>";
-        if (this.endBtn != null)
-            this.endBtn.innerHTML = "End<br><div class=time_disp>" + formatTime(this.repeatEndTime) + "</div>";
-    }
-
-    createRepeatMenu()
-    {
-        const menu = document.createElement('div');
-        menu.classList.add('vjs-setting-menu');
-        menu.style.display = 'none';
-
-        const toggleButton = document.createElement('button');
-        toggleButton.textContent = 'Toggle Repeat';
-        toggleButton.classList.add('vjs-resolution-option');
-        toggleButton.addEventListener('click', (e) => {
-            tryStopPropagation(e);
-            this.repeatActive = !this.repeatActive;
-            if (this.repeatActive)
-            {
-                this.addClass('vjs-active');
-                this.controlText('Repeat Active');
-                this.repeatStartTime = 0;
-                this.repeatEndTime = player.duration();
-                this.updateTimeLabels();
-            }
-            else
-            {
-                this.removeClass('vjs-active');
-                this.controlText('Toggle Repeat');
-            }
-            repeatMode = this.repeatActive;
-            repeatStartTime = this.repeatStartTime;
-            repeatEndTime = this.repeatEndTime;
-        });
-        toggleButton.ontouchstart = (event) => {
-            setTimeout(() => {
-                event.preventDefault();
-                tryStopPropagation(event);
-                toggleButton.click();
-            }, 200);
-        };
-        menu.appendChild(toggleButton);
-
-        this.startBtn = document.createElement('button');
-        this.startBtn.classList.add('vjs-resolution-option');
-        this.startBtn.title = 'Click To Adjust Start Time';
-        this.startBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatStartTime = player.currentTime(); this.updateTimeLabels(); repeatStartTime = this.repeatStartTime; });
-
-        this.startBtn.ontouchstart = (event) => {
-            setTimeout(() => {
-                event.preventDefault();
-                tryStopPropagation(event);
-                this.startBtn.click();
-            }, 200);
-        };
-        menu.appendChild(this.startBtn);
-
-        this.endBtn = document.createElement('button');
-        this.endBtn.classList.add('vjs-resolution-option');
-        this.endBtn.title = 'Click To Adjust End Time';
-        this.endBtn.addEventListener('click', (e) => { tryStopPropagation(e); this.repeatEndTime = player.currentTime(); this.updateTimeLabels(); repeatEndTime = this.repeatEndTime; });
-
-        this.endBtn.ontouchstart = (event) => {
-            setTimeout(() => {
-                event.preventDefault();
-                tryStopPropagation(event);
-                this.endBtn.click();
-            }, 200);
-        };
-        menu.appendChild(this.endBtn);
-
-        this.updateTimeLabels();
-
-        return menu;
-    }
-}
-videojs.registerComponent('RepeatButton', RepeatButton);
-
-
-class ResolutionSwitcherButton extends videojs.getComponent('Button')
-{
-    constructor(player, options)
-    {
-        super(player, options);
-        this.addClass('menu-button');
-        this.controlText('Resolution');
-        this.el().innerHTML = '<i class="fa-solid fa-sliders"></i>';
-        this.el().style.display = 'none';
-        
-        this.parent = null;
-        this.menu = this.createResolutionMenu();
-        this.el().appendChild(this.menu);
-    }
-
-    handleClick(event)
-    {
-        setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
-        tryStopPropagation(event);
-        if (this.menu.style.display === 'block')
-        {
-            this.menu.style.display = 'none';
-        }
-        else
-        {
-            this.handleOpenMenu();
-        }
-    }
-
-    handleOpenMenu()
-    {
-        this.parent.closeAllSubmenus();
-        this.menu.style.display = 'block';
-    }
-
-    handleCloseMenu(propagate = false)
-    {
-        this.menu.style.display = 'none';
-        if (this.parent && propagate)
-        {
-            this.parent.handleCloseMenu();
-        }
-    }
-
-
-    updateResolutions()
-    {
-        let resolutions = Object.keys(info.sources);
-        if (resolutions.length < 1) return;
-        this.el().style.display = '';
-        this.menu.innerHTML = '';
-        const resolutionSet = new Set(resolutions);
-
-        resolutions = resolutions.filter((resolution) => {
-            if (resolution === 'audio') return false;
-            const isAudio = resolution.endsWith('audio');
-            const res = resolution.replace(/audio$/, '');
-            return !isAudio || !resolutionSet.has(res);
-        });
-        resolutions.sort((a, b) => b.length - a.length || b.localeCompare(a));
-        resolutions.push('audio');
-        
-        resolutions.forEach(height => {
-            const button = document.createElement('button');
-            button.textContent = height === 'audio' ? 'Audio' : `${height.replace(/\D/g, "")}p`;
-            button.classList.add('vjs-resolution-option');
-            var url = getUrlInfo();
-            if (url.quality == height)
-            {
-                button.classList.add('vjs-menu-option-selected');
-            }
-
-            var moved = false;
-            button.ontouchstart = (event) => {
-                setTimeout(() => {
-                    if (moved) return;
-                    event.preventDefault();
-                    tryStopPropagation(event);
-                    button.click();
-                }, 200);
-                moved = false;
-            };
-
-            button.ontouchmove = (event) => {
-                moved = true;
-            };
-
-
-            button.onclick = (event) => {
-                tryStopPropagation(event);
-                setVideoQuality(height, button);
-                this.handleCloseMenu(true);
-            };
-            this.menu.appendChild(button);
-        });
-    }
-
-
-    createResolutionMenu()
-    {
-        const menu = document.createElement('div');
-        menu.classList.add('vjs-setting-menu');
-        menu.style.display = 'none';
-        return menu;
-    }
-}
-videojs.registerComponent('ResolutionSwitcherButton', ResolutionSwitcherButton);
-
-
-class SubtitleSwitcherButton extends videojs.getComponent('Button')
-{
-    constructor(player, options)
-    {
-        super(player, options);
-        this.addClass('menu-button');
-        this.controlText('Subtitles');
-        this.el().innerHTML = '<i class="fa-solid fa-closed-captioning"></i>';
-        this.el().style.display = 'none';
-
-        this.parent = null;
-        this.menu = this.createSubtitleMenu();
-        this.el().appendChild(this.menu);
-
-        this.subtitles = {};
-    }
-
-    handleClick(event)
-    {
-        setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
-        tryStopPropagation(event);
-        if (this.menu.style.display === 'block')
-        {
-            this.menu.style.display = 'none';
-        }
-        else
-        {
-            this.handleOpenMenu();
-        }
-    }
-
-    handleOpenMenu()
-    {
-        this.parent.closeAllSubmenus();
-        this.menu.style.display = 'block';
-    }
-
-    handleCloseMenu(propagate = false)
-    {
-        this.menu.style.display = 'none';
-        if (this.parent && propagate)
-        {
-            this.parent.handleCloseMenu();
-        }
-    }
-
-    updateSubtitles(subtitleList)
-    {
-        if (!subtitleList || subtitleList.length === 0) return;
-        this.el().style.display = '';
-
-        // Prepend "none" to the subtitle list
-        subtitleList.unshift('none');
-
-        // Sort subtitle languages alphabetically (excluding "none")
-        const sortedSubtitleList = subtitleList.slice(1).sort();
-        sortedSubtitleList.unshift('none'); // Add "none" back to the beginning
-
-        sortedSubtitleList.forEach(lang => {
-            const button = document.createElement('button');
-            button.textContent = lang === 'none' ? 'None' : lang;
-            button.classList.add('vjs-subtitle-option');
-
-
-            var moved = false;
-            button.ontouchstart = (event) => {
-                setTimeout(() => {
-                    if (moved) return;
-                    event.preventDefault();
-                    tryStopPropagation(event);
-                    button.click();
-                }, 200);
-                moved = false;
-            };
-
-            button.ontouchmove = (event) => {
-                moved = true;
-            };
-
-
-            button.onclick = (event) => {
-                tryStopPropagation(event);
-                this.handleSubtitleSelection(lang);
-                this.menu.querySelectorAll('.vjs-subtitle-option').forEach(btn => {
-                    btn.classList.remove('vjs-menu-option-selected');
-                });
-                button.classList.add('vjs-menu-option-selected');
-
-                this.handleCloseMenu(true);
-            };
-            this.menu.appendChild(button);
-        });
-    }
-
-    handleSubtitleSelection(lang)
-    {
-        let tracks = player.textTracks();
-        if (lang !== 'none')
-        {
-            var url = getUrlInfo();
-            const subtitleSrc = `/subtitle?url=${url.encodedUrl}&lang=${lang}`;
-            retryFetch(subtitleSrc)
-                .then(response => response.text())
-            
-            let trackExists = false;
-            for (let i = 0; i < tracks.length; i++)
-            {
-                if (tracks[i].kind === 'subtitles' && tracks[i].language === lang && tracks[i].src === subtitleSrc)
-                {
-                    trackExists = true;
-                    break;
-                }
-            }
-            if (!trackExists)
-            {
-                player.addRemoteTextTrack({
-                    kind: 'subtitles',
-                    src: subtitleSrc,
-                    srclang: lang,
-                    label: lang
-                });
-            }
-            this.el().classList.add('vjs-active');
-        }
-        else
-        {
-            this.el().classList.remove('vjs-active');
-        }
-
-        tracks = player.textTracks();
-        for (let i = 0; i < tracks.length; i++)
-        {
-            if (tracks[i].kind === 'subtitles')
-            {
-                if (tracks[i].language === lang)
-                {
-                    tracks[i].mode = 'showing';
-                }
-                else
-                {
-                    tracks[i].mode = 'disabled';
-                }
-            }
-        }
-    }
-
-    createSubtitleMenu() {
-        const menu = document.createElement('div');
-        menu.classList.add('vjs-setting-menu');
-        menu.style.display = 'none';
-        return menu;
-    }
-}
-videojs.registerComponent('SubtitleSwitcherButton', SubtitleSwitcherButton);
-
-
-class PlaybackSpeedButton extends videojs.getComponent('Button')
-{
-    constructor(player, options)
-    {
-        super(player, options);
-        this.player = player;
-        this.addClass('menu-button');
-        this.controlText('Playback Speed');
-        this.el().innerHTML = '<i class="fa-solid fa-forward"></i>';
-        this.el().style.display = 'none';
-
-        this.parent = null;
-        this.menu = this.createPlaybackSpeedMenu();
-        this.el().appendChild(this.menu);
-    }
-
-    handleClick(event)
-    {
-        setTimeout(() => {player.clickedChildMenuButton = false;}, 100);
-        tryStopPropagation(event);
-        if (this.menu.style.display === 'flex')
-            this.menu.style.display = 'none';
-        else
-            this.handleOpenMenu();
-    }
-
-    handleOpenMenu()
-    {
-        this.parent.closeAllSubmenus();
-        this.menu.style.display = 'flex';
-    }
-
-    handleCloseMenu(propagate = false)
-    {
-        this.menu.style.display = 'none';
-        if (this.parent && propagate)
-        {
-            this.parent.handleCloseMenu();
-        }
-    }
-
-    createPlaybackSpeedMenu()
-    {
-        const menu = document.createElement('div');
-        menu.classList.add('vjs-setting-menu');
-        menu.style.display = 'none';
-
-        const speeds = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
-        speeds.forEach(speed => {
-            const button = document.createElement('button');
-            button.textContent = `${speed}x`;
-            button.classList.add('vjs-playback-speed-option');
-            if (this.player.playbackRate() === speed)
-            {
-                button.classList.add('vjs-menu-option-selected');
-            }
-
-
-            var moved = false;
-            button.ontouchstart = (event) => {
-                setTimeout(() => {
-                    if (moved) return;
-                    event.preventDefault();
-                    tryStopPropagation(event);
-                    button.click();
-                }, 200);
-                moved = false;
-            };
-
-            button.ontouchmove = (event) => {
-                moved = true;
-            };
-
-
-            button.onclick = (event) => {
-                tryStopPropagation(event);
-                player.playbackRate(speed);
-                if (speed == 1.0)
-                    this.el().classList.remove('vjs-active');
-                else
-                    this.el().classList.add('vjs-active');
-
-                this.menu.querySelectorAll('.vjs-playback-speed-option').forEach(btn => {
-                    btn.classList.remove('vjs-menu-option-selected');
-                });
-                button.classList.add('vjs-menu-option-selected');
-
-                this.handleCloseMenu(true);
-            };
-            menu.appendChild(button);
-        });
-        return menu;
-    }
-}
-videojs.registerComponent('PlaybackSpeedButton', PlaybackSpeedButton);
-
-
-const Component = videojs.getComponent('Component');
-
-class TitleBar extends Component
-{
-    constructor(player, options = {})
-    {
-        super(player, options);
-
-        if (options.title)
-        {
-            this.updateTextContent(options.title, options.uploader);
-        }
-    }
-
-    createEl()
-    {
-        return videojs.dom.createEl('div', {
-            className: 'vjs-title-bar'
-        });
-    }
-
-    updateTextContent(title, uploader)
-    {
-        videojs.dom.emptyEl(this.el());
-        videojs.dom.appendContent(this.el(), videojs.dom.createEl('div', { className: 'vjs-title-bar-text' }, {}, title));
-        if (uploader)
-        {
-            videojs.dom.appendContent(this.el(), videojs.dom.createEl('div', { className: 'vjs-uploader-text' }, {}, uploader));
-        }
-    }
+    const items = ids.map(id => document.getElementById(id));
+    const updateTimeLabels = () => items.forEach((item, i) => item.querySelector('.time_disp').textContent = formatTime(range[i], 1));
+    items.forEach((item, i) => item.addEventListener('select', (event) => {
+        event.preventDefault();
+        range[i] = player.currentTime;
+        updateTimeLabels();
+    }));
+    updateTimeLabels();
+    return updateTimeLabels;
 }
 
-videojs.registerComponent('TitleBar', TitleBar);
 
-
-class PlaylistComponent extends Component
+function setUpRepeatMenu()
 {
-    constructor(player, options = {})
-    {
-        super(player, options);
-        this.options = options;
-        this.player = player;
-        this.addClass('vjs-playlist-component');
+    const repeatToggle = document.getElementById('loop-toggle');
+    const updateTimeLabels = setUpRangeItems(repeatRange, 'range-start', 'range-end');
+
+    repeatToggle.addEventListener('checked-change', () => {
+        repeatMode = repeatToggle.checked;
+        if (repeatMode)
+        {
+            repeatRange[0] = repeatRange[1] = null;
+            updateTimeLabels();
+        }
+    });
+}
+
+
+function downloadFile(href, filetype)
+{
+    const link = document.createElement('a');
+    link.href = href;
+    link.download = 'file';
+    retryFetch(href, {}, 100, undefined, true, true).then(response => {
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }).catch(error => { err(`Could not download ${filetype}: ${error.message || error}`); });
+}
+
+
+function setUpDownloadMenu()
+{
+    const trim = document.getElementById('download-trim');
+    const range = [null, null];
+    const updateTimeLabels = setUpRangeItems(range, 'download-start', 'download-end');
+
+    trim.addEventListener('checked-change', () => {
+        document.querySelectorAll('#download-start, #download-end').forEach(item => item.hidden = !trim.checked);
+        if (trim.checked)
+        {
+            range[0] = range[1] = null;
+            updateTimeLabels();
+        }
+    });
+
+    document.querySelectorAll('[data-download]').forEach(item => item.addEventListener('select', () => {
         var url = getUrlInfo();
-        this.currentVideoUrl = url.originalUrl;
-
-        this.menu = this.createPlaylistMenu();
-        this.el().appendChild(this.menu);
-
-        this.toggleButton = this.createToggleButton();
-        this.el().appendChild(this.toggleButton);
-
-        if (options.playlistData)
+        const currentQuality = url.quality || info.default_quality;
+        const option = item.dataset.download;
+        if (option == 'picture')
         {
-            this.updatePlaylist(options.playlistData);
+            downloadFile(`/picture?url=${url.encodedUrl}&quality=${currentQuality}&start=${player.currentTime}`, 'picture');
+            return;
         }
-    }
-
-    createEl()
-    {
-        return videojs.dom.createEl('div', {
-            className: 'vjs-playlist-container'
-        });
-    }
-
-    createToggleButton()
-    {
-        const button = videojs.dom.createEl('button', {
-            className: 'vjs-playlist-toggle-button',
-            id: 'vjs-playlist-toggle-button'
-        });
-        videojs.dom.appendContent(button, videojs.dom.createEl('i', { className: 'fa-solid fa-list-ul' }));
-
-        button.addEventListener('click', () => {
-            this.toggleClass('active');
-        });
-        return button;
-    }
-
-    createPlaylistMenu()
-    {
-        const menu = videojs.dom.createEl('ul', {
-            className: 'vjs-playlist-items'
-        });
-        return menu;
-    }
-
-    updatePlaylist(playlistData)
-    {
-        videojs.dom.emptyEl(this.menu);
-        playlistData.forEach(item => {
-            const listItem = videojs.dom.createEl('li', {
-                className: 'vjs-playlist-item'
-            });
-
-            log(`Item URL: ${item.url}, self URL: ${this.currentVideoUrl}`);
-
-            if (item.url === this.currentVideoUrl)
-            {
-                listItem.classList.add('vjs-current-video');
-            }
-
-            const link = videojs.dom.createEl('a', {
-                href: `${window.location.pathname}?url=${encodeURIComponent(item.url)}`
-            });
-
-            const thumbnail = videojs.dom.createEl('img', {
-                src: `/thumb?url=${encodeURIComponent(item.url)}`,
-                alt: item.title,
-                className: 'vjs-playlist-thumbnail'
-            });
-
-            const info = videojs.dom.createEl('div', {
-                className: 'vjs-playlist-info'
-            });
-
-            const title = videojs.dom.createEl('div', {
-                className: 'vjs-playlist-title'
-            }, {}, item.title);
-
-            const uploader = videojs.dom.createEl('div', {
-                className: 'vjs-playlist-uploader'
-            }, {}, item.uploader);
-
-            const duration = videojs.dom.createEl('div', {
-                className: 'vjs-playlist-duration'
-            }, {}, formatTimeShort(item.duration));
-
-            videojs.dom.appendContent(link, thumbnail);
-            videojs.dom.appendContent(link, duration);
-            videojs.dom.appendContent(link, info);
-            videojs.dom.appendContent(listItem, link);
-            videojs.dom.appendContent(info, title);
-            videojs.dom.appendContent(info, uploader);
-            videojs.dom.appendContent(this.menu, listItem);
-        });
-    }
+        let href = `/download?url=${url.encodedUrl}&quality=${option == 'current' ? currentQuality : option}`;
+        if (range[0] != null || range[1] != null)
+            href += `&start=${range[0] ? range[0].toFixed(1) : ''}&end=${range[1] ? range[1].toFixed(1) : ''}`;
+        downloadFile(href, 'video');
+    }));
 }
-videojs.registerComponent('PlaylistComponent', PlaylistComponent);
+
+
+let indicatorTimer = null;
+const indicatorObserver = new MutationObserver(records => records.some(record => record.target.hasAttribute('data-open')) && hideIndicator());
+
+function showIndicator(icon, label, persistent = false)
+{
+    const indicator = document.getElementById('app-indicator');
+    container.querySelectorAll('.media-indicator:not(#app-indicator)').forEach(other => {
+        other.core?.close();
+        indicatorObserver.observe(other, { attributeFilter: ['data-open'] });
+    });
+    indicator.querySelector('.app-indicator-icon').innerHTML = `<i class="fa-solid ${icon}"></i>`;
+    indicator.querySelector('.app-indicator-value').textContent = label;
+    clearTimeout(indicatorTimer);
+    if (indicator.hidden || indicator.hasAttribute('data-ending-style'))
+    {
+        indicator.hidden = false;
+        indicator.removeAttribute('data-ending-style');
+        indicator.setAttribute('data-starting-style', '');
+        requestAnimationFrame(() => requestAnimationFrame(() => indicator.removeAttribute('data-starting-style')));
+    }
+    if (!persistent) indicatorTimer = setTimeout(hideIndicator, 800);
+}
+        
+function hideIndicator()
+{
+    const indicator = document.getElementById('app-indicator');
+    clearTimeout(indicatorTimer);
+    if (indicator.hidden || indicator.hasAttribute('data-ending-style')) return;
+    indicator.setAttribute('data-ending-style', '');
+    indicatorTimer = setTimeout(() => { indicator.hidden = true; indicator.removeAttribute('data-ending-style'); }, 300);
+}
+
+
+function setUpVideoGestures()
+{
+    const DOUBLETAP_WINDOW = 200;
+    let down = null;
+    let holdTimer = null;
+    let tapTimer = null;
+    let lastTap = 0;
+    let restoreRate = null;
+
+    container.addEventListener('pointerdown', (event) => {
+        clearTimeout(holdTimer);
+        down = null;
+        if (!event.isPrimary || event.button != 0 || event.target.closest('media-controls-content, media-menu, media-popover, button, a, #skipsegment, [data-interactive]'))
+        {
+            clearTimeout(tapTimer);
+            return;
+        }
+        down = { time: Date.now(), x: event.clientX, y: event.clientY, controlsVisible: container.hasAttribute('data-controls-visible') };
+        if (!player.paused) holdTimer = setTimeout(() => {
+            restoreRate = player.playbackRate;
+            player.playbackRate = restoreRate * 2;
+            showIndicator('fa-gauge-high', `${restoreRate * 2}×`, true);
+        }, 500);
+    });
+    container.addEventListener('pointermove', (event) => {
+        if (down && Math.hypot(event.clientX - down.x, event.clientY - down.y) > 10)
+        {
+            clearTimeout(holdTimer);
+            down.moved = true;
+        }
+    });
+    const release = (event) => {
+        clearTimeout(holdTimer);
+        const press = down;
+        down = null;
+        if (restoreRate !== null)
+        {
+            player.playbackRate = restoreRate;
+            restoreRate = null;
+            hideIndicator();
+            return;
+        }
+        if (event.type != 'pointerup' || event.pointerType != 'touch' || !press || press.moved || Date.now() - press.time > 250) return;
+        const rect = container.getBoundingClientRect();
+        const x = (press.x - rect.left) / rect.width, y = (press.y - rect.top) / rect.height;
+        const center = x > 0.33 && x < 0.67 && y > 0.2 && y < 0.8;
+        if (!center && press.time - lastTap < DOUBLETAP_WINDOW)
+        {
+            clearTimeout(tapTimer);
+            lastTap = 0;
+            return;
+        }
+        lastTap = press.time;
+        if (press.controlsVisible) tapTimer = setTimeout(() => player.paused ? player.play() : player.pause(), center ? 0 : DOUBLETAP_WINDOW);
+    };
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(type => container.addEventListener(type, release));
+    container.addEventListener('contextmenu', (event) => { if (restoreRate !== null) event.preventDefault(); });
+}
+
+
+function setUpPinchToZoom(setZoom)
+{
+    const video = player.target;
+    let startDistance = null;
+    video.style.transition = 'scale .1s ease-out';
+
+    container.addEventListener('touchmove', (event) => {
+        if (event.touches.length != 2 || !playerEl.store.isFullscreen) return;
+        event.preventDefault();
+        const distance = Math.hypot(event.touches[0].clientX - event.touches[1].clientX, event.touches[0].clientY - event.touches[1].clientY);
+        startDistance ??= distance;
+        const change = distance - startDistance;
+        if (Math.abs(change) > 20)
+        {
+            setZoom(change > 0);
+            startDistance = distance - Math.sign(change) * 20;
+        }
+        video.style.scale = 1 + (distance - startDistance) / 100;
+    }, { passive: false });
+    ['touchstart', 'touchend', 'touchcancel'].forEach(type => container.addEventListener(type, () => {
+        startDistance = null;
+        video.style.scale = 1;
+    }));
+}
+
+
+function setUpControls()
+{
+    setUpResolutionMenu();
+    setUpRepeatMenu();
+    setUpDownloadMenu();
+    setUpVideoGestures();
+
+    const setZoom = (zoomed) => {
+        if (zoomed == container.classList.contains('zoom-fill')) return;
+        container.classList.toggle('zoom-fill', zoomed);
+        if (playerEl.store.isFullscreen)
+            showIndicator(zoomed ? 'fa-up-right-and-down-left-from-center' : 'fa-down-left-and-up-right-to-center', zoomed ? 'Zoom to fill' : 'Fit to screen');
+    };
+    const toggleZoom = () => setZoom(!container.classList.contains('zoom-fill'));
+    document.getElementById('zoom-trigger').addEventListener('click', toggleZoom);
+    setUpPinchToZoom(setZoom);
+
+    const boost = document.getElementById('boost-toggle');
+    boost.addEventListener('click', () => {
+        const enabled = boost.getAttribute('aria-pressed') !== 'true';
+        boost.setAttribute('aria-pressed', enabled);
+        setOverAmplification(enabled);
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.ctrlKey || event.metaKey || event.altKey || event.target.closest('input, textarea, select, [contenteditable]')) return;
+        if (/^Arrow(Left|Right)$/.test(event.key) && !event.shiftKey && event.target.closest('media-time-slider'))
+        {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            return document.body.dispatchEvent(new KeyboardEvent(event.type, event));
+        }
+        const onControl = event.target.closest('button, a, [role^="menuitem"], [role="button"]');
+        if (event.code == 'KeyS' && (!onControl || event.target.closest('#settings-menu, #settings-trigger')))
+        {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            document.getElementById('settings-trigger').click();
+        }
+        else if (onControl) return;
+        else if (event.code == 'Enter') skipclick();
+        else if (event.code == 'KeyG') toggleZoom();
+    }, true);
+
+    document.addEventListener('click', (event) => {
+        if (!container.contains(event.target))
+            container.focus({ preventScroll: true });
+    });
+
+    container.addEventListener('wheel', (event) => {
+        if (!event.target.closest('.volume-group')) return;
+        event.preventDefault();
+        player.volume = Math.max(0, Math.min(1, player.volume + (event.deltaX - event.deltaY) / 2000));
+    }, { passive: false });
+}
+
+
+function loadPlaylist(playlistData)
+{
+    const currentVideoUrl = getUrlInfo().originalUrl;
+    const popup = document.getElementById('playlist-popup');
+    const list = popup.querySelector('.playlist-items');
+    list.replaceChildren(...playlistData.map(item => {
+        const listItem = document.createElement('li');
+        const link = document.createElement('a');
+        link.href = `${window.location.pathname}?url=${encodeURIComponent(item.url)}`;
+        if (item.url === currentVideoUrl)
+        {
+            listItem.classList.add('current');
+            link.setAttribute('aria-current', 'page');
+        }
+        link.innerHTML = `<span class="playlist-thumb">
+                <img src="/thumb?url=${encodeURIComponent(item.url)}" alt="">
+                <span class="playlist-duration"></span>
+            </span>
+            <span class="playlist-info">
+                <span class="playlist-title"></span>
+                <span class="playlist-uploader"></span>
+            </span>`;
+        link.querySelector('.playlist-duration').textContent = formatTime(item.duration, 0, true);
+        link.querySelector('.playlist-title').textContent = item.title;
+        link.querySelector('.playlist-uploader').textContent = item.uploader || '';
+        listItem.append(link);
+        return listItem;
+    }));
+    document.getElementById('playlist-trigger').hidden = false;
+}
 
 
 function skipclick()
 {
-    if (player.currentTime() < skipTime) player.currentTime(skipTime);
+    if (player.currentTime < skipTime) player.currentTime = skipTime;
 };
 
 
 function adjustVideoSize()
 {
-    const videoElement = player.el_.querySelector('video');
-
-    const width = videoElement.videoWidth || parseInt(info['width']) || 720;
-    const height = videoElement.videoHeight || parseInt(info['height']) || 480;
+    const width = player.target.videoWidth || parseInt(info['width']) || 720;
+    const height = player.target.videoHeight || parseInt(info['height']) || 480;
     const innerWidth = window.innerWidth * 0.95;
     const innerHeight = window.innerHeight * 0.9;
     const scaling = Math.min(innerWidth / width, innerHeight / height);
 
-    player.el_.style.width = width * scaling + 'px';
-    player.el_.style.height = height * scaling + 'px';
+    container.style.width = width * scaling + 'px';
+    container.style.height = height * scaling + 'px';
 
     const vidAspect = (parseInt(info['width']) || 0) / (parseInt(info['height']) || 1);
-    const playerAspect = player.el_.clientWidth / player.el_.clientHeight;
+    const playerAspect = container.clientWidth / container.clientHeight;
 
-    if (Math.abs(vidAspect - playerAspect) > 0.01) player.el_.classList.add('fit-contain');
-    else player.el_.classList.remove('fit-contain');
+    if (Math.abs(vidAspect - playerAspect) > 0.01) container.classList.add('fit-contain');
+    else container.classList.remove('fit-contain');
 }
 
 
 function checkSponsorTime()
 {
     var segmentShown = null;
-    const time = player.currentTime();
+    const time = player.currentTime;
     
     segments.forEach(segment => {
         if (time > segment.start && time < segment.end)
@@ -1725,8 +942,8 @@ function checkSponsorTime()
         if (time > segment.start - 1 && time < segment.start)
         {
             setTimeout(() => {
-                if (!player.paused()) checkSponsorTime();
-            }, (segment.start - time + .01) * 1000 / player.playbackRate());
+                if (!player.paused) checkSponsorTime();
+            }, (segment.start - time + .01) * 1000 / player.playbackRate);
         }
     });
     
@@ -1770,150 +987,263 @@ function checkSponsorTime()
 
 function addSponsorblock(data)
 {
-    const duration = player.duration();
-    const sbContainer = document.querySelector('.vjs-progress-holder.vjs-slider.vjs-slider-horizontal');
-    const existingSegments = sbContainer.querySelectorAll('.seg');
-    existingSegments.forEach(el => el.remove());
-    
-    data.forEach(entry => {
-        const indicator = document.createElement('div');
-        sbContainer.appendChild(indicator);
-        
-        const startPosition = (entry.start / duration) * 100;
-        const endPosition = Math.min((entry.end / duration) * 100, 100);
-        const width = endPosition - startPosition;
-        
-        if (entry.category == 'poi_highlight') indicator.style.aspectRatio = 1;
-        else indicator.style.width = `${width}%`;
-        
-        indicator.className = 'seg';
-        indicator.style.left = `${startPosition}%`;
-        indicator.style.backgroundColor = sbColorMap[entry.category] || '#ffffff';
-        indicator.title = `${entry.category.replaceAll('_', ' ')}`;
+    Object.entries(Object.groupBy(data, entry => entry.category)).forEach(([category, entries]) => {
+        addCues('metadata', `sb-${category}`, entries.map(entry => ({ startTime: entry.start, endTime: entry.end })));
     });
 }
 
 
-function loadVideo()
+function showSponsorblockTitles()
+{
+    const slider = container.querySelector('media-time-slider');
+    const title = container.querySelector('.sb-segment-title');
+
+    slider.addEventListener('pointermove', (event) => {
+        const rect = slider.getBoundingClientRect();
+        const duration = player.duration;
+        if (!rect.width || !(duration > 0)) return;
+        const time = Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1) * duration;
+        const segment = segments.findLast(entry => entry.category == 'poi_highlight' ? 
+            Math.abs(time - entry.start) <= (4 / rect.width * duration) : time >= entry.start && time < entry.end);
+        title.textContent = segment ? segment.category.replaceAll('_', ' ') : '';
+        if (segment) title.style.setProperty('--sb-color', sbColorMap[segment.category] || '#ffffff');
+    });
+    slider.addEventListener('pointerleave', () => title.textContent = '');
+}
+
+
+function playerMarkup()
+{
+    const tooltip = 'media-popup media-popup-safe-area media-popup-transition media-tooltip-popup';
+    const appTitle = document.querySelector('meta[property="og:site_name"]').getAttribute('content');
+    const themeColor = document.querySelector('meta[name="theme-color"]').content;
+    const appButton = window.location.pathname == '/iframe' ? `
+                                <a class="media-button app-button" id="app-trigger" href="${window.location.href.replace('iframe', 'watch')}" target="_blank" aria-label="Watch in ${appTitle}"><img src="/favicon.svg" alt=""></a>
+                                <media-tooltip trigger="app-trigger" side="top" class="${tooltip}">Watch in ${appTitle}</media-tooltip>` : '';
+    const submenu = (id, icon, label, content, cls = '') => `
+        <media-menu-item commandfor="${id}" class="media-menu-item ${cls}">
+            <i class="fa-solid ${icon} media-menu-trigger-icon"></i>${label}
+            <span class="media-menu-hint"><i class="fa-solid fa-chevron-right media-menu-forward-chevron"></i></span>
+        </media-menu-item>
+        <media-menu-content class="media-menu-content" id="${id}">
+            <media-menu-item class="media-menu-back-item"><i class="fa-solid fa-chevron-right media-menu-back-chevron"></i>${label}</media-menu-item>
+            <media-menu-separator class="media-menu-separator"></media-menu-separator>
+            ${content}
+        </media-menu-content>`;
+    return `
+<video-player id="player" style="--media-accent-color: ${themeColor}">
+    <media-container id="player-container" class="media-skin media-container media-video loading" data-theme="compat" data-preset="video">
+        <hlsjs-video id="videoPlayer" preload="auto" playsinline></hlsjs-video>
+        <media-poster class="media-poster"><img alt="" decoding="async" class="media-poster-image"></media-poster>
+        <div class="audio-overlay"></div>
+        <media-buffering-indicator class="media-buffering-indicator"><div class="spinner"></div></media-buffering-indicator>
+        <!-- App messages; the skin's error dialog is left out, as playback errors move on to the next source -->
+        <div class="app-message" hidden></div>
+        <media-controls>
+            <media-buffering-indicator class="video-controls-buffering">
+            <media-controls-backdrop class="video-controls-backdrop"></media-controls-backdrop>
+            <media-controls-content class="video-controls-content">
+                <media-tooltip-group>
+                    <media-controls-group class="video-controls-top">
+                        <div class="title-bar"><media-title class="media-title"></media-title><div class="media-uploader"></div></div>
+                        <button type="button" commandfor="playlist-popup" class="media-button" id="playlist-trigger" aria-label="Playlist" hidden><i class="fa-solid fa-list-ul media-button-icon"></i></button>
+                        <media-tooltip trigger="playlist-trigger" side="bottom" class="${tooltip}">Playlist</media-tooltip>
+                        <media-popover side="bottom" align="end" class="media-popup media-popup-safe-area media-popup-transition playlist-popup" id="playlist-popup"><ol class="playlist-items"></ol></media-popover>
+                    </media-controls-group>
+                    <div class="video-controls-bottom">
+                        <div class="video-controls-slider-row">
+                            <media-time-slider class="media-time-slider" thumb-alignment="edge">
+                                <media-time-slider-chapters class="media-time-slider-chapters">
+                                    <template>
+                                        <div class="media-time-slider-chapter">
+                                            <media-slider-track class="media-time-slider-track">
+                                                <media-slider-buffer class="media-time-slider-buffer"></media-slider-buffer>
+                                                <media-slider-fill class="media-time-slider-fill"></media-slider-fill>
+                                            </media-slider-track>
+                                        </div>
+                                    </template>
+                                </media-time-slider-chapters>
+                                ${Object.entries(sbColorMap).map(([category, color]) => `<media-time-slider-markers class="sb-markers" label="sb-${category}" style="--sb-color: ${color}"></media-time-slider-markers>`).join('')}
+                                <media-slider-thumb class="media-time-slider-thumb"></media-slider-thumb>
+                                <media-slider-preview class="media-time-slider-preview">
+                                    <media-slider-thumbnail class="media-slider-thumbnail"><img alt="" aria-hidden="true" decoding="async" class="media-slider-thumbnail-image"></media-slider-thumbnail>
+                                    <span class="sb-segment-title"></span>
+                                    <div class="media-time-slider-preview-label">
+                                        <media-slider-value class="media-time-slider-value" type="pointer"></media-slider-value>
+                                        <media-time-slider-chapter-title class="media-time-slider-chapter-title"></media-time-slider-chapter-title>
+                                    </div>
+                                </media-slider-preview>
+                            </media-time-slider>
+                        </div>
+                        <media-controls-group class="video-controls-row">
+                            <media-controls-group class="video-controls-group video-controls-start">
+                                <media-play-button class="media-button media-play-button" id="play-trigger">
+                                    <i class="fa-solid fa-rotate-right media-button-icon-base media-play-button-restart-icon"></i>
+                                    <i class="fa-solid fa-play media-button-icon-base media-play-button-play-icon"></i>
+                                    <i class="fa-solid fa-pause media-button-icon-base media-play-button-pause-icon"></i>
+                                </media-play-button>
+                                <media-tooltip trigger="play-trigger" side="top" class="${tooltip}"></media-tooltip>
+                                <div class="volume-group">
+                                    <media-mute-button class="media-button media-mute-button" id="mute-trigger">
+                                        ${[['off', 'fa-volume-xmark'], ['low', 'fa-volume-off'], ['medium', 'fa-volume-low'], ['high', 'fa-volume']].map(([level, icon]) => `<i class="fa-solid ${icon} media-button-icon vol-${level}"></i>`).join('')}
+                                    </media-mute-button>
+                                    <media-tooltip trigger="mute-trigger" side="top" class="${tooltip}"></media-tooltip>
+                                    <div class="volume-slider-wrap">
+                                        <media-volume-slider class="media-volume-slider" thumb-alignment="edge" orientation="horizontal">
+                                            <media-slider-track class="media-volume-slider-track"><media-slider-fill class="media-volume-slider-fill"></media-slider-fill></media-slider-track>
+                                            <media-slider-thumb class="media-volume-slider-thumb"></media-slider-thumb>
+                                        </media-volume-slider>
+                                        <button type="button" class="media-button boost-button" id="boost-toggle" aria-pressed="false" aria-label="Volume boost"><i class="fa-solid fa-bolt media-button-icon"></i></button>
+                                    </div>
+                                    <media-tooltip trigger="boost-toggle" side="top" class="${tooltip}">Volume boost</media-tooltip>
+                                </div>
+                                <media-time-group class="media-time-group">
+                                    <media-time class="media-time-toggle" type="current" toggle></media-time>
+                                    <media-time class="media-time-current-value" type="current"></media-time>
+                                    <media-time-separator class="media-time-separator vod-only"></media-time-separator>
+                                    <media-time class="media-time-duration-value vod-only" type="duration"></media-time>
+                                </media-time-group>
+                            </media-controls-group>
+                            <media-controls-group class="video-controls-group">
+                                <button type="button" commandfor="settings-menu" class="media-button media-settings-button" id="settings-trigger">
+                                    <i class="fa-solid fa-gear media-button-icon media-settings-button-icon"></i>
+                                    <media-text class="media-settings-button-label" token="menu.settings">Settings</media-text>
+                                </button>
+                                <media-tooltip trigger="settings-trigger" side="top" class="${tooltip}"><media-text token="menu.settings">Settings</media-text><span class="media-tooltip-shortcut">S</span></media-tooltip>
+                                <media-menu side="top" align="center" class="media-popup media-popup-safe-area media-menu-popup media-menu-resizable-popup" id="settings-menu">
+                                    <media-menu-content class="media-menu-content">
+                                        ${submenu('quality-menu', 'fa-sliders', '<media-text token="menu.quality">Quality</media-text>', '<media-menu-radio-group class="media-menu-radio-group" id="quality-group"></media-menu-radio-group>')}
+                                        ${submenu('audio-menu', 'fa-language', '<media-text token="menu.audio">Audio</media-text>', '<media-audio-track-radio-group class="media-menu-radio-group"></media-audio-track-radio-group>')}
+                                        ${submenu('speed-menu', 'fa-gauge-high', '<media-text token="menu.speed">Speed</media-text>', '<media-playback-rate-radio-group class="media-menu-radio-group"></media-playback-rate-radio-group>', 'vod-only')}
+                                        ${submenu('captions-menu', 'fa-closed-captioning', '<media-text token="menu.captions">Captions</media-text>', '<media-captions-radio-group class="media-menu-radio-group"></media-captions-radio-group>')}
+                                        ${submenu('loop-menu', 'fa-repeat', 'Loop', `
+                                        <media-menu-checkbox-item class="media-menu-radio-item" id="loop-toggle">Loop<media-menu-item-indicator force-mount class="media-menu-indicator"><i class="fa-solid fa-check media-menu-radio-icon"></i></media-menu-item-indicator></media-menu-checkbox-item>
+                                        <media-menu-item class="media-menu-item" id="range-start">Set start<span class="time_disp"></span></media-menu-item>
+                                        <media-menu-item class="media-menu-item" id="range-end">Set end<span class="time_disp"></span></media-menu-item>
+                                        `, 'vod-only')}
+                                        ${submenu('download-menu', 'fa-download', 'Download', `
+                                        <media-menu-item class="media-menu-item" data-download="best">Highest quality</media-menu-item>
+                                        <media-menu-item class="media-menu-item" data-download="current">Current quality</media-menu-item>
+                                        <media-menu-item class="media-menu-item" data-download="audio">Audio</media-menu-item>
+                                        <media-menu-item class="media-menu-item" data-download="picture">Picture</media-menu-item>
+                                        <media-menu-separator class="media-menu-separator"></media-menu-separator>
+                                        <media-menu-checkbox-item class="media-menu-radio-item" id="download-trim">Trim<media-menu-item-indicator force-mount class="media-menu-indicator"><i class="fa-solid fa-check media-menu-radio-icon"></i></media-menu-item-indicator></media-menu-checkbox-item>
+                                        <media-menu-item class="media-menu-item" id="download-start" hidden>Set start<span class="time_disp"></span></media-menu-item>
+                                        <media-menu-item class="media-menu-item" id="download-end" hidden>Set end<span class="time_disp"></span></media-menu-item>
+                                        `, 'vod-only')}
+                                    </media-menu-content>
+                                </media-menu>
+                                ${appButton}
+                                <media-pip-button class="media-button media-pip-button" id="pip-trigger">
+                                    <i class="fa-solid fa-picture-in-picture media-button-icon media-pip-button-enter-icon"></i>
+                                    <i class="fa-solid fa-window-restore media-button-icon media-pip-button-exit-icon"></i>
+                                </media-pip-button>
+                                <media-tooltip trigger="pip-trigger" side="top" class="${tooltip}"></media-tooltip>
+                                <button type="button" class="media-button zoom-button" id="zoom-trigger" aria-label="Zoom to fill">
+                                    <i class="fa-solid fa-up-right-and-down-left-from-center media-button-icon zoom-in-icon"></i>
+                                    <i class="fa-solid fa-down-left-and-up-right-to-center media-button-icon zoom-out-icon"></i>
+                                </button>
+                                <media-tooltip trigger="zoom-trigger" side="top" class="${tooltip}">Zoom to fill<span class="media-tooltip-shortcut">G</span></media-tooltip>
+                                <media-fullscreen-button class="media-button media-fullscreen-button" id="fullscreen-trigger">
+                                    <i class="fa-solid fa-expand media-button-icon media-fullscreen-button-enter-icon"></i>
+                                    <i class="fa-solid fa-compress media-button-icon media-fullscreen-button-exit-icon"></i>
+                                </media-fullscreen-button>
+                                <media-tooltip trigger="fullscreen-trigger" side="top" class="${tooltip}"></media-tooltip>
+                            </media-controls-group>
+                        </media-controls-group>
+                    </div>
+                </media-tooltip-group>
+            </media-controls-content>
+            </media-buffering-indicator>
+        </media-controls>
+        ${[['Space', 'togglePaused'], ['k', 'togglePaused'], ['m', 'toggleMuted'], ['ArrowRight', 'seekStep'], ['ArrowLeft', 'seekStep'], ['l', 'seekStep'], ['j', 'seekStep'],
+            ['ArrowUp', 'volumeStep'], ['ArrowDown', 'volumeStep'], ['0-9', 'seekToPercent'], ['>', 'speedUp'], ['<', 'speedDown'], ['f', 'toggleFullscreen'], ['c', 'toggleSubtitles'], ['i', 'togglePictureInPicture'], ['p', 'togglePictureInPicture']]
+            .map(([keys, action]) => `<media-hotkey target="document" keys="${keys}" action="${action}"></media-hotkey>`).join('\n')}
+        <media-hotkey target="document" keys="." action="seekStep" value="0.1"></media-hotkey>
+        <media-hotkey target="document" keys="," action="seekStep" value="-0.1"></media-hotkey>
+        <media-gesture type="tap" action="togglePaused" pointer="mouse" region="center"></media-gesture>
+        <media-gesture type="tap" action="toggleControls" pointer="touch"></media-gesture>
+        <media-gesture type="doubletap" action="seekStep" region="left"></media-gesture>
+        <media-gesture type="doubletap" action="toggleFullscreen" region="center"></media-gesture>
+        <media-gesture type="doubletap" action="seekStep" region="right"></media-gesture>
+        <media-status-announcer class="media-status-announcer"></media-status-announcer>
+        <div aria-hidden="true" class="media-indicator-group">
+            <media-volume-indicator class="media-indicator media-volume-indicator">
+                <media-volume-indicator-fill class="media-volume-indicator-fill">
+                    ${[['high', 'fa-volume'], ['low', 'fa-volume-off'], ['off', 'fa-volume-xmark']].map(([level, icon]) => `<i class="fa-solid ${icon} media-volume-indicator-icon media-volume-indicator-${level}-icon"></i>`).join('')}
+                    <media-volume-indicator-value class="media-volume-indicator-value"></media-volume-indicator-value>
+                </media-volume-indicator-fill>
+            </media-volume-indicator>
+            <media-status-indicator actions="toggleSubtitles,toggleFullscreen,togglePictureInPicture" class="media-indicator media-status-indicator">
+                ${[['captions-on', 'fa-solid fa-closed-captioning'], ['captions-off', 'fa-regular fa-closed-captioning'], ['fullscreen-enter', 'fa-solid fa-expand'],
+                    ['fullscreen-exit', 'fa-solid fa-compress'], ['pip-enter', 'fa-solid fa-picture-in-picture'], ['pip-exit', 'fa-solid fa-window-restore']]
+                    .map(([status, icon]) => `<i class="${icon} media-status-indicator-icon media-status-indicator-${status}-icon"></i>`).join('')}
+                <media-status-indicator-value></media-status-indicator-value>
+            </media-status-indicator>
+            <!-- Same look as media-status-indicator, for app actions it can't observe (zoom, hold to speed up) -->
+            <div class="media-indicator media-status-indicator" id="app-indicator" hidden><span class="app-indicator-icon"></span><span class="app-indicator-value"></span></div>
+            <media-seek-indicator class="media-indicator media-seek-indicator">
+                <i class="fa-solid fa-angles-right media-seek-indicator-icon"></i>
+                <media-seek-indicator-value class="media-seek-indicator-value"></media-seek-indicator-value>
+            </media-seek-indicator>
+        </div>
+    </media-container>
+</video-player>
+<!-- Separate audio track for sources with split video and audio streams -->
+<hlsjs-video id="audioPlayer" preload="auto" style="display: none"></hlsjs-video>
+<!-- Check-marked menu option, cloned into every radio group by script.js -->
+<template id="radio-item"><media-menu-radio-item class="media-menu-radio-item"><span data-part="label"></span><media-menu-item-indicator force-mount class="media-menu-indicator"><i class="fa-solid fa-check media-menu-radio-icon"></i></media-menu-item-indicator></media-menu-radio-item></template>`;
+}
+
+
+async function loadVideo()
 {
     var debugView = document.getElementById('debug-view');
     if (debugView) debugView.onclick = displayDebugInfo;
     var url = getUrlInfo();
     if (url.urlParams.toString().length < 10) return;
     
-    videojs.options.languages.en = videojs.obj.merge(videojs.options.languages.en, {
-        "Play": "Play [Space]",
-        "Pause": "Pause [Space]",
-        "Fullscreen": "Fullscreen [f]",
-        "Exit Fullscreen": "Exit Fullscreen [f]",
-        "Mute": "Mute [m]",
-        "Unmute": "Unmute [m]",
-        "Zoom to Fill" : "Zoom to Fill [g]",
-        "Restore Zoom" : "Restore Zoom [g]",
-        "Picture-in-Picture" : "Picture-in-Picture [p]",
-    });
+    document.getElementById('video').insertAdjacentHTML('beforeend', playerMarkup());
+    const appTitle = document.querySelector('meta[property="og:site_name"]').getAttribute('content');
+
+    const radioItem = document.getElementById('radio-item');
+    document.querySelectorAll('.media-menu-radio-group:not(#quality-group)').forEach(group => group.append(Object.assign(radioItem.cloneNode(true), { id: '' })));
     
-    audioPlayer = videojs('audioPlayer', { controls: false, preload: 'auto' });
-    player = videojs('videoPlayer', {
-        controls: false,
-        preload: 'auto',
-        responsive: true,
-        fluid: true,
-        poster: `/thumb?url=${url.encodedUrl}`,
-        enableSmoothSeeking: true,
-        disableSeekWhileScrubbingOnMobile: true,
-        html5:
-        {
-            hls:
-            {
-                withCredentials: true
-            }
-        },
-        controlBar:
-        {
-            children:
-            [
-                'playToggle',
-                'volumePanel',
-                'CurrentTimeDisplay',
-                'TimeDivider',
-                'DurationDisplay',
-                'progressControl',
-                'SettingsButton',
-                'PictureInPictureToggle',
-                'ZoomToFillToggle',
-                'fullscreenToggle'
-            ]
-        },
-        plugins:
-        {
-            hotkeys:
-            {
-                customKeys:
-                {
-                    sbKey:
-                    {
-                        key: function (event) {return event.code == "Enter";},
-                        handler: function (player, options, event) {skipclick();},
-                    },
-                    zoomKey:
-                    {
-                        key: function (event) {return event.code == "KeyG";},
-                        handler: function (player, options, event) {document.querySelector('.vjs-zoom-control').click();},
-                    },
-                    pipKey:
-                    {
-                        key: function (event) {return event.code == "KeyP";},
-                        handler: function (player, options, event) {document.querySelector('.vjs-picture-in-picture-control').click();},
-                    },
-                    preciseBackwardKey:
-                    {
-                        key: function (event) {return event.code == "Comma";},
-                        handler: function (player, options, event) {player.currentTime(player.currentTime() - 0.1);},
-                    },
-                    preciseForwardKey:
-                    {
-                        key: function (event) {return event.code == "Period";},
-                        handler: function (player, options, event) {player.currentTime(player.currentTime() + 0.1);},
-                    },
-                },
-                captureDocumentHotkeys: true,
-                documentHotkeysFocusElementFilter: e => e.tagName.toLowerCase() === 'body',
-                enableHoverScroll: true,
-            },
-        },
-    });
-    player.doubleTapFF();
-    player.controlBar.ZoomToFillToggle.handleClick(null, false);
-    if (window.location.href.includes('/iframe?')) player.controlBar.addChild('PlayerButton');
+    await Promise.all([customElements.whenDefined('video-player'), customElements.whenDefined('hlsjs-video')]);
+    playerEl = document.getElementById('player');
+    container = document.getElementById('player-container');
+    player = document.getElementById('videoPlayer');
+    audioPlayer = document.getElementById('audioPlayer');
     
-    const spacer = document.createElement('div');
-    player.el_.querySelector('.vjs-control-bar').appendChild(spacer);
-    spacer.style="flex: auto;order: 3;";
+    playerEl.setAttribute('poster', `/thumb?url=${url.encodedUrl}`);
+    container.style.setProperty('--media-poster-url', `url("/thumb?url=${url.encodedUrl}")`);
     
     skipSegment = document.createElement('div');
-    player.el_.appendChild(skipSegment);
+    container.appendChild(skipSegment);
     skipSegment.id = "skipsegment";
     skipSegment.onclick = function() {skipclick();};
+    ['pointerdown', 'pointerup', 'click', 'touchstart', 'touchend'].forEach(type => skipSegment.addEventListener(type, (event) => event.stopPropagation()));
 
-    player.on('timeupdate', () => {
-        if (repeatMode && player.currentTime() >= repeatEndTime)
+    player.addEventListener('timeupdate', () => {
+        const loopStart = repeatRange[0] ?? 0;
+        const loopEnd = repeatRange[1] ?? player.duration;
+        if (repeatMode && player.currentTime >= loopEnd)
         {
-            player.currentTime(repeatStartTime);
+            player.currentTime = loopStart;
             setTimeout(() => {
                 player.play();
             }, 100);
         }
         if (info && parseFloat(info.duration) == 0)
         {
-            let timeDiff = player.bufferedEnd() - player.currentTime();
+            let timeDiff = bufferedEnd(player) - player.currentTime;
             if (playerMode == PlayerModes.VIDEO_AUDIO)
-                timeDiff = Math.min(timeDiff, audioPlayer.bufferedEnd() - audioPlayer.currentTime());
+                timeDiff = Math.min(timeDiff, bufferedEnd(audioPlayer) - audioPlayer.currentTime);
             let minLiveBuffer = parseFloat(info.min_live_buffer);
             if (timeDiff > 30 || minLiveBuffer <= 0)
             {
-                let rate = player.playbackRate();
-                if (rate != 1 && rate < 1.15 && rate > 0.9) player.playbackRate(1);
+                let rate = player.playbackRate;
+                if (rate != 1 && rate < 1.15 && rate > 0.9) player.playbackRate = 1;
                 return;
             }
             if (timeDiff < minBufferAheadTime) minBufferAheadTime = Math.max(timeDiff, 0);
@@ -1921,87 +1251,61 @@ function loadVideo()
             
             if (minBufferAheadTime < minLiveBuffer)
             {
-                player.playbackRate(0.95);
+                player.playbackRate = 0.95;
                 log('-');
             }
             else if (minBufferAheadTime > minLiveBuffer * 3)
             {
-                player.playbackRate(1.1);
+                player.playbackRate = 1.1;
                 log('++');
             }
             else if (minBufferAheadTime > minLiveBuffer * 2)
             {
-                player.playbackRate(1.05);
+                player.playbackRate = 1.05;
                 log('+');
             }
             else
             {
-                player.playbackRate(1);
+                player.playbackRate = 1;
             }
         }
     });
 
-    player.on('playing', () => {
+    player.addEventListener('playing', () => {
         minBufferAheadTime = 1;
-        if (info && parseFloat(info.duration) == 0 && player.currentTime() < 1)
+        if (info && parseFloat(info.duration) == 0 && player.currentTime < 1)
         {
-            player.currentTime(99999999);
+            player.currentTime = 99999999;
         }
     });
-
-    const errorDisplay = player.el_.querySelector('.vjs-error-display');
-    errorDisplay.classList.add('spinner-parent');
-    errorDisplay.querySelector('.vjs-modal-dialog-content').classList.add('spinner-body');
-    
-    const spinnerBody = document.createElement('div');
-    const spinnerParent = player.el_.querySelector('.vjs-loading-spinner')
-    spinnerParent.appendChild(spinnerBody);
-    spinnerBody.classList.add('spinner-body');
-    spinnerParent.classList.add('spinner-parent');
-    
     document.getElementById('video').style.filter = 'brightness(1)';
-
-    player.el_.querySelector('.vjs-poster').style.filter = '';
 
     // When video is loaded
     function playerReady() {
-        if (player.controls()) return;
-        player.el_.style.transitionDuration = '0.5s';
-        player.el_.querySelector('img').classList.add('loaded-img');
+        if (!container.classList.contains('loading')) return;
+        container.classList.remove('loading');
+        document.querySelector('.media-poster-image').style.filter = 'none';
+        container.style.transitionDuration = '0.5s';
         adjustVideoSize();
         window.addEventListener('resize', adjustVideoSize);
-        setTimeout(() => {player.el_.style.transitionDuration = '0s';}, 100);
-        player.controls(true);
-        errorDisplay.classList.remove('spinner-parent');
-        errorDisplay.querySelector('.vjs-modal-dialog-content').classList.remove('spinner-body');
-        player.el_.querySelector('.vjs-control-bar').classList.add('display-flex');
+        setTimeout(() => {container.style.transitionDuration = '0s';}, 100);
 
         if (parseFloat(info.duration) < parseInt(info.generate_sprite_below) && parseFloat(info.duration) > 0)
         {
             retryFetch(`/sprite?url=${url.encodedUrl}`, {}, 100, undefined, false).then(response => response.blob()).then(blob => {
-                let s = info.sprite;
-                player.spriteThumbnails({ url: URL.createObjectURL(blob), width: s[0], height: s[1], columns: s[2], interval: s[3], initOnDemand: true });
+                const [width, height, columns, interval] = info.sprite;
+                const duration = parseFloat(info.duration);
+                const cues = [];
+                const spriteUrl = URL.createObjectURL(blob);
+                for (let i = 0; i * interval < duration; i++)
+                {
+                    const xywh = `${(i % columns) * width},${Math.floor(i / columns) * height},${width},${height}`;
+                    cues.push({ startTime: i * interval, endTime: Math.min((i + 1) * interval, duration), text: `${spriteUrl}#xywh=${xywh}` });
+                }
+                addCues('metadata', 'thumbnails', cues);
                 return createImageBitmap(blob);
             }).then(bitmap => sprite = bitmap);
         }
-
-        const volumePanel = player.el_.querySelector('.vjs-volume-panel');
-        let volumeScroll = false;
-        volumePanel.addEventListener('mouseover', () => {
-            volumeScroll = true;
-        });
-
-        volumePanel.addEventListener('mouseout', () => {
-            volumeScroll = false;
-        });
-
-        window.addEventListener('wheel', (event) => {
-            if (volumeScroll)
-            {
-                event.preventDefault();
-                player.volume(Math.max(0, Math.min(1, player.volume() + (event.deltaX - event.deltaY) / 2000)));
-            }
-        }, { passive: false });
 
         if (info.autoplay)
         {
@@ -2010,7 +1314,7 @@ function loadVideo()
 
         if (url.startTime && parseFloat(url.startTime) > 0)
         {
-            player.currentTime(parseFloat(url.startTime));
+            player.currentTime = parseFloat(url.startTime);
         }
     }
     retryFetch(`/info?url=${url.encodedUrl}`)
@@ -2029,44 +1333,40 @@ function loadVideo()
                     alert(info.alerts[i]);
                 }
             }
-            player.on('durationchange', () => {if (player.duration() > 0) playerReady()});
-            player.on('loadeddata', () => {playerReady()});
+            player.addEventListener('durationchange', () => {if (player.duration > 0) playerReady()});
+            player.addEventListener('loadeddata', () => {playerReady()});
 
             if (info.chapters.length > 0)
-                loadChapters();
+                addCues('chapters', '', info.chapters.map(chapter => ({ startTime: chapter.time, text: chapter.label })));
 
-            if (player.controlBar && player.controlBar.SettingsButton)
-            {
-                player.controlBar.SettingsButton.updateResolutions();
-                player.controlBar.SettingsButton.updateSubtitles(info.subtitles);
-                if (parseFloat(info.duration) > 0) player.controlBar.SettingsButton.enableNonLiveControls();
-
-                setVideoQuality(url.quality || info.default_quality);
-            }
+            setUpControls();
+            loadSubtitles(info.subtitles);
+            if (parseFloat(info.duration) == 0) container.classList.add('live');
+            setVideoQuality(url.quality || info.default_quality);
 
             if (typeof info.title == 'string' && info.title != '')
             {
-                const appTitle = document.querySelector('meta[property="og:site_name"]').getAttribute('content');
                 const titleLength = 80 - (' | ' + appTitle).length;
                 info.shortTitle = info.title.length > titleLength ? info.title.substring(0, titleLength - 3) + "..." : info.title;
-                player.addChild('TitleBar', { title: info.title, uploader: info.uploader });
+                playerEl.setAttribute('content-title', info.title);
+                if (info.uploader) container.querySelector('.media-uploader').textContent = info.uploader;
                 document.title = info.shortTitle + ' | ' + appTitle;
                 info.uploader = info.uploader? info.uploader : appTitle;
             }
 
-            player.load();
             setupPlayerSync();
             setupSeekPreview();
-            player.on('error', () => {
-                const error = player.error();
+            player.addEventListener('error', () => {
+                const error = player.error;
                 if (error)
                 {
                     warn(`VIDEO PLAYER ERROR ${error.code} - Trying the next available source`);
+                    playerEl.store.dismissError();
                     advanceVideoSource();
                 }
             });
-            audioPlayer.on('error', () => {
-                const error = audioPlayer.error();
+            audioPlayer.addEventListener('error', () => {
+                const error = audioPlayer.error;
                 if (error)
                 {
                     warn(`AUDIO PLAYER ERROR ${error.code} - Trying the next available source`);
@@ -2086,7 +1386,7 @@ function loadVideo()
                     .then(playlistData => {
                         if (Array.isArray(playlistData) && playlistData.length > 0)
                         {
-                            player.addChild('PlaylistComponent', { playlistData: playlistData });
+                            loadPlaylist(playlistData);
                         }
                     });
             }
@@ -2110,7 +1410,7 @@ function loadVideo()
                         }
                         return;
                     }
-                    if (player.isInPictureInPicture()) return;
+                    if (document.pictureInPictureElement) return;
                     if (parseFloat(info.duration) == 0) return;
                 }
                 if (!info.auto_bg_playback && document.visibilityState === 'hidden')
@@ -2130,16 +1430,14 @@ function loadVideo()
         .then(data => {
             if (Array.isArray(data)) {
                 segments = data;
-                player.on('loadeddata', () => {
+                player.addEventListener('loadeddata', () => {
                     addSponsorblock(data);
                 });
-                player.on('timeupdate', checkSponsorTime);
-                audioPlayer.on('timeupdate', checkSponsorTime);
+                showSponsorblockTitles();
+                player.addEventListener('timeupdate', checkSponsorTime);
+                audioPlayer.addEventListener('timeupdate', checkSponsorTime);
             }
         });
-    document.addEventListener('click', (e) => {
-        player.el_.focus();
-    });
 }
 
 
@@ -2168,13 +1466,13 @@ function loadMediaSession()
         player.pause();
     });
     navigator.mediaSession.setActionHandler("seekbackward", (details) => {
-        player.currentTime(player.currentTime() - (details.seekOffset || 10));
+        player.currentTime -= (details.seekOffset || 10);
     });
     navigator.mediaSession.setActionHandler("seekforward", (details) => {
-        player.currentTime(player.currentTime() + (details.seekOffset || 10));
+        player.currentTime += (details.seekOffset || 10);
     });
     navigator.mediaSession.setActionHandler("seekto", (details) => {
-        player.currentTime(details.seekTime);
+        player.currentTime = details.seekTime;
     });
     navigator.mediaSession.setActionHandler("previoustrack", null);
     navigator.mediaSession.setActionHandler("nexttrack", null);
@@ -2182,11 +1480,11 @@ function loadMediaSession()
     function updateMediaSession()
     {
         if (info.duration <= 0) return;
-        navigator.mediaSession.playbackState = player.paused() ? 'paused' : 'playing';
-        navigator.mediaSession.setPositionState?.({ duration: info.duration, playbackRate: player.playbackRate(), position: Math.min(player.currentTime(), info.duration) });
+        navigator.mediaSession.playbackState = player.paused ? 'paused' : 'playing';
+        navigator.mediaSession.setPositionState?.({ duration: info.duration, playbackRate: player.playbackRate, position: Math.min(player.currentTime, info.duration) });
     }
-    player.on(['play', 'pause', 'ratechange', 'seeked'], updateMediaSession);
-    audioPlayer.on(['play', 'pause', 'ratechange', 'seeked'], updateMediaSession);
+    ['play', 'pause', 'ratechange', 'seeked'].forEach(type => player.addEventListener(type, updateMediaSession));
+    ['play', 'pause', 'ratechange', 'seeked'].forEach(type => audioPlayer.addEventListener(type, updateMediaSession));
     log("Loaded Media Player API");
 }
 
@@ -2214,9 +1512,9 @@ function displayDebugInfo()
             <details><summary>URL info</summary>${JSON.stringify(getUrlInfo(), null, 2)}</details>
             <details><summary>Info dict</summary>${JSON.stringify(info, null, 2)}</details>
             <details><summary>Current source</summary>
-            <br>Video:\n${JSON.stringify(player.currentSources(), null, 2)}
+            <br>Video:\n${JSON.stringify(player?.source, null, 2)}
             <button onclick="advanceVideoSource()">advanceVideoSource()</button>
-            <br>Audio:\n${JSON.stringify(audioPlayer.currentSources(), null, 2)}
+            <br>Audio:\n${JSON.stringify(audioPlayer?.source, null, 2)}
             <button onclick="advanceAudioSource()">advanceAudioSource()</button>
             </details>
             <details><summary>Console log</summary>${JSON.stringify(logHistory, null, 2)}</details>

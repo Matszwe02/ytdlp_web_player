@@ -7,16 +7,9 @@
         <meta name="color-scheme" content="dark light">
         <title>{{ app_title }}</title>
         <meta name="theme-color" content="{{ theme_color }}">
-        <style>
-            .vjs-theme-custom {
-                --vjs-theme-custom--primary: {{ theme_color }};
-            }
-        </style>
-        <link rel="stylesheet" href="{{ url_for('static', filename='fontawesome/css/all.min.css') }}" />
-        <link rel="stylesheet" href="{{ url_for('static', filename='video-js.css') }}" type="text/css" />
+        <style>@import url("{{ url_for('static', filename='fontawesome/css/all.min.css') }}") layer(fontawesome);</style>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@videojs/cdn@10.4.0/video-compat.css" type="text/css" />
         <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" type="text/css" />
-        <link rel="stylesheet" href="{{ url_for('static', filename='videojs.css') }}" type="text/css" />
-        
         <link rel="icon" type="image/png" href="/thumb?url={{original_url|urlencode}}">
         <link rel="shortcut icon" href="/thumb?url={{original_url|urlencode}}">
         <link rel="icon" href="/thumb?url={{original_url|urlencode}}">
@@ -54,13 +47,6 @@
         </div>
         
         <div class="container" id="video">
-            <video id="videoPlayer" class="video-js vjs-default-skin vjs-big-play-centered vjs-theme-custom" controls preload="auto" width="100%" height="100%">
-                <p class="vjs-no-js">
-                    To view this video please enable JavaScript, and consider upgrading to a
-                    web browser that <a href="https://videojs.com/html5-video-support/" target="_blank">supports HTML5 video</a>
-                </p>
-            </video>
-            <audio id="audioPlayer" class="video-js" preload="auto" style="display: none"></audio>
         </div>
         
         <div id="expandable-menu-container">
@@ -85,17 +71,13 @@
             </div>
         </div>
 
-        <!-- VideoJS Script -->
-        <script src="{{ url_for('static', filename='video.min.js') }}"></script>
-        
-        <!-- https://github.com/ctd1500/videojs-hotkeys -->
-        <script src="{{ url_for('static', filename='videojs.hotkeys.min.js') }}"></script>
-        
-        <!-- https://github.com/humbertorodrigues/videojs-doubletap -->
-        <script src="{{ url_for('static', filename='videojs.doubletapff.js') }}"></script>
-        
-        <!-- https://www.npmjs.com/package/videojs-sprite-thumbnails -->
-        <script src="{{ url_for('static', filename='videojs-sprite-thumbnails.min.js') }}"></script>
+        <!-- Video.js -->
+        <script type="module" src="https://cdn.jsdelivr.net/npm/@videojs/cdn@10.4.0/video-compat.js"></script>
+        <script type="module" src="https://cdn.jsdelivr.net/npm/@videojs/cdn@10.4.0/media/hlsjs-video.js"></script>
+        <script type="module" src="https://cdn.jsdelivr.net/npm/@videojs/cdn@10.4.0/ui/menu-radio-group.js"></script>
+        <script type="module" src="https://cdn.jsdelivr.net/npm/@videojs/cdn@10.4.0/ui/menu-checkbox-item.js"></script>
+        <script type="module" src="https://cdn.jsdelivr.net/npm/@videojs/cdn@10.4.0/ui/popover.js"></script>
+        <script type="module" src="https://cdn.jsdelivr.net/npm/@videojs/cdn@10.4.0/ui/time-slider-markers.js"></script>
         
         <script src="{{ url_for('static', filename='audio-visualizer.js') }}"></script>
         

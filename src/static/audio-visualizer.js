@@ -6,7 +6,7 @@ var visualizerPaused = false;
 function enableVisualizer(player)
 {
     if (visualizerActive) return;
-    if (player.paused())
+    if (player.paused)
     {
         setTimeout(() => {
             enableVisualizer(player);
@@ -16,7 +16,7 @@ function enableVisualizer(player)
     if (visualizerActive) return;
     visualizerActive = true;
     setUpAudioContext();
-    var poster = player.el_.querySelector('.vjs-poster');
+    var poster = container.querySelector('.audio-overlay');
     var visBody = document.createElement('div');
     var visContainer = document.createElement('div');
     var visOverlay = document.createElement('div');
@@ -73,9 +73,9 @@ function disableVisualizer(player)
 {
     if (!visualizerActive) return;
     visualizerActive = false;
-    player.el_.querySelector('.vis-container').remove();
-    player.el_.querySelector('.vis-overlay').remove();
-    player.el_.querySelector('.vjs-poster').style.scale = 1.01;
+    container.querySelector('.vis-container').remove();
+    container.querySelector('.vis-overlay').remove();
+    container.querySelector('.audio-overlay').style.scale = 1.01;
 }
 
 
