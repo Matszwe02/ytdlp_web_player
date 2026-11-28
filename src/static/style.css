@@ -536,6 +536,7 @@ body
 .playlist-popup
 {
     z-index: 20;
+    text-align: start;
     padding: var(--media-spacing);
     border-radius: 0.5rem;
     background-color: var(--media-popover);
