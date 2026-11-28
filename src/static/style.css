@@ -337,6 +337,11 @@ body
     opacity: 1;
 }
 
+.media-skin #playlist-trigger
+{
+    margin-inline-start: auto;
+}
+
 .media-skin .title-bar
 {
     flex: 1;
